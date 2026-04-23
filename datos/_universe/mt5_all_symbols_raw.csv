@@ -1,0 +1,853 @@
+﻿name,path,description
+AUDCAD,Forex\AUDCAD,Australian Dollar vs Canadian Dollar
+AUDCHF,Forex\AUDCHF,Australian Dollar vs Swiss Franc
+AUDJPY,Forex\AUDJPY,Australian Dollar vs Japanese Yen
+AUDNZD,Forex\AUDNZD,Australian Dollar vs New Zealand Dollar
+AUDUSD,Forex\AUDUSD,Australian Dollar vs US Dollar
+CADCHF,Forex\CADCHF,Canadian Dollar vs Swiss Franc
+CADJPY,Forex\CADJPY,Canadian Dollar vs Japanese Yen
+CHFJPY,Forex\CHFJPY,Swiss Frank vs Japanese Yen
+EURAUD,Forex\EURAUD,Euro vs Australian Dollar
+EURCAD,Forex\EURCAD,Euro vs Canadian Dollar
+EURCHF,Forex\EURCHF,Euro vs Swiss Franc
+EURGBP,Forex\EURGBP,Euro vs Great Britain Pound
+EURJPY,Forex\EURJPY,Euro vs Japanese Yen
+EURMXN,Forex\EURMXN,Euro vs. Mexican Peso
+EURNOK,Forex\EURNOK,Euro vs Norwegian Kroner
+EURNZD,Forex\EURNZD,Euro vs New Zealand Dollar
+EURSEK,Forex\EURSEK,Euro vs Swedish krona
+EURTRY,Forex\EURTRY,Euro vs. Turkish Lira
+EURUSD,Forex\EURUSD,Euro vs US Dollar
+GBPAUD,Forex\GBPAUD,Great Britain Pound vs Australian Dollar
+GBPCAD,Forex\GBPCAD,Great Britain Pound vs Canadian Dollar
+GBPCHF,Forex\GBPCHF,Great Britain Pound vs Swiss Franc
+GBPJPY,Forex\GBPJPY,British Pound vs Japanese Yen
+GBPMXN,Forex\GBPMXN,British Pound vs. Mexican Peso
+GBPNOK,Forex\GBPNOK,British Pound vs Norwegian Kroner
+GBPNZD,Forex\GBPNZD,Great Britan Pound vs New Zealand Dollar
+GBPSEK,Forex\GBPSEK,British Pound vs Swedish krona
+GBPTRY,Forex\GBPTRY,British Pound vs. Turkish Lira
+GBPUSD,Forex\GBPUSD,Great Britan Pound vs US Dollar
+NZDCAD,Forex\NZDCAD,New Zealand Dollar vs Canadian Dollar
+NZDCHF,Forex\NZDCHF,New Zealand Dollar vs Swiss Franc
+NZDJPY,Forex\NZDJPY,New Zealand vs Japanise Yen
+NZDUSD,Forex\NZDUSD,New Zealand Dollar vs US Dollar
+USDCAD,Forex\USDCAD,US Dollar vs Canadian Dollar
+USDCHF,Forex\USDCHF,US Dollar vs Swiss Franc
+USDJPY,Forex\USDJPY,US Dollar vs Japanese Yen
+USDMXN,Forex\USDMXN,US Dollar vs. Mexican Peso
+USDNOK,Forex\USDNOK,US Dollar vs Norwegian Krone
+USDSEK,Forex\USDSEK,US dollar vs Swedish krona
+USDSGD,Forex\USDSGD,US Dollar vs Singapore Dollar
+USDTRY,Forex\USDTRY,US Dollar vs. Turkish Lira
+AUS200,Indices\Index 3\AUS200,Australian Stock Index
+FCHI40,Indices\Index 3\FCHI40,France 40
+GDAXI,Indices\Index DAX\GDAXI,Germany 40
+FISV,Stocks\US\Nasdaq\FISV,Fiserv Inc
+NDX,Indices\Index 3\NDX,US Tech 100
+SPA35,Indices\Index DAX\SPA35,Spanish IBEX35 Index
+AAL,Stocks\US\Nasdaq\AAL,American Airlines Group Inc
+ACHC,Stocks\US\Nasdaq\ACHC,Acadia Healthcare Co Inc
+ADBE,Stocks\US\Nasdaq\ADBE,Adobe Inc
+ADI,Stocks\US\Nasdaq\ADI,Analog Devices Inc
+ADP,Stocks\US\Nasdaq\ADP,Automatic Data Processing Inc
+ADSK,Stocks\US\Nasdaq\ADSK,Autodesk Inc
+AKAM,Stocks\US\Nasdaq\AKAM,Akamai Technologies Inc
+ALGN,Stocks\US\Nasdaq\ALGN,Align Technology Inc
+ALNY,Stocks\US\Nasdaq\ALNY,Alnylam Pharmaceuticals Inc
+AMAT,Stocks\US\Nasdaq\AMAT,Applied Materials Inc
+AMD,Stocks\US\Nasdaq\AMD,Advanced Micro Devices Inc
+AMGN,Stocks\US\Nasdaq\AMGN,Amgen Inc
+AMKR,Stocks\US\Nasdaq\AMKR,Amkor Technology Inc
+AMZN,Stocks\US\Nasdaq\AMZN,Amazon.com Inc
+APA,Stocks\US\Nasdaq\APA,APA Corp
+APLS,Stocks\US\Nasdaq\APLS,Apellis Pharmaceuticals Inc
+ARCC,Stocks\US\Nasdaq\ARCC,Ares Capital Corp
+ARWR,Stocks\US\Nasdaq\ARWR,Arrowhead Pharmaceuticals Inc
+AVGO,Stocks\US\Nasdaq\AVGO,Broadcom Inc
+AXON,Stocks\US\Nasdaq\AXON,Axon Enterprise Inc
+AZTA,Stocks\US\Nasdaq\AZTA,Azenta Inc
+BIIB,Stocks\US\Nasdaq\BIIB,Biogen Inc
+BKNG,Stocks\US\Nasdaq\BKNG,Booking Holdings Inc
+BL,Stocks\US\Nasdaq\BL,Blackline Inc
+BLDR,Stocks\US\Nasdaq\BLDR,Builders FirstSource Inc
+BLK,Stocks\US\Nasdaq\BLK,BlackRock Inc
+BMRN,Stocks\US\Nasdaq\BMRN,BioMarin Pharmaceutical Inc
+BRKR,Stocks\US\Nasdaq\BRKR,Bruker Corp
+CACC,Stocks\US\Nasdaq\CACC,Credit Acceptance Corp
+CAR,Stocks\US\Nasdaq\CAR,Avis Budget Group Inc
+CASY,Stocks\US\Nasdaq\CASY,Casey's General Stores Inc
+CDNS,Stocks\US\Nasdaq\CDNS,Cadence Design Systems Inc
+CDW,Stocks\US\Nasdaq\CDW,CDW Corp/DE
+CG,Stocks\US\Nasdaq\CG,Carlyle Group Inc/The
+CGNX,Stocks\US\Nasdaq\CGNX,Cognex Corp
+CHDN,Stocks\US\Nasdaq\CHDN,Churchill Downs Inc
+CHRW,Stocks\US\Nasdaq\CHRW,CH Robinson Worldwide Inc
+CHTR,Stocks\US\Nasdaq\CHTR,Charter Communications Inc
+CINF,Stocks\US\Nasdaq\CINF,Cincinnati Financial Corp
+CMCSA,Stocks\US\Nasdaq\CMCSA,Comcast Corp
+CME,Stocks\US\Nasdaq\CME,CME Group Inc
+COLM,Stocks\US\Nasdaq\COLM,Columbia Sportswear Co
+COST,Stocks\US\Nasdaq\COST,Costco Wholesale Corp
+CPRT,Stocks\US\Nasdaq\CPRT,Copart Inc
+CROX,Stocks\US\Nasdaq\CROX,Crocs Inc
+CRWD,Stocks\US\Nasdaq\CRWD,Crowdstrike Holdings Inc
+CSGP,Stocks\US\Nasdaq\CSGP,CoStar Group Inc
+CSX,Stocks\US\NYSE\CSX,CSX Corp
+CTAS,Stocks\US\Nasdaq\CTAS,Cintas Corp
+CTSH,Stocks\US\Nasdaq\CTSH,Cognizant Technology Solutions
+DBX,Stocks\US\Nasdaq\DBX,Dropbox Inc
+DDOG,Stocks\US\Nasdaq\DDOG,Datadog Inc
+DLTR,Stocks\US\Nasdaq\DLTR,Dollar Tree Inc
+DNLI,Stocks\US\Nasdaq\DNLI,Denali Therapeutics Inc
+DOCU,Stocks\US\Nasdaq\DOCU,DocuSign Inc
+DOX,Stocks\US\Nasdaq\DOX,Amdocs Ltd
+DXCM,Stocks\US\Nasdaq\DXCM,Dexcom Inc
+EA,Stocks\US\Nasdaq\EA,Electronic Arts Inc
+EBAY,Stocks\US\Nasdaq\EBAY,eBay Inc
+EEFT,Stocks\US\Nasdaq\EEFT,Euronet Worldwide Inc
+ENPH,Stocks\US\Nasdaq\ENPH,Enphase Energy Inc
+ENTG,Stocks\US\Nasdaq\ENTG,Entegris Inc
+ETSY,Stocks\US\NYSE\ETSY,Etsy Inc
+EWBC,Stocks\US\Nasdaq\EWBC,East West Bancorp Inc
+EXEL,Stocks\US\Nasdaq\EXEL,Exelixis Inc
+A,Stocks\US\NYSE\A,Agilent Technologies Inc
+AA,Stocks\US\NYSE\AA,Alcoa Corp
+AAP,Stocks\US\NYSE\AAP,Advance Auto Parts Inc
+ABBV,Stocks\US\NYSE\ABBV,AbbVie Inc
+ABT,Stocks\US\NYSE\ABT,Abbott Laboratories
+ACM,Stocks\US\NYSE\ACM,AECOM
+ACN,Stocks\US\NYSE\ACN,Accenture Plc
+ADM,Stocks\US\NYSE\ADM,Archer-Daniels-Midland Co
+AEP,Stocks\US\NYSE\AEP,American Electric Power Co Inc
+AES,Stocks\US\NYSE\AES,AES Corp/The
+AFG,Stocks\US\NYSE\AFG,American Financial Group Inc/O
+AFL,Stocks\US\NYSE\AFL,Aflac Inc
+AGCO,Stocks\US\NYSE\AGCO,AGCO Corp
+AIG,Stocks\US\NYSE\AIG,American International Group I
+AIZ,Stocks\US\NYSE\AIZ,Assurant Inc
+AJG,Stocks\US\NYSE\AJG,Arthur J Gallagher & Co
+AL,Stocks\US\NYSE\AL,Air Lease Corp
+ALB,Stocks\US\NYSE\ALB,Albemarle Corp
+ALK,Stocks\US\NYSE\ALK,Alaska Air Group Inc
+ALL,Stocks\US\NYSE\ALL,Allstate Corp/The
+ALLY,Stocks\US\NYSE\ALLY,Ally Financial Inc
+AME,Stocks\US\NYSE\AME,AMETEK Inc
+AMG,Stocks\US\NYSE\AMG,Affiliated Managers Group Inc
+AMP,Stocks\US\NYSE\AMP,Ameriprise Financial Inc
+AMT,Stocks\US\NYSE\AMT,American Tower Corp
+AN,Stocks\US\NYSE\AN,AutoNation Inc
+ANET,Stocks\US\NYSE\ANET,Arista Networks Inc
+AON,Stocks\US\NYSE\AON,Aon PLC
+AOS,Stocks\US\NYSE\AOS,A O Smith Corp
+APD,Stocks\US\NYSE\APD,Air Products and Chemicals Inc
+APH,Stocks\US\NYSE\APH,Amphenol Corp
+ARES,Stocks\US\NYSE\ARES,Ares Management Corp
+ARMK,Stocks\US\NYSE\ARMK,Aramark
+ARW,Stocks\US\NYSE\ARW,Arrow Electronics Inc
+ASH,Stocks\US\NYSE\ASH,Ashland Inc
+AVTR,Stocks\US\NYSE\AVTR,Avantor Inc
+AVY,Stocks\US\NYSE\AVY,Avery Dennison Corp
+AWI,Stocks\US\NYSE\AWI,Armstrong World Industries Inc
+AWK,Stocks\US\NYSE\AWK,American Water Works Co Inc
+AXTA,Stocks\US\NYSE\AXTA,Axalta Coating Systems Ltd
+AYI,Stocks\US\NYSE\AYI,Acuity Inc
+AZO,Stocks\US\NYSE\AZO,AutoZone Inc
+BAC,Stocks\US\NYSE\BAC,Bank of America Corp
+BAH,Stocks\US\NYSE\BAH,Booz Allen Hamilton Holding Co
+BALL,Stocks\US\NYSE\BALL,Ball Corp
+BAX,Stocks\US\NYSE\BAX,Baxter International Inc
+BBY,Stocks\US\NYSE\BBY,Best Buy Co Inc
+BC,Stocks\US\NYSE\BC,Brunswick Corp/DE
+BDX,Stocks\US\NYSE\BDX,Becton Dickinson and Co
+BEN,Stocks\US\NYSE\BEN,Franklin Resources Inc
+BFAM,Stocks\US\NYSE\BFAM,Bright Horizons Family Solutio
+BILL,Stocks\US\NYSE\BILL,Bill Holdings Inc
+BIO,Stocks\US\NYSE\BIO,Bio-Rad Laboratories Inc
+BJ,Stocks\US\NYSE\BJ,BJ's Wholesale Club Holdings I
+BK,Stocks\US\NYSE\BK,Bank of New York Mellon Corp/T
+BKR,Stocks\US\NYSE\BKR,Baker Hughes Co
+BLD,Stocks\US\NYSE\BLD,TopBuild Corp
+BMY,Stocks\US\NYSE\BMY,Bristol-Myers Squibb Co
+BR,Stocks\US\NYSE\BR,Broadridge Financial Solutions
+BRKb,Stocks\US\NYSE\BRKb,Berkshire Hathaway Inc. B
+BRO,Stocks\US\NYSE\BRO,Brown & Brown Inc
+BSX,Stocks\US\NYSE\BSX,Boston Scientific Corp
+BURL,Stocks\US\NYSE\BURL,Burlington Stores Inc
+BWA,Stocks\US\NYSE\BWA,BorgWarner Inc
+BX,Stocks\US\NYSE\BX,Blackstone Group Inc/The
+BYD,Stocks\US\NYSE\BYD,Boyd Gaming Corp
+C,Stocks\US\NYSE\C,Citigroup Inc
+CABO,Stocks\US\NYSE\CABO,Cable One Inc
+CACI,Stocks\US\NYSE\CACI,CACI International Inc
+CAG,Stocks\US\NYSE\CAG,Conagra Brands Inc
+CAH,Stocks\US\NYSE\CAH,Cardinal Health Inc
+CARR,Stocks\US\NYSE\CARR,Carrier Global Corp
+CB,Stocks\US\NYSE\CB,Chubb Ltd
+CBRE,Stocks\US\NYSE\CBRE,CBRE Group Inc
+CC,Stocks\US\NYSE\CC,Chemours Co/The
+CCI,Stocks\US\NYSE\CCI,Crown Castle Inc
+CCK,Stocks\US\NYSE\CCK,Crown Holdings Inc
+CCL,Stocks\US\NYSE\CCL,Carnival Corp
+CE,Stocks\US\NYSE\CE,Celanese Corp
+CF,Stocks\US\NYSE\CF,CF Industries Holdings Inc
+CFG,Stocks\US\NYSE\CFG,Citizens Financial Group Inc
+CFR,Stocks\US\NYSE\CFR,Cullen/Frost Bankers Inc
+CHD,Stocks\US\NYSE\CHD,Church & Dwight Co Inc
+CHE,Stocks\US\NYSE\CHE,Chemed Corp
+CHWY,Stocks\US\NYSE\CHWY,Chewy Inc
+CI,Stocks\US\NYSE\CI,Cigna Group
+CIEN,Stocks\US\NYSE\CIEN,Ciena Corp
+CL,Stocks\US\NYSE\CL,Colgate-Palmolive Co
+CLF,Stocks\US\NYSE\CLF,Cleveland-Cliffs Inc
+CLX,Stocks\US\NYSE\CLX,Clorox Co/The
+CMG,Stocks\US\NYSE\CMG,Chipotle Mexican Grill Inc
+CMI,Stocks\US\NYSE\CMI,Cummins Inc
+CMS,Stocks\US\NYSE\CMS,CMS Energy Corp
+CNC,Stocks\US\NYSE\CNC,Centene Corp
+CNP,Stocks\US\NYSE\CNP,CenterPoint Energy Inc
+COF,Stocks\US\NYSE\COF,Capital One Financial Corp
+COHR,Stocks\US\NYSE\COHR,Coherent Inc
+COO,Stocks\US\NYSE\COO,Cooper Cos Inc/The
+COP,Stocks\US\NYSE\COP,ConocoPhillips
+COR,Stocks\US\NYSE\COR,Cencora Inc
+COTY,Stocks\US\NYSE\COTY,Coty Inc
+CPAY,Stocks\US\NYSE\CPAY,Corpay Inc
+CRL,Stocks\US\NYSE\CRL,Charles River Laboratories Int
+CRM,Stocks\US\NYSE\CRM,salesforce.com Inc
+CSL,Stocks\US\NYSE\CSL,Carlisle Cos Inc
+CTVA,Stocks\US\NYSE\CTVA,Corteva Inc
+CVNA,Stocks\US\NYSE\CVNA,Carvana Co
+CVS,Stocks\US\NYSE\CVS,CVS Health Corp
+D,Stocks\US\NYSE\D,Dominion Energy Inc
+DAL,Stocks\US\NYSE\DAL,Delta Air Lines Inc
+DAR,Stocks\US\NYSE\DAR,Darling Ingredients Inc
+DD,Stocks\US\NYSE\DD,DuPont de Nemours Inc
+DE,Stocks\US\NYSE\DE,Deere & Co
+DECK,Stocks\US\NYSE\DECK,Deckers Outdoor Corp
+DELL,Stocks\US\NYSE\DELL,Dell Technologies Inc
+DG,Stocks\US\NYSE\DG,Dollar General Corp
+DGX,Stocks\US\NYSE\DGX,Quest Diagnostics Inc
+DHI,Stocks\US\NYSE\DHI,DR Horton Inc
+DHR,Stocks\US\NYSE\DHR,Danaher Corp
+DKS,Stocks\US\NYSE\DKS,Dick's Sporting Goods Inc
+DLB,Stocks\US\NYSE\DLB,Dolby Laboratories Inc
+DOV,Stocks\US\NYSE\DOV,Dover Corp
+DPZ,Stocks\US\NYSE\DPZ,Domino's Pizza Inc
+DRI,Stocks\US\NYSE\DRI,Darden Restaurants Inc
+DT,Stocks\US\NYSE\DT,Dynatrace Inc
+DTE,Stocks\US\NYSE\DTE,DTE Energy Co
+DUK,Stocks\US\NYSE\DUK,Duke Energy Corp
+DVA,Stocks\US\NYSE\DVA,DaVita Inc
+DVN,Stocks\US\NYSE\DVN,Devon Energy Corp
+DXC,Stocks\US\NYSE\DXC,DXC Technology Co
+ECL,Stocks\US\NYSE\ECL,Ecolab Inc
+EFX,Stocks\US\NYSE\EFX,Equifax Inc
+EHC,Stocks\US\NYSE\EHC,Encompass Health Corp
+EIX,Stocks\US\NYSE\EIX,Edison International
+EL,Stocks\US\NYSE\EL,Estee Lauder Cos Inc/The
+ELAN,Stocks\US\NYSE\ELAN,Elanco Animal Health Inc
+ELV,Stocks\US\NYSE\ELV,Elevance Health Inc
+EME,Stocks\US\NYSE\EME,EMCOR Group Inc
+EMN,Stocks\US\NYSE\EMN,Eastman Chemical Co
+EMR,Stocks\US\NYSE\EMR,Emerson Electric Co
+ENOV,Stocks\US\NYSE\ENOV,Enovis Corp
+EOG,Stocks\US\NYSE\EOG,EOG Resources Inc
+EPAM,Stocks\US\NYSE\EPAM,EPAM Systems Inc
+EQH,Stocks\US\NYSE\EQH,Equitable Holdings Inc
+EQT,Stocks\US\NYSE\EQT,EQT Corp
+ES,Stocks\US\NYSE\ES,Eversource Energy
+ESI,Stocks\US\NYSE\ESI,Element Solutions Inc
+ESNT,Stocks\US\NYSE\ESNT,Essent Group Ltd
+ESTC,Stocks\US\NYSE\ESTC,Elastic NV
+ETN,Stocks\US\NYSE\ETN,Eaton Corp PLC
+ETR,Stocks\US\NYSE\ETR,Entergy Corp
+EVR,Stocks\US\NYSE\EVR,Evercore Inc
+EVRG,Stocks\US\NYSE\EVRG,Evergy Inc
+EW,Stocks\US\NYSE\EW,Edwards Lifesciences Corp
+EXC,Stocks\US\NYSE\EXC,Exelon Corp
+EXP,Stocks\US\NYSE\EXP,Eagle Materials Inc
+EXPD,Stocks\US\NYSE\EXPD,Expeditors International of Wa
+EXPE,Stocks\US\Nasdaq\EXPE,Expedia Group Inc
+FANG,Stocks\US\Nasdaq\FANG,Diamondback Energy Inc
+FAST,Stocks\US\Nasdaq\FAST,Fastenal Co
+FFIV,Stocks\US\Nasdaq\FFIV,F5 Networks Inc
+NI225,Indices\Index 1\NI225,Japan Stock Index “Nikkei 225”
+SP500,Indices\Index 2\SP500,SP500
+STOXX50E,Indices\Index 3\STOXX50E,Europe 50
+UK100,Indices\Index 3\UK100,London Stock Exchange Index“FTSE 100”
+WS30,Indices\Index 1\WS30,Wall Street 30
+XAUUSD,Commodities\Metals\XAUUSD,Gold vs US Dollar
+XAGUSD,Commodities\Metals\XAGUSD,Silver Spot
+F,Stocks\US\NYSE\F,Ford Motor Co
+FAF,Stocks\US\NYSE\FAF,First American Financial Corp
+FBIN,Stocks\US\NYSE\FBIN,Fortune Innovations Inc
+FCX,Stocks\US\NYSE\FCX,Freeport-McMoRan Inc
+FDS,Stocks\US\NYSE\FDS,FactSet Research Systems Inc
+FDX,Stocks\US\NYSE\FDX,FedEx Corp
+FE,Stocks\US\NYSE\FE,FirstEnergy Corp
+FHN,Stocks\US\NYSE\FHN,First Horizon Corp
+FICO,Stocks\US\NYSE\FICO,Fair Isaac Corp
+FITB,Stocks\US\Nasdaq\FITB,Fifth Third Bancorp
+FIVE,Stocks\US\Nasdaq\FIVE,Five Below Inc
+FIVN,Stocks\US\Nasdaq\FIVN,Five9 Inc
+FLEX,Stocks\US\Nasdaq\FLEX,Flex Ltd
+FIS,Stocks\US\NYSE\FIS,Fidelity National Information
+FLS,Stocks\US\NYSE\FLS,Flowserve Corp
+FMC,Stocks\US\NYSE\FMC,FMC Corp
+FND,Stocks\US\NYSE\FND,Floor & Decor Holdings Inc
+FNF,Stocks\US\NYSE\FNF,Fidelity National Financial In
+FOX,Stocks\US\Nasdaq\FOX,Twenty-First Century Fox Inc Class B
+FOXA,Stocks\US\Nasdaq\FOXA,Fox Corp
+FOXF,Stocks\US\Nasdaq\FOXF,Fox Factory Holding Corp
+FRPT,Stocks\US\Nasdaq\FRPT,Freshpet Inc
+FSLR,Stocks\US\Nasdaq\FSLR,First Solar Inc
+FTNT,Stocks\US\Nasdaq\FTNT,Fortinet Inc
+FTV,Stocks\US\NYSE\FTV,Fortive Corp
+G,Stocks\US\NYSE\G,Genpact Ltd
+GAP,Stocks\US\NYSE\GAP,Gap Inc/The
+GD,Stocks\US\NYSE\GD,General Dynamics Corp
+GDDY,Stocks\US\NYSE\GDDY,GoDaddy Inc
+GGG,Stocks\US\NYSE\GGG,Graco Inc
+GEN,Stocks\US\Nasdaq\GEN,Gen Digital Inc
+GH,Stocks\US\Nasdaq\GH,Guardant Health Inc
+GIS,Stocks\US\NYSE\GIS,General Mills Inc
+GL,Stocks\US\NYSE\GL,Globe Life Inc
+GLW,Stocks\US\NYSE\GLW,Corning Inc
+GM,Stocks\US\NYSE\GM,General Motors Co
+GMED,Stocks\US\NYSE\GMED,Globus Medical Inc
+GNRC,Stocks\US\NYSE\GNRC,Generac Holdings Inc
+GILD,Stocks\US\Nasdaq\GILD,Gilead Sciences Inc
+GNTX,Stocks\US\Nasdaq\GNTX,Gentex Corp
+GPC,Stocks\US\NYSE\GPC,Genuine Parts Co
+GPK,Stocks\US\NYSE\GPK,Graphic Packaging Holding Co
+GPN,Stocks\US\NYSE\GPN,Global Payments Inc
+GOOG,Stocks\US\Nasdaq\GOOG,Alphabet Inc Class C
+GOOGL,Stocks\US\Nasdaq\GOOGL,Alphabet Inc
+GT,Stocks\US\NYSE\GT,Goodyear Tire & Rubber Co/The
+GTLS,Stocks\US\NYSE\GTLS,Chart Industries Inc
+GWRE,Stocks\US\NYSE\GWRE,Guidewire Software Inc
+GWW,Stocks\US\NYSE\GWW,WW Grainger Inc
+H,Stocks\US\NYSE\H,Hyatt Hotels Corp
+HALO,Stocks\US\Nasdaq\HALO,Halozyme Therapeutics Inc
+HAS,Stocks\US\Nasdaq\HAS,Hasbro Inc
+HBAN,Stocks\US\Nasdaq\HBAN,Huntington Bancshares Inc/OH
+HAL,Stocks\US\NYSE\HAL,Halliburton Co
+HCA,Stocks\US\NYSE\HCA,HCA Healthcare Inc
+HEI,Stocks\US\NYSE\HEI,HEICO Corp
+HELE,Stocks\US\Nasdaq\HELE,Helen of Troy Ltd
+HIG,Stocks\US\NYSE\HIG,Hartford Insurance Group Inc
+HII,Stocks\US\NYSE\HII,Huntington Ingalls Industries
+HLT,Stocks\US\NYSE\HLT,Hilton Worldwide Holdings Inc
+HOG,Stocks\US\NYSE\HOG,Harley-Davidson Inc
+HOLX,Stocks\US\Nasdaq\HOLX,Hologic Inc
+HQY,Stocks\US\Nasdaq\HQY,HealthEquity Inc
+HSIC,Stocks\US\Nasdaq\HSIC,Henry Schein Inc
+HON,Stocks\US\Nasdaq\HON,Honeywell International Inc
+HPE,Stocks\US\NYSE\HPE,Hewlett Packard Enterprise Co
+HPQ,Stocks\US\NYSE\HPQ,HP Inc
+HUBB,Stocks\US\NYSE\HUBB,Hubbell Inc
+HUBS,Stocks\US\NYSE\HUBS,HubSpot Inc
+HUM,Stocks\US\NYSE\HUM,Humana Inc
+HUN,Stocks\US\NYSE\HUN,Huntsman Corp
+HWM,Stocks\US\NYSE\HWM,Howmet Aerospace Inc
+HXL,Stocks\US\NYSE\HXL,Hexcel Corp
+IBKR,Stocks\US\Nasdaq\IBKR,Interactive Brokers Group Inc
+IDXX,Stocks\US\Nasdaq\IDXX,IDEXX Laboratories Inc
+ICE,Stocks\US\NYSE\ICE,Intercontinental Exchange Inc
+IEX,Stocks\US\NYSE\IEX,IDEX Corp
+IFF,Stocks\US\NYSE\IFF,International Flavors & Fragra
+ILMN,Stocks\US\Nasdaq\ILMN,Illumina Inc
+INCY,Stocks\US\Nasdaq\INCY,Incyte Corp
+INGR,Stocks\US\NYSE\INGR,Ingredion Inc
+INSP,Stocks\US\NYSE\INSP,Inspire Medical Systems Inc
+INTU,Stocks\US\Nasdaq\INTU,Intuit Inc
+IONS,Stocks\US\Nasdaq\IONS,Ionis Pharmaceuticals Inc
+IP,Stocks\US\NYSE\IP,International Paper Co
+IPGP,Stocks\US\Nasdaq\IPGP,IPG Photonics Corp
+IQV,Stocks\US\NYSE\IQV,IQVIA Holdings Inc
+IRDM,Stocks\US\Nasdaq\IRDM,Iridium Communications Inc
+ISRG,Stocks\US\Nasdaq\ISRG,Intuitive Surgical Inc
+JBHT,Stocks\US\Nasdaq\JBHT,JB Hunt Transport Services Inc
+JKHY,Stocks\US\Nasdaq\JKHY,Jack Henry & Associates Inc
+KHC,Stocks\US\Nasdaq\KHC,Kraft Heinz Co/The
+KLAC,Stocks\US\Nasdaq\KLAC,KLA Corp
+LITE,Stocks\US\Nasdaq\LITE,Lumentum Holdings Inc
+LKQ,Stocks\US\Nasdaq\LKQ,LKQ Corp
+LNT,Stocks\US\Nasdaq\LNT,Alliant Energy Corp
+LPLA,Stocks\US\Nasdaq\LPLA,LPL Financial Holdings Inc
+LRCX,Stocks\US\Nasdaq\LRCX,Lam Research Corp
+LSCC,Stocks\US\Nasdaq\LSCC,Lattice Semiconductor Corp
+LSTR,Stocks\US\Nasdaq\LSTR,Landstar System Inc
+IR,Stocks\US\NYSE\IR,Ingersoll Rand Inc
+IT,Stocks\US\NYSE\IT,Gartner Inc
+ITT,Stocks\US\NYSE\ITT,ITT Inc
+ITW,Stocks\US\NYSE\ITW,Illinois Tool Works Inc
+IVZ,Stocks\US\NYSE\IVZ,Invesco Ltd
+J,Stocks\US\NYSE\J,Jacobs Solutions Inc
+JBL,Stocks\US\NYSE\JBL,Jabil Inc
+JCI,Stocks\US\NYSE\JCI,Johnson Controls International
+JEF,Stocks\US\NYSE\JEF,Jefferies Financial Group Inc
+JLL,Stocks\US\NYSE\JLL,Jones Lang LaSalle Inc
+KBR,Stocks\US\NYSE\KBR,KBR Inc
+KDP,Stocks\US\NYSE\KDP,Keurig Dr Pepper Inc
+KEY,Stocks\US\NYSE\KEY,KeyCorp
+KEYS,Stocks\US\NYSE\KEYS,Keysight Technologies Inc
+KKR,Stocks\US\NYSE\KKR,KKR & Co Inc
+KMB,Stocks\US\NYSE\KMB,Kimberly-Clark Corp
+KMI,Stocks\US\NYSE\KMI,Kinder Morgan Inc
+KMX,Stocks\US\NYSE\KMX,CarMax Inc
+KNX,Stocks\US\NYSE\KNX,Knight-Swift Transportation Ho
+KR,Stocks\US\NYSE\KR,Kroger Co/The
+KSS,Stocks\US\NYSE\KSS,Kohl's Corp
+L,Stocks\US\NYSE\L,Loews Corp
+LAD,Stocks\US\NYSE\LAD,Lithia Motors Inc
+LDOS,Stocks\US\NYSE\LDOS,Leidos Holdings Inc
+LEA,Stocks\US\NYSE\LEA,Lear Corp
+LEG,Stocks\US\NYSE\LEG,Leggett & Platt Inc
+LEN,Stocks\US\NYSE\LEN,Lennar Corp
+LEVI,Stocks\US\NYSE\LEVI,Levi Strauss & Co
+LH,Stocks\US\NYSE\LH,Labcorp Holdings Inc
+LHX,Stocks\US\NYSE\LHX,L3Harris Technologies Inc
+LII,Stocks\US\NYSE\LII,Lennox International Inc
+LLY,Stocks\US\NYSE\LLY,Eli Lilly & Co
+LMT,Stocks\US\NYSE\LMT,Lockheed Martin Corp
+LNC,Stocks\US\NYSE\LNC,Lincoln National Corp
+LOW,Stocks\US\NYSE\LOW,Lowe's Cos Inc
+LPX,Stocks\US\NYSE\LPX,Louisiana-Pacific Corp
+LUV,Stocks\US\NYSE\LUV,Southwest Airlines Co
+LVS,Stocks\US\NYSE\LVS,Las Vegas Sands Corp
+LW,Stocks\US\NYSE\LW,Lamb Weston Holdings Inc
+LYFT,Stocks\US\Nasdaq\LYFT,Lyft Inc
+LYB,Stocks\US\NYSE\LYB,LyondellBasell Industries NV
+LYV,Stocks\US\NYSE\LYV,Live Nation Entertainment Inc
+M,Stocks\US\NYSE\M,Macy's Inc
+MA,Stocks\US\NYSE\MA,Mastercard Inc
+MAN,Stocks\US\NYSE\MAN,ManpowerGroup Inc
+MANH,Stocks\US\Nasdaq\MANH,Manhattan Associates Inc
+MAS,Stocks\US\NYSE\MAS,Masco Corp
+MAR,Stocks\US\Nasdaq\MAR,Marriott International Inc/MD
+MASI,Stocks\US\Nasdaq\MASI,Masimo Corp
+MAT,Stocks\US\Nasdaq\MAT,Mattel Inc
+MCK,Stocks\US\NYSE\MCK,McKesson Corp
+MCO,Stocks\US\NYSE\MCO,Moody's Corp
+MCHP,Stocks\US\Nasdaq\MCHP,Microchip Technology Inc
+MDB,Stocks\US\Nasdaq\MDB,MongoDB Inc
+MDLZ,Stocks\US\Nasdaq\MDLZ,Mondelez International Inc
+MEDP,Stocks\US\Nasdaq\MEDP,Medpace Holdings Inc
+MDT,Stocks\US\NYSE\MDT,Medtronic Plc
+MET,Stocks\US\NYSE\MET,MetLife Inc
+MGM,Stocks\US\NYSE\MGM,MGM Resorts International
+MHK,Stocks\US\NYSE\MHK,Mohawk Industries Inc
+META,Stocks\US\Nasdaq\META,Meta Platforms Inc
+MIDD,Stocks\US\Nasdaq\MIDD,Middleby Corp/The
+MKL,Stocks\US\NYSE\MKL,Markel Group Inc
+MKSI,Stocks\US\Nasdaq\MKSI,MKS Inc
+MKTX,Stocks\US\Nasdaq\MKTX,MarketAxess Holdings Inc
+MLM,Stocks\US\NYSE\MLM,Martin Marietta Materials Inc
+MNST,Stocks\US\Nasdaq\MNST,Monster Beverage Corp
+MO,Stocks\US\NYSE\MO,Altria Group Inc
+MOH,Stocks\US\NYSE\MOH,Molina Healthcare Inc
+MOS,Stocks\US\NYSE\MOS,Mosaic Co/The
+MPWR,Stocks\US\Nasdaq\MPWR,Monolithic Power Systems Inc
+MRNA,Stocks\US\Nasdaq\MRNA,Moderna Inc
+MPC,Stocks\US\NYSE\MPC,Marathon Petroleum Corp
+MRVL,Stocks\US\Nasdaq\MRVL,Marvell Technology Inc
+MS,Stocks\US\NYSE\MS,Morgan Stanley
+MSCI,Stocks\US\NYSE\MSCI,MSCI Inc
+MSI,Stocks\US\NYSE\MSI,Motorola Solutions Inc
+MSM,Stocks\US\NYSE\MSM,MSC Industrial Direct Co Inc
+MSTR,Stocks\US\Nasdaq\MSTR,Strategy Inc
+MTB,Stocks\US\NYSE\MTB,M&T Bank Corp
+MTD,Stocks\US\NYSE\MTD,Mettler-Toledo International I
+MTN,Stocks\US\NYSE\MTN,Vail Resorts Inc
+MTZ,Stocks\US\NYSE\MTZ,MasTec Inc
+MU,Stocks\US\Nasdaq\MU,Micron Technology Inc
+NBIX,Stocks\US\Nasdaq\NBIX,Neurocrine Biosciences Inc
+NCLH,Stocks\US\NYSE\NCLH,Norwegian Cruise Line Holdings
+NDAQ,Stocks\US\Nasdaq\NDAQ,Nasdaq Inc
+NDSN,Stocks\US\Nasdaq\NDSN,Nordson Corp
+NEE,Stocks\US\NYSE\NEE,NextEra Energy Inc
+NEM,Stocks\US\NYSE\NEM,Newmont Corp
+NET,Stocks\US\NYSE\NET,Cloudflare Inc
+NI,Stocks\US\NYSE\NI,NiSource Inc
+NFLX,Stocks\US\Nasdaq\NFLX,Netflix Inc
+NOC,Stocks\US\NYSE\NOC,Northrop Grumman Corp
+NOV,Stocks\US\NYSE\NOV,NOV Inc
+NOW,Stocks\US\NYSE\NOW,ServiceNow Inc
+NRG,Stocks\US\NYSE\NRG,NRG Energy Inc
+NTAP,Stocks\US\Nasdaq\NTAP,NetApp Inc
+NTNX,Stocks\US\Nasdaq\NTNX,Nutanix Inc
+NTRS,Stocks\US\Nasdaq\NTRS,Northern Trust Corp
+NSC,Stocks\US\NYSE\NSC,Norfolk Southern Corp
+NUE,Stocks\US\NYSE\NUE,Nucor Corp
+NVST,Stocks\US\NYSE\NVST,Envista Holdings Corp
+NVDA,Stocks\US\Nasdaq\NVDA,NVIDIA Corp
+NWL,Stocks\US\Nasdaq\NWL,Newell Brands Inc
+NWSA,Stocks\US\Nasdaq\NWSA,News Corp
+NXST,Stocks\US\Nasdaq\NXST,Nexstar Media Group Inc
+NYT,Stocks\US\NYSE\NYT,New York Times Co/The
+OC,Stocks\US\NYSE\OC,Owens Corning
+ODFL,Stocks\US\Nasdaq\ODFL,Old Dominion Freight Line Inc
+OGE,Stocks\US\NYSE\OGE,OGE Energy Corp
+OKTA,Stocks\US\Nasdaq\OKTA,Okta Inc
+OLED,Stocks\US\Nasdaq\OLED,Universal Display Corp
+OLLI,Stocks\US\Nasdaq\OLLI,Ollie's Bargain Outlet Holding
+OKE,Stocks\US\NYSE\OKE,ONEOK Inc
+OLN,Stocks\US\NYSE\OLN,Olin Corp
+OMCL,Stocks\US\Nasdaq\OMCL,Omnicell Inc
+OMC,Stocks\US\NYSE\OMC,Omnicom Group Inc
+OMF,Stocks\US\NYSE\OMF,OneMain Holdings Inc
+ON,Stocks\US\Nasdaq\ON,ON Semiconductor Corp
+ORCL,Stocks\US\NYSE\ORCL,Oracle Corp
+ORI,Stocks\US\NYSE\ORI,Old Republic International Cor
+OSK,Stocks\US\NYSE\OSK,Oshkosh Corp
+OTIS,Stocks\US\NYSE\OTIS,Otis Worldwide Corp
+ORLY,Stocks\US\Nasdaq\ORLY,O'Reilly Automotive Inc
+OZK,Stocks\US\Nasdaq\OZK,Bank OZK
+OXY,Stocks\US\NYSE\OXY,Occidental Petroleum Corp
+PANW,Stocks\US\NYSE\PANW,Palo Alto Networks Inc
+PAYC,Stocks\US\NYSE\PAYC,Paycom Software Inc
+PAYX,Stocks\US\Nasdaq\PAYX,Paychex Inc
+PCAR,Stocks\US\Nasdaq\PCAR,PACCAR Inc
+PCTY,Stocks\US\Nasdaq\PCTY,Paylocity Holding Corp
+PEG,Stocks\US\NYSE\PEG,Public Service Enterprise Grou
+PEGA,Stocks\US\Nasdaq\PEGA,Pegasystems Inc
+PEN,Stocks\US\NYSE\PEN,Penumbra Inc
+PENN,Stocks\US\Nasdaq\PENN,Penn Entertainment Inc
+PEP,Stocks\US\Nasdaq\PEP,PepsiCo Inc
+PFG,Stocks\US\Nasdaq\PFG,Principal Financial Group Inc
+PFGC,Stocks\US\NYSE\PFGC,Performance Food Group Co
+PGNY,Stocks\US\Nasdaq\PGNY,Progyny Inc
+PGR,Stocks\US\NYSE\PGR,Progressive Corp/The
+PH,Stocks\US\NYSE\PH,Parker-Hannifin Corp
+PHM,Stocks\US\NYSE\PHM,PulteGroup Inc
+PII,Stocks\US\NYSE\PII,Polaris Inc
+PINS,Stocks\US\NYSE\PINS,Pinterest Inc
+PKG,Stocks\US\NYSE\PKG,Packaging Corp of America
+PLD,Stocks\US\NYSE\PLD,Prologis Inc
+PLNT,Stocks\US\NYSE\PLNT,Planet Fitness Inc
+PNFP,Stocks\US\NYSE\PNFP,Pinnacle Financial Partners In
+PM,Stocks\US\NYSE\PM,Philip Morris International In
+PNC,Stocks\US\NYSE\PNC,PNC Financial Services Group I
+PNW,Stocks\US\NYSE\PNW,Pinnacle West Capital Corp
+PODD,Stocks\US\Nasdaq\PODD,Insulet Corp
+POOL,Stocks\US\Nasdaq\POOL,Pool Corp
+POST,Stocks\US\NYSE\POST,Post Holdings Inc
+PPG,Stocks\US\NYSE\PPG,PPG Industries Inc
+PPL,Stocks\US\NYSE\PPL,PPL Corp
+PRU,Stocks\US\NYSE\PRU,Prudential Financial Inc
+PSA,Stocks\US\NYSE\PSA,Public Storage
+PSTG,Stocks\US\NYSE\PSTG,Everpure Inc
+PTC,Stocks\US\Nasdaq\PTC,PTC Inc
+PVH,Stocks\US\NYSE\PVH,PVH Corp
+PWR,Stocks\US\NYSE\PWR,Quanta Services Inc
+PYPL,Stocks\US\Nasdaq\PYPL,PayPal Holdings Inc
+QCOM,Stocks\US\Nasdaq\QCOM,QUALCOMM Inc
+QRVO,Stocks\US\Nasdaq\QRVO,Qorvo Inc
+QTWO,Stocks\US\NYSE\QTWO,Q2 Holdings Inc
+RARE,Stocks\US\Nasdaq\RARE,Ultragenyx Pharmaceutical Inc
+RCL,Stocks\US\NYSE\RCL,Royal Caribbean Cruises Ltd
+RF,Stocks\US\NYSE\RF,Regions Financial Corp
+RGA,Stocks\US\NYSE\RGA,Reinsurance Group of America I
+REGN,Stocks\US\Nasdaq\REGN,Regeneron Pharmaceuticals Inc
+RGEN,Stocks\US\Nasdaq\RGEN,Repligen Corp
+RGLD,Stocks\US\Nasdaq\RGLD,Royal Gold Inc
+RH,Stocks\US\NYSE\RH,RH
+RHI,Stocks\US\NYSE\RHI,Robert Half Inc
+RJF,Stocks\US\NYSE\RJF,Raymond James Financial Inc
+RL,Stocks\US\NYSE\RL,Ralph Lauren Corp
+RMD,Stocks\US\NYSE\RMD,ResMed Inc
+RNG,Stocks\US\NYSE\RNG,RingCentral Inc
+ROKU,Stocks\US\Nasdaq\ROKU,Roku Inc
+ROK,Stocks\US\NYSE\ROK,Rockwell Automation Inc
+ROL,Stocks\US\NYSE\ROL,Rollins Inc
+ROP,Stocks\US\NYSE\ROP,Roper Technologies Inc
+RPM,Stocks\US\NYSE\RPM,RPM International Inc
+ROST,Stocks\US\Nasdaq\ROST,Ross Stores Inc
+RRR,Stocks\US\Nasdaq\RRR,Red Rock Resorts Inc
+RRX,Stocks\US\NYSE\RRX,Regal Rexnord Corp
+RS,Stocks\US\NYSE\RS,Reliance Inc
+RSG,Stocks\US\NYSE\RSG,Republic Services Inc
+RTX,Stocks\US\NYSE\RTX,RTX Corp
+SAIA,Stocks\US\Nasdaq\SAIA,Saia Inc
+RVTY,Stocks\US\NYSE\RVTY,Revvity Inc
+SAIC,Stocks\US\Nasdaq\SAIC,Science Applications Internati
+SAM,Stocks\US\NYSE\SAM,Boston Beer Co Inc/The
+SCHW,Stocks\US\NYSE\SCHW,Charles Schwab Corp/The
+SCI,Stocks\US\NYSE\SCI,Service Corp International/US
+SEE,Stocks\US\NYSE\SEE,Sealed Air Corp
+SF,Stocks\US\NYSE\SF,Stifel Financial Corp
+SBUX,Stocks\US\Nasdaq\SBUX,Starbucks Corp
+SHW,Stocks\US\NYSE\SHW,Sherwin-Williams Co/The
+SITE,Stocks\US\NYSE\SITE,SiteOne Landscape Supply Inc
+SJM,Stocks\US\NYSE\SJM,J M Smucker Co/The
+SLAB,Stocks\US\Nasdaq\SLAB,Silicon Laboratories Inc
+SLM,Stocks\US\Nasdaq\SLM,SLM Corp
+SLB,Stocks\US\NYSE\SLB,SLB Ltd
+SMG,Stocks\US\NYSE\SMG,Scotts Miracle-Gro Co/The
+SNA,Stocks\US\NYSE\SNA,Snap-on Inc
+SNAP,Stocks\US\NYSE\SNAP,Snap Inc
+SNPS,Stocks\US\Nasdaq\SNPS,Synopsys Inc
+SNX,Stocks\US\NYSE\SNX,SYNNEX Corp
+SO,Stocks\US\NYSE\SO,Southern Co/The
+SPG,Stocks\US\NYSE\SPG,Simon Property Group Inc
+SPGI,Stocks\US\NYSE\SPGI,S&P Global Inc
+SRPT,Stocks\US\Nasdaq\SRPT,Sarepta Therapeutics Inc
+SSNC,Stocks\US\Nasdaq\SSNC,SS&C Technologies Holdings Inc
+SRE,Stocks\US\NYSE\SRE,Sempra Energy
+ST,Stocks\US\NYSE\ST,Sensata Technologies Holding P
+STE,Stocks\US\NYSE\STE,STERIS PLC
+STLD,Stocks\US\Nasdaq\STLD,Steel Dynamics Inc
+STT,Stocks\US\NYSE\STT,State Street Corp
+STZ,Stocks\US\NYSE\STZ,Constellation Brands Inc
+SWKS,Stocks\US\Nasdaq\SWKS,Skyworks Solutions Inc
+SYNA,Stocks\US\Nasdaq\SYNA,Synaptics Inc
+SWK,Stocks\US\NYSE\SWK,Stanley Black & Decker Inc
+SYF,Stocks\US\NYSE\SYF,Synchrony Financial
+SYK,Stocks\US\NYSE\SYK,Stryker Corp
+SYY,Stocks\US\NYSE\SYY,Sysco Corp
+T,Stocks\US\NYSE\T,AT&T Inc
+TAP,Stocks\US\NYSE\TAP,Molson Coors Beverage Co
+TDG,Stocks\US\NYSE\TDG,TransDigm Group Inc
+TDOC,Stocks\US\NYSE\TDOC,Teladoc Health Inc
+TDY,Stocks\US\NYSE\TDY,Teledyne Technologies Inc
+TECH,Stocks\US\Nasdaq\TECH,Bio-Techne Corp
+TER,Stocks\US\Nasdaq\TER,Teradyne Inc
+TFC,Stocks\US\NYSE\TFC,Truist Financial Corp
+TMUS,Stocks\US\Nasdaq\TMUS,T-Mobile US Inc
+TNDM,Stocks\US\Nasdaq\TNDM,Tandem Diabetes Care Inc
+TRIP,Stocks\US\Nasdaq\TRIP,TripAdvisor Inc
+TRMB,Stocks\US\Nasdaq\TRMB,Trimble Inc
+TROW,Stocks\US\Nasdaq\TROW,T Rowe Price Group Inc
+TSCO,Stocks\US\Nasdaq\TSCO,Tractor Supply Co
+TSLA,Stocks\US\Nasdaq\TSLA,Tesla Inc
+TTD,Stocks\US\Nasdaq\TTD,Trade Desk Inc/The
+TTEK,Stocks\US\Nasdaq\TTEK,Tetra Tech Inc
+TTWO,Stocks\US\Nasdaq\TTWO,Take-Two Interactive Software
+TXG,Stocks\US\Nasdaq\TXG,10X Genomics Inc
+TXN,Stocks\US\Nasdaq\TXN,Texas Instruments Inc
+TXRH,Stocks\US\Nasdaq\TXRH,Texas Roadhouse Inc
+ULTA,Stocks\US\Nasdaq\ULTA,Ulta Beauty Inc
+UTHR,Stocks\US\Nasdaq\UTHR,United Therapeutics Corp
+VIR,Stocks\US\Nasdaq\VIR,Vir Biotechnology Inc
+VIRT,Stocks\US\NYSE\VIRT,Virtu Financial Inc
+VRNS,Stocks\US\Nasdaq\VRNS,Varonis Systems Inc
+VRSK,Stocks\US\Nasdaq\VRSK,Verisk Analytics Inc
+VRSN,Stocks\US\Nasdaq\VRSN,VeriSign Inc
+VRTX,Stocks\US\Nasdaq\VRTX,Vertex Pharmaceuticals Inc
+VTRS,Stocks\US\Nasdaq\VTRS,Viatris Inc
+XTIUSD,Commodities\Energies\XTIUSD,US Crude (Spot) vs US Dollar
+XNGUSD,Commodities\Energies\XNGUSD,Natural Gas Spot USD
+AAPL,Stocks\US\DOW\AAPL,Apple Inc
+AXP,Stocks\US\DOW\AXP,American Express Co
+BA,Stocks\US\DOW\BA,Boeing Co/The
+CAT,Stocks\US\DOW\CAT,Caterpillar Inc
+CSCO,Stocks\US\DOW\CSCO,Cisco Systems Inc/Delaware
+CVX,Stocks\US\DOW\CVX,Chevron Corp
+DIS,Stocks\US\DOW\DIS,Walt Disney Co/The
+DOW,Stocks\US\DOW\DOW,Dow Inc
+GE,Stocks\US\DOW\GE,General Electric Co
+GS,Stocks\US\DOW\GS,Goldman Sachs Group Inc/The
+HD,Stocks\US\DOW\HD,Home Depot Inc/The
+IBM,Stocks\US\DOW\IBM,International Business Machine
+INTC,Stocks\US\DOW\INTC,Intel Corp
+JNJ,Stocks\US\DOW\JNJ,Johnson & Johnson
+JPM,Stocks\US\DOW\JPM,JPMorgan Chase & Co
+KO,Stocks\US\DOW\KO,Coca-Cola Co/The
+MCD,Stocks\US\DOW\MCD,McDonald's Corp
+MMM,Stocks\US\DOW\MMM,3M Co
+MRK,Stocks\US\DOW\MRK,Merck & Co Inc
+MSFT,Stocks\US\DOW\MSFT,Microsoft Corp
+NKE,Stocks\US\DOW\NKE,NIKE Inc
+PFE,Stocks\US\DOW\PFE,Pfizer Inc
+PG,Stocks\US\DOW\PG,Procter & Gamble Co/The
+TRV,Stocks\US\DOW\TRV,Travelers Cos Inc/The
+UNH,Stocks\US\DOW\UNH,UnitedHealth Group Inc
+V,Stocks\US\DOW\V,Visa Inc
+VZ,Stocks\US\DOW\VZ,Verizon Communications Inc
+WMT,Stocks\US\DOW\WMT,Walmart Inc
+XOM,Stocks\US\DOW\XOM,Exxon Mobil Corp
+TFX,Stocks\US\NYSE\TFX,Teleflex Inc
+TGT,Stocks\US\NYSE\TGT,Target Corp
+THC,Stocks\US\NYSE\THC,Tenet Healthcare Corp
+THO,Stocks\US\NYSE\THO,Thor Industries Inc
+TJX,Stocks\US\NYSE\TJX,TJX Cos Inc/The
+TKR,Stocks\US\NYSE\TKR,Timken Co/The
+TMO,Stocks\US\NYSE\TMO,Thermo Fisher Scientific Inc
+TNL,Stocks\US\NYSE\TNL,Travel + Leisure Co
+TOL,Stocks\US\NYSE\TOL,Toll Brothers Inc
+TPL,Stocks\US\NYSE\TPL,Texas Pacific Land Corp
+TPR,Stocks\US\NYSE\TPR,Tapestry Inc
+TREX,Stocks\US\NYSE\TREX,Trex Co Inc
+TRGP,Stocks\US\NYSE\TRGP,Targa Resources Corp
+TRU,Stocks\US\NYSE\TRU,TransUnion
+TSN,Stocks\US\NYSE\TSN,Tyson Foods Inc
+TTC,Stocks\US\NYSE\TTC,Toro Co/The
+TWLO,Stocks\US\NYSE\TWLO,Twilio Inc
+TXT,Stocks\US\NYSE\TXT,Textron Inc
+TYL,Stocks\US\NYSE\TYL,Tyler Technologies Inc
+UAL,Stocks\US\NYSE\UAL,United Airlines Holdings Inc
+UBER,Stocks\US\NYSE\UBER,Uber Technologies Inc
+UGI,Stocks\US\NYSE\UGI,UGI Corp
+UHS,Stocks\US\NYSE\UHS,Universal Health Services Inc
+UNM,Stocks\US\NYSE\UNM,Unum Group
+UNP,Stocks\US\NYSE\UNP,Union Pacific Corp
+UPS,Stocks\US\NYSE\UPS,United Parcel Service Inc
+URI,Stocks\US\NYSE\URI,United Rentals Inc
+USB,Stocks\US\NYSE\USB,US Bancorp
+USFD,Stocks\US\NYSE\USFD,US Foods Holding Corp
+VAC,Stocks\US\NYSE\VAC,Marriott Vacations Worldwide C
+VEEV,Stocks\US\NYSE\VEEV,Veeva Systems Inc
+VFC,Stocks\US\NYSE\VFC,VF Corp
+VLO,Stocks\US\NYSE\VLO,Valero Energy Corp
+VMC,Stocks\US\NYSE\VMC,Vulcan Materials Co
+VOYA,Stocks\US\NYSE\VOYA,Voya Financial Inc
+VST,Stocks\US\NYSE\VST,Vistra Corp
+VVV,Stocks\US\NYSE\VVV,Valvoline Inc
+VYX,Stocks\US\NYSE\VYX,NCR Voyix Corp
+W,Stocks\US\NYSE\W,Wayfair Inc
+WAB,Stocks\US\NYSE\WAB,Westinghouse Air Brake Technol
+WAL,Stocks\US\NYSE\WAL,Western Alliance Bancorp
+WAT,Stocks\US\NYSE\WAT,Waters Corp
+WCC,Stocks\US\NYSE\WCC,WESCO International Inc
+WEC,Stocks\US\NYSE\WEC,WEC Energy Group Inc
+WEX,Stocks\US\NYSE\WEX,WEX Inc
+WFC,Stocks\US\NYSE\WFC,Wells Fargo & Co
+WH,Stocks\US\NYSE\WH,Wyndham Hotels & Resorts Inc
+WHR,Stocks\US\NYSE\WHR,Whirlpool Corp
+WK,Stocks\US\NYSE\WK,Workiva Inc
+WM,Stocks\US\NYSE\WM,Waste Management Inc
+WMB,Stocks\US\NYSE\WMB,Williams Cos Inc/The
+WMS,Stocks\US\NYSE\WMS,Advanced Drainage Systems Inc
+WRB,Stocks\US\NYSE\WRB,W R Berkley Corp
+WSM,Stocks\US\NYSE\WSM,Williams-Sonoma Inc
+WSO,Stocks\US\NYSE\WSO,Watsco Inc
+WST,Stocks\US\NYSE\WST,West Pharmaceutical Services I
+WTRG,Stocks\US\NYSE\WTRG,Essential Utilities Inc
+WU,Stocks\US\NYSE\WU,Western Union Co/The
+XPO,Stocks\US\NYSE\XPO,XPO Inc
+XYL,Stocks\US\NYSE\XYL,Xylem Inc/NY
+YETI,Stocks\US\NYSE\YETI,YETI Holdings Inc
+YUM,Stocks\US\NYSE\YUM,Yum! Brands Inc
+ZBH,Stocks\US\NYSE\ZBH,Zimmer Biomet Holdings Inc
+ZTS,Stocks\US\NYSE\ZTS,Zoetis Inc
+WDAY,Stocks\US\NYSE\WDAY,Workday Inc
+WDC,Stocks\US\Nasdaq\WDC,Western Digital Corp
+AAXJ,ETFs\AAXJ,iShares MSCI All Country Asia
+ARKG,ETFs\ARKG,ARK Genomic Revolution ETF
+ARKK,ETFs\ARKK,ARK Innovation ETF
+ARKW,ETFs\ARKW,ARK Next Generation Internet E
+DGRO,ETFs\DGRO,iShares Core Dividend Growth E
+DIA,ETFs\DIA,"State Street SPDR Dow Jones Industrial Average ETF
+Trust"
+DVY,ETFs\DVY,iShares Select Dividend ETF
+EEM,ETFs\EEM,iShares MSCI Emerging Markets
+EFA,ETFs\EFA,iShares MSCI EAFE ETF
+EFAV,ETFs\EFAV,iShares MSCI EAFE Min Vol Fact
+EFG,ETFs\EFG,iShares MSCI EAFE Growth ETF
+EFV,ETFs\EFV,iShares MSCI EAFE Value ETF
+EMB,ETFs\EMB,iShares JP Morgan USD Emerging
+ESGU,ETFs\ESGU,iShares ESG Aware MSCI USA ETF
+EWJ,ETFs\EWJ,iShares MSCI Japan ETF
+EWT,ETFs\EWT,iShares MSCI Taiwan ETF
+EWY,ETFs\EWY,iShares MSCI South Korea ETF
+EWZ,ETFs\EWZ,iShares MSCI Brazil ETF
+EZU,ETFs\EZU,iShares MSCI Eurozone ETF
+FDN,ETFs\FDN,First Trust Dow Jones Internet
+FTEC,ETFs\FTEC,Fidelity MSCI Information Tech
+FVD,ETFs\FVD,First Trust Value Line Dividen
+GDX,ETFs\GDX,VanEck Vectors Gold Miners ETF
+GDXJ,ETFs\GDXJ,VanEck Vectors Junior Gold Min
+GLD,ETFs\GLD,SPDR Gold Shares
+GSLC,ETFs\GSLC,Goldman Sachs ActiveBeta U.S.
+HDV,ETFs\HDV,iShares Core High Dividend ETF
+IBB,ETFs\IBB,iShares Nasdaq Biotechnology E
+ICLN,ETFs\ICLN,iShares Global Clean Energy ET
+IGV,ETFs\IGV,iShares Expanded Tech-Software
+IHI,ETFs\IHI,iShares U.S. Medical Devices E
+IJH,ETFs\IJH,iShares Core S&P Mid-Cap ETF
+IJR,ETFs\IJR,iShares Core S&P Small-Cap ETF
+IJS,ETFs\IJS,iShares S&P Small-Cap 600 Valu
+INDA,ETFs\INDA,iShares MSCI India ETF
+ITOT,ETFs\ITOT,iShares Core S&P Total US Stoc
+IUSG,ETFs\IUSG,iShares Core S&P U.S. Growth E
+IUSV,ETFs\IUSV,iShares Core S&P U.S. Value ET
+IVE,ETFs\IVE,iShares S&P 500 Value ETF
+IVW,ETFs\IVW,iShares S&P 500 Growth ETF
+IWB,ETFs\IWB,iShares Russell 1000 ETF
+IWD,ETFs\IWD,iShares Russell 1000 Value ETF
+IWF,ETFs\IWF,iShares Russell 1000 Growth ET
+IWM,ETFs\IWM,iShares Russell 2000 ETF
+IWN,ETFs\IWN,iShares Russell 2000 Value ETF
+IWO,ETFs\IWO,iShares Russell 2000 Growth ET
+IWS,ETFs\IWS,iShares Russell Mid-Cap Value
+IYR,ETFs\IYR,iShares U.S. Real Estate ETF
+IYW,ETFs\IYW,iShares US Technology ETF
+KRE,ETFs\KRE,State Street SPDR S&P Regional Banking ETF
+MCHI,ETFs\MCHI,iShares MSCI China ETF
+MDY,ETFs\MDY,State Street SPDR S&P MidCap 400 ETF Trust
+MTUM,ETFs\MTUM,iShares MSCI USA Momentum Fact
+OEF,ETFs\OEF,iShares S&P 100 ETF
+PFF,ETFs\PFF,iShares Preferred & Income Sec
+QQQ,ETFs\QQQ,Invesco QQQ Trust Series 1
+QUAL,ETFs\QUAL,iShares MSCI USA Quality Facto
+RSP,ETFs\RSP,Invesco S&P 500 Equal Weight E
+SCHB,ETFs\SCHB,Schwab US Broad Market ETF
+SCHD,ETFs\SCHD,Schwab US Dividend Equity ETF
+SCHF,ETFs\SCHF,Schwab International Equity ET
+SCHG,ETFs\SCHG,Schwab U.S. Large-Cap Growth E
+SCHV,ETFs\SCHV,Schwab U.S. Large-Cap Value ET
+SCZ,ETFs\SCZ,iShares MSCI EAFE Small-Cap ET
+SKYY,ETFs\SKYY,First Trust Cloud Computing ET
+SLV,ETFs\SLV,iShares Silver Trust
+SMH,ETFs\SMH,VanEck Vectors Semiconductor E
+SOXX,ETFs\SOXX,iShares PHLX Semiconductor ETF
+SPDW,ETFs\SPDW,State Street SPDR Portfolio Developed World ex-US ETF
+SPLV,ETFs\SPLV,Invesco S&P 500 Low Volatility
+SPY,ETFs\SPY,State Street SPDR S&P 500 ETF Trust
+SPYG,ETFs\SPYG,State Street SPDR Portfolio S&P 500 Growth ETF
+SPYV,ETFs\SPYV,State Street SPDR Portfolio S&P 500 Value ETF
+TIP,ETFs\TIP,iShares TIPS Bond ETF
+TLT,ETFs\TLT,iShares 20+ Year Treasury Bond
+USMV,ETFs\USMV,iShares MSCI USA Min Vol Facto
+VDE,ETFs\VDE,Vanguard Energy ETF
+VEA,ETFs\VEA,Vanguard FTSE Developed Market
+VGT,ETFs\VGT,Vanguard Information Technolog
+VHT,ETFs\VHT,Vanguard Health Care ETF
+VLUE,ETFs\VLUE,iShares MSCI USA Value Factor
+VNQ,ETFs\VNQ,Vanguard Real Estate ETF
+VOE,ETFs\VOE,Vanguard Mid-Cap Value ETF
+VPL,ETFs\VPL,Vanguard FTSE Pacific ETF
+VT,ETFs\VT,Vanguard Total World Stock ETF
+VTI,ETFs\VTI,Vanguard Total Stock Market ET
+VWO,ETFs\VWO,Vanguard FTSE Emerging Markets
+VXF,ETFs\VXF,Vanguard Extended Market ETF
+VXUS,ETFs\VXUS,Vanguard Total International S
+XBI,ETFs\XBI,State Street SPDR S&P Biotech ETF
+XLB,ETFs\XLB,State Street Materials Select Sector SPDR
+XLC,ETFs\XLC,State Street Communication Services Select Sector SPDR
+XLE,ETFs\XLE,State Street Energy Select Sector SPDR
+XLF,ETFs\XLF,State Street Financial Select Sector SPDR
+XLI,ETFs\XLI,State Street Industrial Select Sector SPDR
+XLK,ETFs\XLK,State Street Technology Select Sector SPDR
+XLP,ETFs\XLP,State Street Consumer Staples Select Sector SPDR
+XLU,ETFs\XLU,State Street Utilities Select Sector SPDR
+XLV,ETFs\XLV,State Street Health Care Select Sector SPDR
+XLY,ETFs\XLY,State Street Consumer Discretionary Select Sector SPDR
+WWD,Stocks\US\Nasdaq\WWD,Woodward Inc
+WYNN,Stocks\US\Nasdaq\WYNN,Wynn Resorts Ltd
+XEL,Stocks\US\NYSE\XEL,Xcel Energy Inc
+XRAY,Stocks\US\Nasdaq\XRAY,DENTSPLY SIRONA Inc
+ZBRA,Stocks\US\Nasdaq\ZBRA,Zebra Technologies Corp
+ZD,Stocks\US\Nasdaq\ZD,Ziff Davis Inc
+ZG,Stocks\US\Nasdaq\ZG,Zillow Group Inc
+ZION,Stocks\US\Nasdaq\ZION,Zions Bancorp NA
+ZM,Stocks\US\Nasdaq\ZM,Zoom Communications Inc
+ZS,Stocks\US\Nasdaq\ZS,Zscaler Inc
+ZWS,Stocks\US\NYSE\ZWS,Zurn Water Solutions Corp
+COIN,Stocks\US\Nasdaq\COIN,Coinbase Global Inc
+XYZ,Stocks\US\NYSE\XYZ,Block Inc
+SGI,Stocks\US\NYSE\SGI,Somnigroup International Inc
+BRSL,Stocks\US\NYSE\BRSL,Brightstar Lottery
+MRSH,Stocks\US\NYSE\MRSH,Marsh

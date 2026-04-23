@@ -1,0 +1,12 @@
+﻿.env
+__pycache__/
+*.pyc
+app/.tmp/
+docs/docs_memoria/
+*.pdf
+*.docx
+*.ipynb
+DIAGRAMA TFM.png
+DATA/
+LIBROS/
+docs/papers/

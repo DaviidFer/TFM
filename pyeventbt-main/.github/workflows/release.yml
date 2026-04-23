@@ -1,0 +1,70 @@
+name: release
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+      
+      - name: Add Poetry to path
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Build
+        run: |
+          poetry build --no-interaction
+          echo "RELEASE_NAME=$(poetry version)" >> $GITHUB_ENV
+          echo "TAG_NAME=v$(poetry version -s)" >> $GITHUB_ENV
+
+      - name: Create Release Notes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "## Release notes" > NOTES.md
+          echo "Automated release for $(poetry version)" >> NOTES.md
+          echo "" >> NOTES.md
+          echo "This release was automatically created from the main branch." >> NOTES.md
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          fail_on_unmatched_files: true
+          append_body: true
+          name: ${{ env.RELEASE_NAME }}
+          tag_name: ${{ env.TAG_NAME }}
+          body_path: ./NOTES.md
+          files: ./dist/*
+
+      - name: Publish to Test PyPI
+        if: github.ref == 'refs/heads/develop'
+        env:
+          POETRY_REPOSITORIES_TESTPYPI_URL: https://test.pypi.org/legacy/
+          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_TOKEN }}
+        run: poetry publish -r testpypi
+
+      - name: Publish to PyPI
+        if: github.ref == 'refs/heads/main'
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        run: poetry publish
+

@@ -1,0 +1,22 @@
+community_account: False
+community_connection: False
+connected: False
+dlls_allowed: False
+trade_allowed: True
+tradeapi_disabled: False
+email_enabled: False
+ftp_enabled: False
+notifications_enabled: False
+mqid: False
+build: 4040
+maxbars: 100000
+codepage: 0
+ping_last: 32695
+community_balance: 0.0
+retransmission: 0.0
+company: Tradeslide Trading Tech Limited
+name: Darwinex MetaTrader 5
+language: English
+path: C:\\Program Files\\Darwinex MetaTrader 5
+data_path: C:\\Users\\Marti\\AppData\\Roaming\\MetaQuotes\\Terminal\\6C3C6A11D1C3791DD4DBF45421BF8028
+commondata_path: C:\\Users\\Marti\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common

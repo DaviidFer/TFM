@@ -1,0 +1,28 @@
+login: 0
+trade_mode: 0
+leverage: 200
+limit_orders: 400
+margin_so_mode: 0
+trade_allowed: True
+trade_expert: True
+margin_mode: 2      #0 netting, 1 exchange, 2 hedging
+currency_digits: 2
+fifo_close: False
+balance: 0.0
+credit: 0.0
+profit: 0.0
+equity: 0.0
+margin: 0.0
+margin_free: 0.0
+margin_level: 0.0
+margin_so_call: 100.0
+margin_so_so: 50.0
+margin_initial: 0.0
+margin_maintenance: 0.0
+assets: 0.0
+liabilities: 0.0
+commission_blocked: 0.0
+name: Marti Castany
+server: Darwinex-Live
+currency: USD
+company: Darwinex
