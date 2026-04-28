@@ -934,6 +934,16 @@ class PortfolioManagerAgent:
     ) -> Dict[str, Figure]:
         figs: Dict[str, Figure] = {}
 
+        def _curve_to_return_pct(df_curve: pd.DataFrame) -> pd.DataFrame:
+            curve = df_curve.copy()
+            curve["date"] = pd.to_datetime(curve["date"], errors="coerce")
+            curve = curve.dropna(subset=["date"]).sort_values("date")
+            if curve.empty:
+                return curve
+            base = float(curve["equity"].iloc[0] or 1.0)
+            curve["return_pct"] = ((curve["equity"] / max(base, 1e-8)) - 1.0) * 100.0
+            return curve
+
         fig_reward, ax_reward = plt.subplots(figsize=(6, 2.8))
         if not history_df.empty and {"update", "average_reward"}.issubset(history_df.columns):
             ax_reward.plot(history_df["update"], history_df["average_reward"], color="tab:blue")
@@ -946,11 +956,17 @@ class PortfolioManagerAgent:
 
         fig_loss, ax_loss = plt.subplots(figsize=(6, 2.8))
         if not history_df.empty:
-            for key in ("policy_loss", "value_loss", "entropy"):
+            for key in ("policy_loss", "value_loss"):
                 if key in history_df.columns:
                     ax_loss.plot(history_df["update"], history_df[key], label=key)
-            ax_loss.set_title("Curvas PPO")
-            ax_loss.legend(fontsize=8)
+            ax_aux = ax_loss.twinx()
+            for key in ("entropy", "approx_kl", "clip_fraction", "explained_variance"):
+                if key in history_df.columns:
+                    ax_aux.plot(history_df["update"], history_df[key], label=key, linestyle="--")
+            ax_loss.set_title("Pérdidas y diagnóstico PPO")
+            handles_1, labels_1 = ax_loss.get_legend_handles_labels()
+            handles_2, labels_2 = ax_aux.get_legend_handles_labels()
+            ax_loss.legend(handles_1 + handles_2, labels_1 + labels_2, fontsize=7, loc="best")
             ax_loss.grid(True, alpha=0.2)
         else:
             ax_loss.text(0.5, 0.5, "Sin pérdidas PPO", ha="center", va="center")
@@ -961,13 +977,12 @@ class PortfolioManagerAgent:
         plotted = False
         for label, df_curve in [("Train", train_curve), ("Val", val_curve), ("Test", test_curve)]:
             if isinstance(df_curve, pd.DataFrame) and not df_curve.empty and {"date", "equity"}.issubset(df_curve.columns):
-                curve = df_curve.copy()
-                curve["date"] = pd.to_datetime(curve["date"], errors="coerce")
-                curve = curve.dropna(subset=["date"])
-                ax_curves.plot(curve["date"], curve["equity"], label=label)
+                curve = _curve_to_return_pct(df_curve)
+                ax_curves.plot(curve["date"], curve["return_pct"], label=label)
                 plotted = True
         if plotted:
-            ax_curves.set_title("P/L entrenamiento y validación PPO")
+            ax_curves.set_title("Rentabilidad acumulada train / val / test (%)")
+            ax_curves.set_ylabel("%")
             ax_curves.legend(fontsize=8)
             ax_curves.grid(True, alpha=0.2)
             handles, labels = ax_curves.get_legend_handles_labels()
@@ -994,8 +1009,13 @@ class PortfolioManagerAgent:
                     continue
                 curve_df["date"] = pd.to_datetime(curve_df["date"], errors="coerce")
                 curve_df = curve_df.dropna(subset=["date"])
-                ax_forward.plot(curve_df["date"], curve_df["equity"], label=str(benchmark))
-            ax_forward.set_title("Forward 1Y por rebalance")
+                if curve_df.empty:
+                    continue
+                base = float(curve_df["equity"].iloc[0] or 1.0)
+                curve_df["return_pct"] = ((curve_df["equity"] / max(base, 1e-8)) - 1.0) * 100.0
+                ax_forward.plot(curve_df["date"], curve_df["return_pct"], label=str(benchmark))
+            ax_forward.set_title("Forward 1Y por rebalance (%)")
+            ax_forward.set_ylabel("%")
             ax_forward.legend(fontsize=8)
             ax_forward.grid(True, alpha=0.2)
         else:

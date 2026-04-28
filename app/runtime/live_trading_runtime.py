@@ -1108,6 +1108,19 @@ class LiveTradingRuntime:
                 source="signal",
                 rationale=str(candidate.get("reason") or "signal_inactive"),
             )
+        if not signal_candidates:
+            self._last_portfolio_output = {
+                "selected_tickers": [],
+                "weights": {},
+                "euros": {},
+                "comparison": pd.DataFrame(),
+                "figures": {},
+                "status": "no_active_signals_for_manual_rebalance",
+                "reason": "no_active_signals",
+                "portfolio_phase": self._current_portfolio_phase(),
+                "close_candidates_count": int(len(close_candidates)),
+            }
+            return dict(self._last_portfolio_output)
         self._process_signal_candidates(signal_candidates, force_rebalance=True, manual_reason=reason)
         return dict(self._last_portfolio_output or {})
 

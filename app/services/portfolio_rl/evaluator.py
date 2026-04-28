@@ -14,18 +14,23 @@ from .policy import MaskedPortfolioPolicy
 
 def _curve_metrics(curve: pd.Series) -> Dict[str, float]:
     if curve.empty:
-        return {"cumulative_return": 0.0, "sharpe": 0.0, "max_drawdown": 0.0}
+        return {"cumulative_return": 0.0, "sharpe": 0.0, "sortino": 0.0, "max_drawdown": 0.0}
     rets = curve.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
     cumulative_return = float(curve.iloc[-1] / max(curve.iloc[0], 1e-8) - 1.0)
     sharpe = 0.0
     if float(rets.std(ddof=0)) > 0:
         sharpe = float(rets.mean() / rets.std(ddof=0) * np.sqrt(52.0))
+    downside = rets[rets < 0.0]
+    sortino = 0.0
+    if not downside.empty and float(downside.std(ddof=0)) > 0:
+        sortino = float(rets.mean() / downside.std(ddof=0) * np.sqrt(52.0))
     rolling_max = curve.cummax()
     drawdown = curve / rolling_max - 1.0
     max_drawdown = float(drawdown.min()) if not drawdown.empty else 0.0
     return {
         "cumulative_return": cumulative_return,
         "sharpe": sharpe,
+        "sortino": sortino,
         "max_drawdown": max_drawdown,
     }
 
@@ -89,6 +94,8 @@ class PortfolioPolicyEvaluator:
                     "target_cash_weight": float(weights[-1]),
                     "n_active": int(obs["active_mask"].sum()),
                     "n_selected": int(len(selected)),
+                    "turnover": float(step.info.get("turnover", 0.0)),
+                    "hhi": float(step.info.get("hhi", 0.0)),
                 }
             )
             obs = env.get_observation()
@@ -100,7 +107,10 @@ class PortfolioPolicyEvaluator:
         curve = curve_df.set_index("date")["equity"] if not curve_df.empty else pd.Series(dtype=float)
         metrics = _curve_metrics(curve)
         metrics["avg_reward"] = float(np.mean(rewards)) if rewards else 0.0
-        metrics["turnover_mean"] = float(np.mean([s.get("n_selected", 0) for s in snapshots])) if snapshots else 0.0
+        metrics["turnover_mean"] = float(np.mean([float(s.get("turnover", 0.0)) for s in snapshots])) if snapshots else 0.0
+        metrics["cash_weight_mean"] = float(np.mean([float(s.get("target_cash_weight", 0.0)) for s in snapshots])) if snapshots else 0.0
+        metrics["concentration_mean"] = float(np.mean([float(s.get("hhi", 0.0)) for s in snapshots])) if snapshots else 0.0
+        metrics["n_selected_mean"] = float(np.mean([float(s.get("n_selected", 0.0)) for s in snapshots])) if snapshots else 0.0
         metrics["score"] = (
             self.config.score_weights.get("net_sharpe", 0.0) * metrics.get("sharpe", 0.0)
             + self.config.score_weights.get("max_drawdown", 0.0) * abs(metrics.get("max_drawdown", 0.0))

@@ -63,6 +63,65 @@ class PPOTrainer:
                 policy.load_state_dict(state_dict, strict=True)
         return policy
 
+    @staticmethod
+    def _clone_dataset(dataset: PortfolioDataset) -> PortfolioDataset:
+        return PortfolioDataset(
+            dates=list(dataset.dates),
+            trader_ids=list(dataset.trader_ids),
+            trader_features=np.asarray(dataset.trader_features, dtype=np.float32).copy(),
+            global_features=np.asarray(dataset.global_features, dtype=np.float32).copy(),
+            returns=np.asarray(dataset.returns, dtype=np.float32).copy(),
+            active_mask=np.asarray(dataset.active_mask, dtype=np.float32).copy(),
+            trader_feature_names=list(dataset.trader_feature_names),
+            global_feature_names=list(dataset.global_feature_names),
+            trade_metadata=dict(dataset.trade_metadata or {}),
+        )
+
+    @staticmethod
+    def _safe_std(values: np.ndarray) -> np.ndarray:
+        std = np.asarray(values, dtype=np.float32).copy()
+        std = np.where(np.isfinite(std), std, 1.0)
+        std = np.where(std < 1e-6, 1.0, std)
+        return std.astype(np.float32)
+
+    def _compute_feature_stats(self, dataset: PortfolioDataset, train_slice: slice) -> Dict[str, np.ndarray]:
+        trader_train = np.asarray(dataset.trader_features[train_slice], dtype=np.float32)
+        global_train = np.asarray(dataset.global_features[train_slice], dtype=np.float32)
+        trader_mean = trader_train.reshape(-1, trader_train.shape[-1]).mean(axis=0, dtype=np.float32)
+        trader_std = self._safe_std(trader_train.reshape(-1, trader_train.shape[-1]).std(axis=0, dtype=np.float32))
+        global_mean = global_train.mean(axis=0, dtype=np.float32)
+        global_std = self._safe_std(global_train.std(axis=0, dtype=np.float32))
+        return {
+            "trader_mean": trader_mean.astype(np.float32),
+            "trader_std": trader_std.astype(np.float32),
+            "global_mean": global_mean.astype(np.float32),
+            "global_std": global_std.astype(np.float32),
+        }
+
+    def _apply_feature_stats(self, dataset: PortfolioDataset, feature_stats: Mapping[str, Any] | None) -> PortfolioDataset:
+        work = self._clone_dataset(dataset)
+        if not feature_stats:
+            return work
+        trader_mean = np.asarray(feature_stats.get("trader_mean", []), dtype=np.float32)
+        trader_std = np.asarray(feature_stats.get("trader_std", []), dtype=np.float32)
+        global_mean = np.asarray(feature_stats.get("global_mean", []), dtype=np.float32)
+        global_std = np.asarray(feature_stats.get("global_std", []), dtype=np.float32)
+        if trader_mean.size == work.trader_features.shape[-1] and trader_std.size == work.trader_features.shape[-1]:
+            work.trader_features = ((work.trader_features - trader_mean) / trader_std).astype(np.float32)
+        if global_mean.size == work.global_features.shape[-1] and global_std.size == work.global_features.shape[-1]:
+            work.global_features = ((work.global_features - global_mean) / global_std).astype(np.float32)
+        return work
+
+    def prepare_dataset_for_training(self, dataset: PortfolioDataset, splits: Mapping[str, slice]) -> tuple[PortfolioDataset, Dict[str, np.ndarray]]:
+        if not bool(self.config.normalize_features):
+            return self._clone_dataset(dataset), {}
+        feature_stats = self._compute_feature_stats(dataset, splits["train"])
+        return self._apply_feature_stats(dataset, feature_stats), feature_stats
+
+    def prepare_dataset_for_inference(self, dataset: PortfolioDataset, checkpoint_payload: Mapping[str, Any] | None) -> PortfolioDataset:
+        feature_stats = dict((checkpoint_payload or {}).get("feature_stats") or {})
+        return self._apply_feature_stats(dataset, feature_stats)
+
     def _collect_trajectory(self, policy: MaskedPortfolioPolicy, env: WeeklyPortfolioEnv) -> TrajectoryBatch:
         obs = env.reset()
         done = False
@@ -138,6 +197,9 @@ class PPOTrainer:
         policy_losses: List[float] = []
         value_losses: List[float] = []
         entropies: List[float] = []
+        approx_kls: List[float] = []
+        clip_fractions: List[float] = []
+        stopped_by_kl = False
 
         for _ in range(int(self.config.ppo_epochs)):
             perm = idx_all[torch.randperm(n, device=self.device)]
@@ -151,12 +213,15 @@ class PPOTrainer:
                     max_weight_per_trader=self.config.max_weight_per_trader,
                     cash_bias=self.config.cash_bias,
                 )
-                ratio = torch.exp(eval_out["log_prob"] - batch.old_log_probs[idx])
+                log_ratio = eval_out["log_prob"] - batch.old_log_probs[idx]
+                ratio = torch.exp(log_ratio)
                 surr1 = ratio * batch.advantages[idx]
                 surr2 = torch.clamp(ratio, 1.0 - self.config.clip_epsilon, 1.0 + self.config.clip_epsilon) * batch.advantages[idx]
                 policy_loss = -torch.min(surr1, surr2).mean()
                 value_loss = nn.functional.mse_loss(eval_out["value"], batch.returns[idx])
                 entropy = eval_out["entropy"].mean()
+                approx_kl = ((ratio - 1.0) - log_ratio).mean()
+                clip_fraction = ((ratio - 1.0).abs() > float(self.config.clip_epsilon)).float().mean()
                 loss = (
                     policy_loss
                     + self.config.value_loss_coef * value_loss
@@ -169,12 +234,38 @@ class PPOTrainer:
                 policy_losses.append(float(policy_loss.detach().cpu().item()))
                 value_losses.append(float(value_loss.detach().cpu().item()))
                 entropies.append(float(entropy.detach().cpu().item()))
+                approx_kls.append(float(approx_kl.detach().cpu().item()))
+                clip_fractions.append(float(clip_fraction.detach().cpu().item()))
+                if float(self.config.target_kl) > 0.0 and float(np.mean(approx_kls)) > float(self.config.target_kl):
+                    stopped_by_kl = True
+                    break
+            if stopped_by_kl:
+                break
+
+        with torch.no_grad():
+            eval_full = policy.evaluate_actions(
+                batch.trader_features,
+                batch.global_features,
+                batch.active_mask,
+                batch.latent_actions,
+                max_weight_per_trader=self.config.max_weight_per_trader,
+                cash_bias=self.config.cash_bias,
+            )
+        returns_np = batch.returns.detach().cpu().numpy()
+        values_np = eval_full["value"].detach().cpu().numpy()
+        var_returns = float(np.var(returns_np))
+        explained_variance = 0.0 if var_returns <= 1e-8 else float(1.0 - (np.var(returns_np - values_np) / var_returns))
 
         return {
             "policy_loss": float(np.mean(policy_losses)) if policy_losses else 0.0,
             "value_loss": float(np.mean(value_losses)) if value_losses else 0.0,
             "entropy": float(np.mean(entropies)) if entropies else 0.0,
             "average_reward": float(np.mean(batch.rewards)) if batch.rewards else 0.0,
+            "approx_kl": float(np.mean(approx_kls)) if approx_kls else 0.0,
+            "clip_fraction": float(np.mean(clip_fractions)) if clip_fractions else 0.0,
+            "explained_variance": explained_variance,
+            "log_std": float(policy.log_std.detach().cpu().item()),
+            "stopped_by_kl": float(1.0 if stopped_by_kl else 0.0),
         }
 
     def train(
@@ -187,7 +278,8 @@ class PPOTrainer:
         run_type: str,
         checkpoint_path: str | None = None,
     ) -> Dict[str, Any]:
-        policy = self.load_policy(dataset, checkpoint_path=checkpoint_path)
+        working_dataset, feature_stats = self.prepare_dataset_for_training(dataset, splits)
+        policy = self.load_policy(working_dataset, checkpoint_path=checkpoint_path)
         optimizer = torch.optim.Adam(policy.parameters(), lr=self.config.learning_rate)
         if checkpoint_path:
             payload = self.artifacts_manager.load_checkpoint(checkpoint_path, map_location=self.device)
@@ -196,7 +288,7 @@ class PPOTrainer:
                 optimizer.load_state_dict(opt_state)
 
         evaluator = PortfolioPolicyEvaluator(self.config, self.device)
-        train_env = WeeklyPortfolioEnv(dataset, self.config, splits["train"])
+        train_env = WeeklyPortfolioEnv(working_dataset, self.config, splits["train"])
         updates = self.config.max_updates_initial if run_type == "initial_train" else self.config.max_updates_fine_tune
 
         history_rows: List[Dict[str, Any]] = []
@@ -206,12 +298,13 @@ class PPOTrainer:
         for update_idx in range(1, int(updates) + 1):
             batch = self._collect_trajectory(policy, train_env)
             train_metrics = self._ppo_update(policy, optimizer, batch)
-            val_eval = evaluator.evaluate_split(policy, dataset, splits["val"])
+            val_eval = evaluator.evaluate_split(policy, working_dataset, splits["val"])
             row = {
                 "update": int(update_idx),
                 **train_metrics,
                 "val_score": float(val_eval["metrics"].get("score", 0.0)),
                 "val_sharpe": float(val_eval["metrics"].get("sharpe", 0.0)),
+                "val_sortino": float(val_eval["metrics"].get("sortino", 0.0)),
                 "val_max_drawdown": float(val_eval["metrics"].get("max_drawdown", 0.0)),
                 "val_return": float(val_eval["metrics"].get("cumulative_return", 0.0)),
             }
@@ -224,15 +317,16 @@ class PPOTrainer:
                     "model_version": model_version,
                     "run_id": run_id,
                     "config": self.config.to_dict(),
+                    "feature_stats": feature_stats,
                 }
 
         if best_state is not None:
             policy.load_state_dict(best_state["policy_state_dict"])
 
-        train_eval = evaluator.evaluate_split(policy, dataset, splits["train"])
-        val_eval = evaluator.evaluate_split(policy, dataset, splits["val"])
-        test_eval = evaluator.evaluate_split(policy, dataset, splits["test"])
-        forward_eval = evaluator.evaluate_forward_one_year(dataset, test_eval["snapshots"])
+        train_eval = evaluator.evaluate_split(policy, working_dataset, splits["train"])
+        val_eval = evaluator.evaluate_split(policy, working_dataset, splits["val"])
+        test_eval = evaluator.evaluate_split(policy, working_dataset, splits["test"])
+        forward_eval = evaluator.evaluate_forward_one_year(working_dataset, test_eval["snapshots"])
         history_df = pd.DataFrame(history_rows)
         train_curve = train_eval["curve"]
         val_curve = val_eval["curve"]
@@ -245,6 +339,7 @@ class PPOTrainer:
             "model_version": model_version,
             "run_id": run_id,
             "config": self.config.to_dict(),
+            "feature_stats": feature_stats,
         }
         checkpoint_file = self.artifacts_manager.save_checkpoint(run_id=run_id, payload=checkpoint_payload)
         history_file = self.artifacts_manager.save_frame(run_id=run_id, filename="training_history.csv", df=history_df)

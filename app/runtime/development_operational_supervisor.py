@@ -1445,7 +1445,8 @@ class DevelopmentOperationalSupervisor:
             portfolio_last_manual_retrain_and_rebalance_at=_utc_now_iso(),
         )
         rebalance_out: Dict[str, object] = {}
-        if self._runtime is not None and hasattr(self._runtime, "force_rebalance_now"):
+        runtime_ready = self._runtime is not None or self._ensure_operational_runtime(force_start=True)
+        if runtime_ready and self._runtime is not None and hasattr(self._runtime, "force_rebalance_now"):
             rebalance_out = dict(self._runtime.force_rebalance_now(reason="manual_ui_retrain") or {})
             self._set_status(portfolio_last_manual_rebalance_at=_utc_now_iso())
         else:

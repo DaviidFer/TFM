@@ -18,9 +18,9 @@ UNIVERSE_DIR = DATA_ROOT / "_universe"
 # Fecha inicial para activos nuevos
 DEFAULT_START_DATE = "2000-01-01"
 
-# True  -> reconstruye el universo exacto desde MT5
-# False -> usa los ficheros ya congelados en datos/_universe/
-REBUILD_UNIVERSE_FROM_MT5 = True
+# El universo invertible del proyecto sale de los CSV ya presentes
+# en datos/Stocks y datos/ETFs. MT5 no debe redefinirlo.
+REBUILD_UNIVERSE_FROM_MT5 = False
 
 # Opcional: si MT5 no se detecta automáticamente, pon aquí la ruta al terminal64.exe
 # Ejemplo:
@@ -102,6 +102,39 @@ def safe_filename(symbol):
         .replace(">", "_")
         .replace("|", "_")
     )
+
+
+def discover_universe_from_local_data(pd):
+    stock_rows = []
+    etf_rows = []
+
+    for folder, asset_type, rows in [
+        (STOCKS_DIR, "Stock", stock_rows),
+        (ETFS_DIR, "ETF", etf_rows),
+    ]:
+        if not folder.exists():
+            continue
+        for path in sorted(folder.glob("*.csv")):
+            symbol = str(path.stem).strip().upper()
+            if not symbol:
+                continue
+            rows.append(
+                {
+                    "asset_type": asset_type,
+                    "symbol": symbol,
+                    "description": "",
+                    "path": str(path),
+                }
+            )
+
+    rows = stock_rows + etf_rows
+    if not rows:
+        return [], [], pd.DataFrame()
+
+    df = pd.DataFrame(rows).drop_duplicates(subset=["asset_type", "symbol"]).sort_values(["asset_type", "symbol"]).reset_index(drop=True)
+    stocks = df.loc[df["asset_type"] == "Stock", "symbol"].tolist()
+    etfs = df.loc[df["asset_type"] == "ETF", "symbol"].tolist()
+    return stocks, etfs, df
 
 
 def yahoo_symbol_candidates(raw_symbol):
@@ -262,6 +295,13 @@ def load_or_build_universe(pd, stocks_txt, etfs_txt, universe_csv, mt5_raw_csv):
         df = pd.DataFrame(rows)
         df.to_csv(universe_csv, index=False, encoding="utf-8-sig")
         return stocks, etfs, df
+
+    local_stocks, local_etfs, local_df = discover_universe_from_local_data(pd)
+    if not local_df.empty:
+        write_txt_list(stocks_txt, local_stocks)
+        write_txt_list(etfs_txt, local_etfs)
+        local_df.to_csv(universe_csv, index=False, encoding="utf-8-sig")
+        return local_stocks, local_etfs, local_df
 
     if REBUILD_UNIVERSE_FROM_MT5:
         _, _, mt5 = _import_dependencies()
@@ -509,7 +549,7 @@ def update_group(pd, yf, symbols, asset_type, folder):
     return pd.DataFrame(results)
 
 
-def run_data_download():
+def run_data_download(symbols=None):
     pd, yf, _ = _import_dependencies()
     _prepare_directories()
 
@@ -525,6 +565,13 @@ def run_data_download():
         universe_csv=universe_csv,
         mt5_raw_csv=mt5_raw_csv,
     )
+
+    requested = {str(s).strip().upper() for s in (symbols or []) if str(s).strip()}
+    if requested:
+        stocks_list = [s for s in stocks_list if str(s).upper() in requested]
+        etfs_list = [s for s in etfs_list if str(s).upper() in requested]
+        if not universe_df.empty and "symbol" in universe_df.columns:
+            universe_df = universe_df[universe_df["symbol"].astype(str).str.upper().isin(requested)].reset_index(drop=True)
 
     stocks_results = update_group(pd, yf, stocks_list, "Stock", STOCKS_DIR)
     etfs_results = update_group(pd, yf, etfs_list, "ETF", ETFS_DIR)

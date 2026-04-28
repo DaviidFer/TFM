@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 import altair as alt
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
@@ -110,6 +112,166 @@ def _human_pm_signal_columns(df: pd.DataFrame) -> pd.DataFrame:
         "motivo_interpretado": "Motivo",
     }
     return df.rename(columns=rename_map)
+
+
+def _equity_frame_to_return_frame(df: pd.DataFrame, *, series_name: str) -> pd.DataFrame:
+    if df.empty or "date" not in df.columns or "equity" not in df.columns:
+        return pd.DataFrame()
+    work = df.copy()
+    work["date"] = pd.to_datetime(work["date"], errors="coerce")
+    work = work.dropna(subset=["date"]).sort_values("date")
+    if work.empty:
+        return pd.DataFrame()
+    base = float(work["equity"].iloc[0] or 1.0)
+    work[series_name] = ((work["equity"] / max(base, 1e-8)) - 1.0) * 100.0
+    out = work.set_index("date")[[series_name]]
+    out = out.replace([float("inf"), float("-inf")], pd.NA).dropna(how="all")
+    return out
+
+
+def _sanitize_line_chart_frame(df: pd.DataFrame, *, index_name: str | None = None) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    work = df.copy()
+    work = work.replace([float("inf"), float("-inf")], pd.NA).dropna(how="all")
+    if work.empty:
+        return pd.DataFrame()
+    if index_name and index_name in work.columns:
+        work[index_name] = pd.to_numeric(work[index_name], errors="coerce")
+        work = work.dropna(subset=[index_name])
+        if work.empty:
+            return pd.DataFrame()
+        work = work.sort_values(index_name).set_index(index_name)
+    if isinstance(work.index, pd.DatetimeIndex):
+        work = work[~work.index.isna()]
+    return work.dropna(axis=1, how="all")
+
+
+def _build_ppo_run_figures(
+    *,
+    history_df: pd.DataFrame,
+    curve_frames: Dict[str, pd.DataFrame],
+    forward_frames: Dict[str, pd.DataFrame],
+    latest_weights: Dict[str, float],
+) -> List[Any]:
+    figures: List[Any] = []
+
+    fig_reward, ax_reward = plt.subplots(figsize=(6, 2.8))
+    if not history_df.empty and {"step", "average_reward"}.issubset(history_df.columns):
+        ax_reward.plot(history_df["step"], history_df["average_reward"], color="tab:blue")
+        ax_reward.set_title("Reward media PPO")
+        ax_reward.grid(True, alpha=0.2)
+    else:
+        ax_reward.text(0.5, 0.5, "Sin historial PPO", ha="center", va="center")
+        ax_reward.set_axis_off()
+    figures.append(fig_reward)
+
+    fig_loss, ax_loss = plt.subplots(figsize=(6, 2.8))
+    plotted_loss = False
+    if not history_df.empty and "step" in history_df.columns:
+        for key in ("policy_loss", "value_loss", "entropy", "approx_kl", "clip_fraction", "explained_variance"):
+            if key in history_df.columns:
+                ax_loss.plot(history_df["step"], history_df[key], label=key)
+                plotted_loss = True
+    if plotted_loss:
+        ax_loss.set_title("Curvas PPO")
+        ax_loss.legend(fontsize=7)
+        ax_loss.grid(True, alpha=0.2)
+    else:
+        ax_loss.text(0.5, 0.5, "Sin pérdidas PPO", ha="center", va="center")
+        ax_loss.set_axis_off()
+    figures.append(fig_loss)
+
+    fig_weights, ax_weights = plt.subplots(figsize=(6, 3))
+    if latest_weights:
+        keys = list(latest_weights.keys())
+        vals = [float(latest_weights[k]) * 100.0 for k in keys]
+        ax_weights.bar(keys, vals, color="tab:green")
+        ax_weights.set_title("Asignación PPO (%)")
+        ax_weights.tick_params(axis="x", rotation=90, labelsize=8)
+    else:
+        ax_weights.text(0.5, 0.5, "Sin pesos para este run", ha="center", va="center")
+        ax_weights.set_axis_off()
+    figures.append(fig_weights)
+
+    fig_curves, ax_curves = plt.subplots(figsize=(6, 3))
+    plotted_curves = False
+    for label, frame in curve_frames.items():
+        if frame is not None and not frame.empty:
+            ax_curves.plot(frame.index, frame.iloc[:, 0], label=label)
+            plotted_curves = True
+    if plotted_curves:
+        ax_curves.set_title("Rentabilidad acumulada train / val / test (%)")
+        ax_curves.legend(fontsize=8)
+        ax_curves.grid(True, alpha=0.2)
+    else:
+        ax_curves.text(0.5, 0.5, "Sin curvas train/val/test", ha="center", va="center")
+        ax_curves.set_axis_off()
+    figures.append(fig_curves)
+
+    fig_forward, ax_forward = plt.subplots(figsize=(6, 3))
+    plotted_forward = False
+    for label, frame in forward_frames.items():
+        if frame is not None and not frame.empty:
+            ax_forward.plot(frame.index, frame.iloc[:, 0], label=label)
+            plotted_forward = True
+    if plotted_forward:
+        ax_forward.set_title("Forward 1Y por rebalance (%)")
+        ax_forward.legend(fontsize=8)
+        ax_forward.grid(True, alpha=0.2)
+    else:
+        ax_forward.text(0.5, 0.5, "Sin curvas forward", ha="center", va="center")
+        ax_forward.set_axis_off()
+    figures.append(fig_forward)
+
+    return figures
+
+
+def _render_dev_forward_equity_chart(
+    *,
+    development_curve: pd.DataFrame | None,
+    forward_curve: pd.DataFrame | None,
+    promoted_at: str | None,
+) -> None:
+    aligned = align_development_and_forward_curves(
+        development_curve,
+        forward_curve,
+        promoted_at=str(promoted_at or ""),
+    )
+    if aligned.empty or "date" not in aligned.columns:
+        st.info("No hay curva combinada desarrollo + real para este trader.")
+        return
+    plot_long = aligned.melt(
+        id_vars=[c for c in ["date", "promotion_marker"] if c in aligned.columns],
+        value_vars=[c for c in ["development_equity", "forward_equity"] if c in aligned.columns],
+        var_name="serie",
+        value_name="equity",
+    ).dropna(subset=["equity"])
+    if plot_long.empty:
+        st.info("No hay puntos suficientes para la curva combinada.")
+        return
+    plot_long["serie"] = plot_long["serie"].replace(
+        {"development_equity": "Backtest desarrollo", "forward_equity": "Operativa real"}
+    )
+    base_chart = (
+        alt.Chart(plot_long)
+        .mark_line()
+        .encode(
+            x=alt.X("date:T", title="Fecha"),
+            y=alt.Y("equity:Q", title="Equity / Balance"),
+            color=alt.Color("serie:N", title="Serie"),
+            tooltip=["date:T", "serie:N", "equity:Q"],
+        )
+        .properties(height=320)
+    )
+    if "promotion_marker" in aligned.columns and aligned["promotion_marker"].notna().any():
+        promo_ts = pd.to_datetime(aligned["promotion_marker"].dropna().iloc[0], errors="coerce")
+        if pd.notna(promo_ts):
+            rule_df = pd.DataFrame({"promotion_marker": [promo_ts]})
+            rule = alt.Chart(rule_df).mark_rule(strokeDash=[6, 4]).encode(x="promotion_marker:T")
+            st.altair_chart(base_chart + rule, width="stretch")
+            return
+    st.altair_chart(base_chart, width="stretch")
 
 
 def _pm_signal_row_from_live(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -605,7 +767,7 @@ def _render_pretty_dev_events(
 
 
 def _get_supervisor() -> DevelopmentOperationalSupervisor:
-    default_db_path = Path("app/.tmp/supervisor/supervisor.sqlite")
+    default_db_path = Path(os.getenv("TFM_DB_PATH", "app/.tmp/supervisor/supervisor.sqlite"))
     if "tfm_supervisor" not in st.session_state:
         st.session_state["tfm_supervisor"] = DevelopmentOperationalSupervisor(db_path=default_db_path)
         return st.session_state["tfm_supervisor"]
@@ -1509,8 +1671,11 @@ def main() -> None:
             out = supervisor.force_portfolio_retraining_and_rebalance() if hasattr(supervisor, "force_portfolio_retraining_and_rebalance") else {}
             refresh_status = str(((out.get("refresh") or {}).get("status")) or "")
             rebalance_status = str(((out.get("rebalance") or {}).get("status")) or "")
+            rebalance_reason = str(((out.get("rebalance") or {}).get("reason")) or "")
             st.session_state["pm_manual_action_message"] = (
-                f"Reentrenamiento + rebalanceo ejecutado. Refresh=`{refresh_status or '-'}` | rebalanceo=`{rebalance_status or '-'}`."
+                f"Reentrenamiento + rebalanceo ejecutado. Refresh=`{refresh_status or '-'}` | "
+                f"rebalanceo=`{rebalance_status or '-'}`"
+                f"{f' | motivo=`{rebalance_reason}`' if rebalance_reason else ''}."
             )
             st.rerun()
         if st.session_state.get("pm_manual_action_message"):
@@ -1597,39 +1762,66 @@ def main() -> None:
                         )
                         artifacts_row = dict(run_row.get("artifacts", {}) or {})
                         run_hist_rows: List[Dict[str, Any]] = []
+                        run_fig_history = pd.DataFrame()
                         try:
                             run_hist_rows = list(supervisor.ctx.store.list_portfolio_training_metrics(str(run_row.get("run_id") or "")))
                         except Exception:
                             run_hist_rows = []
                         run_hist_df = pd.DataFrame(run_hist_rows)
+                        curve_frames_map: Dict[str, pd.DataFrame] = {}
                         if not run_hist_df.empty:
                             run_hist_pivot = (
                                 run_hist_df.pivot_table(index="step", columns="metric_name", values="metric_value", aggfunc="last")
                                 .sort_index()
                             )
+                            run_hist_pivot = _sanitize_line_chart_frame(run_hist_pivot)
+                            run_fig_history = run_hist_pivot.reset_index()
                             st.markdown("**Métricas de entrenamiento PPO**")
-                            run_cols_metrics = [c for c in ["average_reward", "policy_loss", "value_loss", "entropy", "val_score"] if c in run_hist_pivot.columns]
+                            run_cols_metrics = [
+                                c
+                                for c in [
+                                    "average_reward",
+                                    "policy_loss",
+                                    "value_loss",
+                                    "entropy",
+                                    "approx_kl",
+                                    "clip_fraction",
+                                    "explained_variance",
+                                    "val_score",
+                                ]
+                                if c in run_hist_pivot.columns
+                            ]
                             if run_cols_metrics:
-                                st.line_chart(run_hist_pivot[run_cols_metrics], width="stretch")
+                                chart_df = _sanitize_line_chart_frame(run_hist_pivot[run_cols_metrics])
+                                if not chart_df.empty:
+                                    st.line_chart(chart_df, width="stretch")
                         run_curve_frames = []
                         for label, path_key in [("train", "train_curve_csv"), ("val", "val_curve_csv"), ("test", "test_curve_csv")]:
                             df_curve = _safe_read_csv(str(artifacts_row.get(path_key, "")))
                             if not df_curve.empty and {"date", "equity"}.issubset(df_curve.columns):
-                                tmp = df_curve.copy()
-                                tmp["date"] = pd.to_datetime(tmp["date"], errors="coerce")
-                                tmp = tmp.dropna(subset=["date"])
+                                tmp = _equity_frame_to_return_frame(df_curve, series_name=label)
                                 if not tmp.empty:
-                                    tmp = tmp.rename(columns={"equity": label}).set_index("date")[[label]]
                                     run_curve_frames.append(tmp)
+                                    curve_frames_map[label] = tmp
                         if run_curve_frames:
-                            st.markdown("**P/L entrenamiento / validación / test**")
-                            st.line_chart(pd.concat(run_curve_frames, axis=1), width="stretch")
+                            st.markdown("**Rentabilidad acumulada train / val / test (%)**")
+                            chart_df = _sanitize_line_chart_frame(pd.concat(run_curve_frames, axis=1))
+                            if not chart_df.empty:
+                                st.line_chart(chart_df, width="stretch")
 
                         run_rebalances = [
                             dict(row)
                             for row in live_rebalance_rows
                             if str(row.get("training_run_id") or "") == run_id or str(row.get("fine_tune_run_id") or "") == run_id
                         ]
+                        run_rebalances = sorted(run_rebalances, key=lambda row: str(row.get("rebalance_date") or ""))
+                        latest_run_rebalance = run_rebalances[-1] if run_rebalances else {}
+                        diagnostics_map = dict(latest_run_rebalance.get("diagnostics") or {})
+                        if bool(diagnostics_map.get("min_open_positions_enforced")):
+                            st.info(
+                                "La asignación uniforme de este run viene de la regla de seguridad del PM: "
+                                f"se forzaron {int(diagnostics_map.get('min_open_positions_target') or 0)} posiciones mínimas."
+                            )
                         run_rebalance_ids = {str(row.get("rebalance_id") or "") for row in run_rebalances if str(row.get("rebalance_id") or "")}
                         run_forward_rows = [dict(row) for row in forward_rows if str(row.get("rebalance_id") or "") in run_rebalance_ids]
                         if run_forward_rows:
@@ -1637,17 +1829,23 @@ def main() -> None:
                             latest_rebalance_date = max(str(row.get("as_of") or "") for row in run_forward_rows)
                             latest_forward = [row for row in run_forward_rows if str(row.get("as_of") or "") == latest_rebalance_date]
                             forward_curves: list[pd.DataFrame] = []
+                            forward_frames_map: Dict[str, pd.DataFrame] = {}
                             for row in latest_forward:
                                 curve_points = row.get("curve_points", []) or []
                                 curve_df = pd.DataFrame(curve_points)
                                 if curve_df.empty or "date" not in curve_df.columns or "equity" not in curve_df.columns:
                                     continue
-                                curve_df["date"] = pd.to_datetime(curve_df["date"], errors="coerce")
-                                curve_df = curve_df.dropna(subset=["date"]).set_index("date")
-                                curve_df = curve_df.rename(columns={"equity": str(row.get("benchmark_name") or "benchmark")})
+                                curve_df = _equity_frame_to_return_frame(curve_df, series_name=str(row.get("benchmark_name") or "benchmark"))
+                                if curve_df.empty:
+                                    continue
                                 forward_curves.append(curve_df)
+                                forward_frames_map[str(row.get("benchmark_name") or "benchmark")] = curve_df
                             if forward_curves:
-                                st.line_chart(pd.concat(forward_curves, axis=1), width="stretch")
+                                chart_df = _sanitize_line_chart_frame(pd.concat(forward_curves, axis=1))
+                                if not chart_df.empty:
+                                    st.line_chart(chart_df, width="stretch")
+                        else:
+                            forward_frames_map = {}
 
                         run_signal_rows = [
                             row
@@ -1657,24 +1855,19 @@ def main() -> None:
                         ]
                         _render_pm_signal_tables(run_signal_rows, key_prefix=f"pm_run_{run_id}")
 
-                        if current_training_run_id == run_id:
-                            figures = last_output.get("figures", {}) if isinstance(last_output, dict) else {}
-                            if isinstance(figures, dict) and figures:
-                                order = [
-                                    "training_reward",
-                                    "losses",
-                                    "weights_eur",
-                                    "rolling_curves",
-                                    "forward_curves",
-                                ]
-                                ordered_figures = [figures.get(fig_key) for fig_key in order if figures.get(fig_key) is not None]
-                                for idx in range(0, len(ordered_figures), 2):
-                                    col_left, col_right = st.columns(2)
-                                    with col_left:
-                                        st.pyplot(ordered_figures[idx], clear_figure=False, width="stretch")
-                                    if idx + 1 < len(ordered_figures):
-                                        with col_right:
-                                            st.pyplot(ordered_figures[idx + 1], clear_figure=False, width="stretch")
+                        rebuilt_figures = _build_ppo_run_figures(
+                            history_df=run_fig_history,
+                            curve_frames=curve_frames_map,
+                            forward_frames=forward_frames_map,
+                            latest_weights=dict(latest_run_rebalance.get("target_weights") or {}),
+                        )
+                        for idx in range(0, len(rebuilt_figures), 2):
+                            col_left, col_right = st.columns(2)
+                            with col_left:
+                                st.pyplot(rebuilt_figures[idx], clear_figure=False, width="stretch")
+                            if idx + 1 < len(rebuilt_figures):
+                                with col_right:
+                                    st.pyplot(rebuilt_figures[idx + 1], clear_figure=False, width="stretch")
 
         if backtest_runs:
             st.markdown("**Refresh mensual de backtests promovidos**")
@@ -1691,6 +1884,34 @@ def main() -> None:
                     width="stretch",
                     hide_index=True,
                 )
+                risk_rows_by_trader = {
+                    str(row.get("trader_id") or ""): dict(row)
+                    for row in list(risk_snapshot.get("trader_rows", []) or [])
+                }
+                for _, bt_row in df_runs.iterrows():
+                    trader_id = str(bt_row.get("trader_id") or "")
+                    title = f"{str(bt_row.get('trader') or trader_id)} | refresh {str(bt_row.get('cutoff_date') or '-')}"
+                    with st.expander(title, expanded=False):
+                        dev_curve = supervisor.get_trader_history_frame(trader_id) if hasattr(supervisor, "get_trader_history_frame") else None
+                        forward_curve = pd.DataFrame()
+                        promoted_at = ""
+                        risk_row = risk_rows_by_trader.get(trader_id, {})
+                        if risk_row:
+                            promoted_at = str(risk_row.get("promoted_at") or "")
+                            forward_run = dict(risk_row.get("forward_run") or {})
+                            forward_pnl_path = str((forward_run.get("artifact_paths") or {}).get("historical_pnl_path") or "")
+                            if forward_pnl_path:
+                                try:
+                                    forward_curve = pd.read_csv(forward_pnl_path)
+                                except Exception:
+                                    forward_curve = pd.DataFrame()
+                        if not promoted_at:
+                            promoted_at = str(bt_row.get("updated_at") or "")
+                        _render_dev_forward_equity_chart(
+                            development_curve=dev_curve,
+                            forward_curve=forward_curve,
+                            promoted_at=promoted_at,
+                        )
 
         if live_rebalance_rows:
             st.markdown("**Histórico de rebalanceos PPO**")

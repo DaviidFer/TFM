@@ -111,9 +111,11 @@ class PPOInferenceService:
         rebalance_date: str | None = None,
         previous_snapshot: Mapping[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        policy = self.load_policy(dataset, checkpoint_path)
+        checkpoint_payload = self.artifacts_manager.load_checkpoint(checkpoint_path, map_location=self.device)
+        working_dataset = self._trainer.prepare_dataset_for_inference(dataset, checkpoint_payload)
+        policy = self.load_policy(working_dataset, checkpoint_path)
         obs = self._build_live_observation(
-            dataset,
+            working_dataset,
             active_trader_ids=active_trader_ids,
             rebalance_date=rebalance_date,
             previous_snapshot=previous_snapshot,
@@ -134,13 +136,13 @@ class PPOInferenceService:
         trader_weights = weights[:-1]
         cash_weight = float(weights[-1])
         selected = [
-            dataset.trader_ids[i]
-            for i in range(dataset.n_traders)
+            working_dataset.trader_ids[i]
+            for i in range(working_dataset.n_traders)
             if float(trader_weights[i]) >= float(self.config.min_live_weight)
         ]
         weight_map = {
-            dataset.trader_ids[i]: float(trader_weights[i])
-            for i in range(dataset.n_traders)
+            working_dataset.trader_ids[i]: float(trader_weights[i])
+            for i in range(working_dataset.n_traders)
             if float(trader_weights[i]) > 0.0
         }
         euro_map = {trader_id: float(weight * total_capital_eur) for trader_id, weight in weight_map.items()}
@@ -154,6 +156,7 @@ class PPOInferenceService:
             "diagnostics": {
                 "policy_value": float(out["value"].squeeze(0).cpu().item()),
                 "device": self.device,
+                "feature_normalization": bool(self.config.normalize_features),
             },
-            "observation_date": str(rebalance_date or dataset.dates[-1]),
+            "observation_date": str(rebalance_date or working_dataset.dates[-1]),
         }

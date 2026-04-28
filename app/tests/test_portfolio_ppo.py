@@ -11,6 +11,7 @@ import torch
 from app.agents.portfolio_agent import PortfolioManagerAgent
 from app.contracts import PromotedTraderSpec
 from app.runtime.development_operational_supervisor import DevelopmentOperationalSupervisor
+from app.runtime.live_trading_runtime import LiveTradingRuntime
 from app.services.portfolio_rl import (
     PPOInferenceService,
     PPOPortfolioConfig,
@@ -139,6 +140,10 @@ def test_training_and_inference_roundtrip() -> None:
     )
     assert Path(result["checkpoint_path"]).exists()
     assert result["forward_eval"]
+    history_df = result["history_df"]
+    assert {"approx_kl", "clip_fraction", "explained_variance", "log_std"}.issubset(set(history_df.columns))
+    checkpoint_payload = artifacts.load_checkpoint(result["checkpoint_path"])
+    assert "feature_stats" in checkpoint_payload
 
     inference = PPOInferenceService(config, artifacts)
     inferred = inference.infer(
@@ -150,6 +155,20 @@ def test_training_and_inference_roundtrip() -> None:
     total = sum(inferred["weights"].values()) + float(inferred["target_cash_weight"])
     assert abs(total - 1.0) < 1e-5
     assert "tr_B" not in inferred["weights"]
+
+
+def test_feature_normalization_centers_training_slice() -> None:
+    dataset, splits = _synthetic_dataset()
+    config = PPOPortfolioConfig(device_preference="cpu", artifact_root=_tmp_artifact_root(), normalize_features=True)
+    trainer = PPOTrainer(config, PortfolioArtifactsManager(config))
+    normalized, feature_stats = trainer.prepare_dataset_for_training(dataset, splits)
+    assert feature_stats
+    trader_train = normalized.trader_features[splits["train"]].reshape(-1, normalized.trader_features.shape[-1])
+    global_train = normalized.global_features[splits["train"]]
+    assert np.all(np.isfinite(trader_train))
+    assert np.all(np.isfinite(global_train))
+    assert np.max(np.abs(trader_train.mean(axis=0))) < 1e-4
+    assert np.max(np.abs(global_train.mean(axis=0))) < 1e-4
 
 
 def test_portfolio_manager_enforces_min_open_positions_with_ten_or_more_signals() -> None:
@@ -417,3 +436,45 @@ def test_supervisor_force_manual_retraining_only(monkeypatch) -> None:
     assert out["rebalance"]["status"] == "not_requested"
     assert status["portfolio_last_manual_retrain_at"] is not None
     assert status["portfolio_last_manual_retrain_only_at"] is not None
+
+
+def test_supervisor_force_manual_retraining_and_rebalance_bootstraps_runtime(monkeypatch) -> None:
+    supervisor = DevelopmentOperationalSupervisor(db_path=_tmp_db_path())
+    monkeypatch.setattr(
+        supervisor,
+        "run_portfolio_monthly_refresh",
+        lambda **kwargs: {"status": "completed", "model_info": {"model_version": "ppo_manual_v2"}},
+    )
+
+    def _bootstrap_runtime(*, force_start: bool = False) -> bool:
+        assert force_start is True
+        supervisor._runtime = SimpleNamespace(
+            force_rebalance_now=lambda **kwargs: {
+                "status": "manual_rebalance_executed",
+                "selected_tickers": ["tr_B"],
+                "weights": {"tr_B": 0.5},
+                "target_cash_weight": 0.5,
+            }
+        )
+        return True
+
+    monkeypatch.setattr(supervisor, "_ensure_operational_runtime", _bootstrap_runtime)
+    out = supervisor.force_portfolio_retraining_and_rebalance()
+    assert out["rebalance"]["status"] == "manual_rebalance_executed"
+
+
+def test_live_runtime_force_rebalance_reports_no_active_signals(monkeypatch) -> None:
+    runtime = LiveTradingRuntime.__new__(LiveTradingRuntime)
+    runtime._last_portfolio_output = None
+    runtime._current_portfolio_phase = lambda: "rebalanceo_semanal"
+    runtime._collect_manual_signal_snapshot = lambda include_existing_positions=True: ([], [{"spec": object(), "position": {}, "reason": "signal_inactive"}])
+    closed: list[dict] = []
+    runtime._attempt_close = lambda **kwargs: closed.append(kwargs)
+    runtime.data_provider = SimpleNamespace(check_for_new_data=lambda **kwargs: None)
+
+    out = LiveTradingRuntime.force_rebalance_now(runtime, reason="manual_ui_retrain")
+
+    assert out["status"] == "no_active_signals_for_manual_rebalance"
+    assert out["reason"] == "no_active_signals"
+    assert out["close_candidates_count"] == 1
+    assert len(closed) == 1

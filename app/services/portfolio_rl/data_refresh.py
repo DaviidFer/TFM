@@ -41,9 +41,9 @@ class PortfolioOHLCRefreshService:
         return max(latest_dates).date().isoformat()
 
     def refresh(self, symbols: Iterable[str]) -> OHLCRefreshResult:
-        universe_df, all_results, failed = run_data_download()
-        self.local_data_provider.refresh_symbol_registry()
         requested = {str(s).upper() for s in symbols if str(s).strip()}
+        universe_df, all_results, failed = run_data_download(symbols=requested)
+        self.local_data_provider.refresh_symbol_registry()
         refreshed_symbols = sorted(
             {
                 str(row["symbol"]).upper()

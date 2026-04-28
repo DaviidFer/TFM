@@ -41,24 +41,50 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _drop_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or not df.columns.duplicated().any():
+        return df
+    return df.loc[:, ~df.columns.duplicated()].copy()
+
+
+def _to_naive_timestamp(value: Any) -> pd.Timestamp:
+    ts = pd.Timestamp(value)
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert(None)
+    return ts
+
+
+def _to_naive_datetime_series(values: pd.Series) -> pd.Series:
+    out = pd.to_datetime(values, errors="coerce")
+    tz = getattr(out.dt, "tz", None)
+    if tz is not None:
+        out = out.dt.tz_convert(None)
+    return out
+
+
 def _normalize_pnl_frame(pnl_df: pd.DataFrame) -> pd.DataFrame:
     if pnl_df is None or pnl_df.empty:
         return pd.DataFrame(columns=["date", "balance", "equity"])
-    work = pnl_df.copy().reset_index()
+    work = _drop_duplicate_columns(pnl_df.copy())
+    if work.index.name and str(work.index.name) in {str(col) for col in work.columns}:
+        work.index = work.index.rename("__index_date__")
+    work = work.reset_index()
+    work = _drop_duplicate_columns(work)
     date_col = str(work.columns[0])
     work = work.rename(columns={date_col: "date", "BALANCE": "balance", "EQUITY": "equity"})
+    work = _drop_duplicate_columns(work)
     work["date"] = pd.to_datetime(work["date"], errors="coerce")
     for col in ("balance", "equity"):
         if col not in work.columns:
             work[col] = pd.NA
-        work[col] = pd.to_numeric(work[col], errors="coerce")
+        work[col] = pd.to_numeric(work[col], errors="coerce").replace([float("inf"), float("-inf")], pd.NA)
     return work.dropna(subset=["date"]).sort_values("date")[["date", "balance", "equity"]]
 
 
 def _normalize_trades_frame(trades_df: pd.DataFrame) -> pd.DataFrame:
     if trades_df is None or trades_df.empty:
         return pd.DataFrame(columns=["entry_time", "exit_time", "profit", "side"])
-    work = trades_df.copy()
+    work = _drop_duplicate_columns(trades_df.copy())
     norm = {str(c).lower(): c for c in work.columns}
     entry_col = next((norm[k] for k in ("time_entry", "entry_time", "open_time") if k in norm), None)
     exit_col = next((norm[k] for k in ("time_exit", "exit_time", "close_time") if k in norm), None)
@@ -74,9 +100,10 @@ def _normalize_trades_frame(trades_df: pd.DataFrame) -> pd.DataFrame:
     if side_col:
         rename_map[side_col] = "side"
     work = work.rename(columns=rename_map)
+    work = _drop_duplicate_columns(work)
     work["entry_time"] = pd.to_datetime(work["entry_time"], errors="coerce")
     work["exit_time"] = pd.to_datetime(work.get("exit_time"), errors="coerce").fillna(work["entry_time"])
-    work["profit"] = pd.to_numeric(work.get("profit"), errors="coerce").fillna(0.0)
+    work["profit"] = pd.to_numeric(work.get("profit"), errors="coerce").replace([float("inf"), float("-inf")], pd.NA).fillna(0.0)
     work["side"] = work.get("side", "").astype(str) if "side" in work.columns else ""
     return work.dropna(subset=["entry_time"]).sort_values("entry_time")[["entry_time", "exit_time", "profit", "side"]]
 
@@ -195,8 +222,8 @@ class ForwardBacktestService:
         audits = list(self.store.list_trader_signal_audit(trader_id=trader_id, limit=5000))
         if not audits:
             return {}
-        eval_ts = pd.Timestamp(evaluation_date)
-        filtered = [row for row in audits if pd.Timestamp(row.get("timestamp")) <= eval_ts]
+        eval_ts = _to_naive_timestamp(evaluation_date)
+        filtered = [row for row in audits if _to_naive_timestamp(row.get("timestamp")) <= eval_ts]
         if not filtered:
             return {}
         executed = [row for row in filtered if bool(row.get("executed"))]
@@ -224,16 +251,16 @@ class ForwardBacktestService:
         artifacts_root: Path | None = None,
         evaluation_run_id: str | None = None,
     ) -> TraderForwardMetrics:
-        eval_ts = pd.Timestamp(evaluation_date)
-        promoted_ts = pd.Timestamp(promoted_spec.promoted_at)
+        eval_ts = _to_naive_timestamp(evaluation_date)
+        promoted_ts = _to_naive_timestamp(promoted_spec.promoted_at)
         csv_path = self._resolve_csv_path(promoted_spec, data_source)
         raw_df = pd.read_csv(csv_path)
         date_col = "Date" if "Date" in raw_df.columns else "date"
-        raw_df[date_col] = pd.to_datetime(raw_df[date_col], errors="coerce")
+        raw_df[date_col] = _to_naive_datetime_series(raw_df[date_col])
         raw_df = raw_df.dropna(subset=[date_col]).sort_values(date_col)
         if raw_df.empty:
             raise ValueError(f"CSV sin fechas válidas para {promoted_spec.asset}")
-        last_date = min(pd.Timestamp(raw_df[date_col].max()), eval_ts)
+        last_date = min(_to_naive_timestamp(raw_df[date_col].max()), eval_ts)
         forward_start = promoted_ts.normalize()
         evaluation_run_id = str(evaluation_run_id or f"risk_{uuid4().hex[:10]}")
         run_id = f"fw_{trader_id}_{uuid4().hex[:8]}"

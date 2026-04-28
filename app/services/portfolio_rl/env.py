@@ -122,8 +122,9 @@ class WeeklyPortfolioEnv:
         dd_mag = max(0.0, -self._drawdown_12w())
         dd_penalty = max(0.0, dd_mag - float(self.config.dd_soft_limit))
         cash_penalty = max(0.0, cash_weight - float(self.config.cash_soft_limit))
+        scaled_return = float(self.config.reward_scale) * float(np.log(max(1e-8, 1.0 + net_return)))
         reward = (
-            float(np.log(max(1e-8, 1.0 + net_return)))
+            scaled_return
             - float(self.config.lambda_turnover) * turnover
             - float(self.config.lambda_concentration) * hhi
             - float(self.config.lambda_dd) * dd_penalty
@@ -156,6 +157,7 @@ class WeeklyPortfolioEnv:
                 "cost": cost,
                 "cash_weight": cash_weight,
                 "hhi": hhi,
+                "scaled_return": scaled_return,
                 "drawdown_penalty": dd_penalty,
             },
         )

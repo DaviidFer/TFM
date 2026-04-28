@@ -1,4 +1,4 @@
-﻿.env
+.env
 __pycache__/
 *.pyc
 app/.tmp/
@@ -10,3 +10,18 @@ DIAGRAMA TFM.png
 DATA/
 LIBROS/
 docs/papers/
+.venv/
+venv/
+*.sqlite
+*.db
+*.log
+artifacts/
+datos/
+
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/*.tfvars
+infra/terraform/crash.log
+infra/terraform/crash.*.log
