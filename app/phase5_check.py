@@ -6,7 +6,6 @@ from uuid import uuid4
 
 from app.agents import (
     AgentContext,
-    DataAgent,
     DeveloperAgent,
     PortfolioManagerAgent,
     RiskAgent,
@@ -17,6 +16,7 @@ from app.agents import (
 from app.contracts import TraderLiveMetrics, TraderLifecycleState
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.orchestrator import RuntimeOrchestrator
+from app.services import DataProcess
 from app.storage import StateStore
 
 
@@ -39,29 +39,28 @@ def main(*, db_path: Path | None = None) -> int:
     )
     emit_log("phase5_check", "run_started", run_id=uuid4().hex[:8], db_path=str(db_path), log_file=str(LOG_FILE_PATH))
 
-    data_agent = DataAgent(ctx)
+    data_process = DataProcess(ctx)
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
     risk_agent = RiskAgent(ctx, thresholds=RiskThresholds(max_drawdown=0.20, min_sharpe=-0.8, min_trades=5))
     portfolio_agent = PortfolioManagerAgent(ctx)
     orchestrator = RuntimeOrchestrator(
-        data_agent=data_agent,
+        data_process=data_process,
         developer_agent=developer_agent,
         validation_agent=validation_agent,
         trader_agent=trader_agent,
     )
 
-    dataset = data_agent.prepare_dataset(asset="AAPL", timeframe="D1", asset_csv_path="datos/Stocks/AAPL.csv")
+    dataset = data_process.prepare_dataset(asset="AAPL", timeframe="D1", asset_csv_path="datos/Stocks/AAPL.csv")
     dev = developer_agent.develop(
         dataset=dataset,
-        families=("decision_tree", "rulefit", "genetico", "quantile", "subgroup"),
+        families=("decision_tree", "rulefit", "genetico", "quantile"),
         family_params={
             "decision_tree": {"target_n_rules": 40, "progress_every": 0},
             "rulefit": {"target_n_rules": 40, "n_estimators": 30, "max_candidate_rules": 220, "progress_every": 0},
             "genetico": {"target_n_rules": 40, "population_size": 40, "n_generations": 10, "progress_every": 0},
-            "quantile": {"n_bins": 4, "combo_size": 1, "min_coverage": 180},
-            "subgroup": {"n_bins": 5, "min_coverage": 80},
+            "quantile": {"n_bins": 4, "combo_size": 2, "min_coverage": 100},
         },
     )
     val = validation_agent.validate_and_promote(dev)
@@ -94,19 +93,18 @@ def main(*, db_path: Path | None = None) -> int:
     if decision is None:
         raise RuntimeError("RiskAgent did not produce a decision.")
     print(f"risk_decision: action={decision.action} reason={decision.reason}")
-    if decision.action != "retire":
-        raise RuntimeError("Expected retire action in phase5 scenario.")
+    if decision.action != "retraining":
+        raise RuntimeError("Expected retraining action in phase5 scenario.")
 
     # El orquestador consume retrain_requested y crea nuevo ciclo.
     processed = orchestrator.process_pending_retrain_events(
         asset_csv_by_asset={"AAPL": "datos/Stocks/AAPL.csv"},
-        families=("decision_tree", "rulefit", "genetico", "quantile", "subgroup"),
+        families=("decision_tree", "rulefit", "genetico", "quantile"),
         family_params={
             "decision_tree": {"target_n_rules": 25, "progress_every": 0},
             "rulefit": {"target_n_rules": 25, "n_estimators": 25, "max_candidate_rules": 160, "progress_every": 0},
             "genetico": {"target_n_rules": 25, "population_size": 35, "n_generations": 8, "progress_every": 0},
-            "quantile": {"n_bins": 4, "combo_size": 1, "min_coverage": 180},
-            "subgroup": {"n_bins": 5, "min_coverage": 80},
+            "quantile": {"n_bins": 4, "combo_size": 2, "min_coverage": 100},
         },
     )
     if len(processed) == 0:

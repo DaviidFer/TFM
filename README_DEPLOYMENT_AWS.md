@@ -130,7 +130,7 @@ Advertencias de coste:
 AWS Batch no forma parte de esta iteracion, pero la estructura se deja preparada para que en el futuro las tareas pesadas sigan un patron como:
 
 ```powershell
-python -m app.cloud_tasks.develop_asset --asset AAPL --family subgroup --output-mode s3
+python -m app.cloud_tasks.develop_asset --asset AAPL --family quantile --output-mode s3
 python -m app.cloud_tasks.develop_asset --asset MSFT --family genetic --output-mode s3
 ```
 

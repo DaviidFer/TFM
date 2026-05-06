@@ -23,7 +23,7 @@ def test_promoted_spec_serialization_contains_lifecycle_value() -> None:
         origin_experiment_id="exp_test",
     )
     data = spec.to_dict()
-    assert data["lifecycle_state"] == TraderLifecycleState.PROMOTED.value
+    assert data["lifecycle_state"] == TraderLifecycleState.LIVE.value
     assert data["asset"] == "AAPL"
     assert isinstance(data["long_rules"], list)
 
@@ -39,7 +39,7 @@ def test_state_store_roundtrip_for_state_metrics_events() -> None:
         trader_id=trader_id,
         asset="AAPL",
         timeframe="D1",
-        state=TraderLifecycleState.PROMOTED,
+        state=TraderLifecycleState.LIVE,
         notes="unit test",
     )
     store.upsert_trader_metrics(
@@ -60,7 +60,7 @@ def test_state_store_roundtrip_for_state_metrics_events() -> None:
 
     row = store.get_trader_state(trader_id)
     assert row is not None
-    assert row.state == TraderLifecycleState.PROMOTED
+    assert row.state == TraderLifecycleState.LIVE
     metrics = store.get_trader_metrics(trader_id)
     assert metrics is not None
     assert metrics["trade_count"] == 10

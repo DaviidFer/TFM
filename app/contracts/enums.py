@@ -4,7 +4,7 @@ from enum import Enum
 
 
 class AgentKind(str, Enum):
-    DATA = "data_agent"
+    DATA = "data_process"
     DEVELOPER = "developer_agent"
     VALIDATION = "validation_agent"
     TRADER = "trader_agent"
@@ -20,21 +20,12 @@ class AgentStatus(str, Enum):
 
 
 class TraderLifecycleState(str, Enum):
-    CANDIDATE = "candidate"
-    VALIDATED = "validated"
-    PROMOTED = "promoted"
     LIVE = "live"
-    DEGRADED = "degraded"
-    SUSPENDED = "suspended"
-    RETIRED = "retired"
     RETRAINING = "retraining"
 
 
 class RiskAction(str, Enum):
     KEEP = "keep"
-    DEGRADED = "degraded"
-    SUSPEND = "suspend"
-    RETIRE = "retire"
     RETRAINING = "retraining"
     APPROVE = "approve"
     APPROVE_WITH_CLIPPING = "approve_with_clipping"

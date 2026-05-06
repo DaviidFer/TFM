@@ -4,9 +4,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, Mapping, Optional
 
-from app.agents import DataAgent, DeveloperAgent, TraderAgent, ValidationAgent
+from app.agents import DeveloperAgent, TraderAgent, ValidationAgent
 from app.contracts import EventType
 from app.core.structured_logging import emit_log
+from app.services import DataProcess
 
 
 def utc_now_iso() -> str:
@@ -17,18 +18,18 @@ class RuntimeOrchestrator:
     """
     Orquestador pragmático de Fase 5.
     - consume eventos de retraining
-    - dispara ciclo Data->Developer->Validation->Trader
+    - dispara ciclo DataProcess->Developer->Validation->Trader
     """
 
     def __init__(
         self,
         *,
-        data_agent: DataAgent,
+        data_process: DataProcess,
         developer_agent: DeveloperAgent,
         validation_agent: ValidationAgent,
         trader_agent: TraderAgent,
     ) -> None:
-        self.data_agent = data_agent
+        self.data_process = data_process
         self.developer_agent = developer_agent
         self.validation_agent = validation_agent
         self.trader_agent = trader_agent
@@ -52,7 +53,7 @@ class RuntimeOrchestrator:
             families=list(families),
             family_params=dict(family_params or {}),
         )
-        dataset = self.data_agent.prepare_dataset(
+        dataset = self.data_process.prepare_dataset(
             asset=asset,
             timeframe=timeframe,
             asset_csv_path=asset_csv_path,
@@ -80,7 +81,7 @@ class RuntimeOrchestrator:
         families: tuple[str, ...],
         family_params: Mapping[str, Mapping[str, object]] | None = None,
     ) -> list[Dict[str, str]]:
-        store = self.data_agent.ctx.store
+        store = self.data_process.ctx.store
         events = store.list_events(limit=500)
         results: list[Dict[str, str]] = []
         emit_log(

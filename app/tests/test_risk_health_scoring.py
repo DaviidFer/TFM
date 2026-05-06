@@ -53,7 +53,8 @@ def test_trader_sano_returns_keep() -> None:
     assert snapshot.health_score >= 60.0
 
 
-def test_pocos_trades_no_retire() -> None:
+def test_pocos_trades_no_retraining() -> None:
+    """Sin evidencia forward suficiente el trader se mantiene LIVE (KEEP)."""
     snapshot = evaluate_trader_health(
         _design_profile(),
         TraderForwardMetrics(
@@ -74,11 +75,12 @@ def test_pocos_trades_no_retire() -> None:
         current_state="live",
         limits=RiskLimitsConfig(),
     )
-    assert snapshot.action in {RiskAction.KEEP.value, RiskAction.DEGRADED.value}
+    assert snapshot.action == RiskAction.KEEP.value
     assert snapshot.retrain_request is None
 
 
-def test_profit_factor_deteriorado_returns_degraded() -> None:
+def test_profit_factor_deteriorado_returns_retraining() -> None:
+    """Con evidencia suficiente y deterioro significativo -> RETRAINING."""
     snapshot = evaluate_trader_health(
         _design_profile(),
         TraderForwardMetrics(
@@ -101,10 +103,11 @@ def test_profit_factor_deteriorado_returns_degraded() -> None:
         current_state="live",
         limits=RiskLimitsConfig(),
     )
-    assert snapshot.action == RiskAction.DEGRADED.value
+    assert snapshot.action == RiskAction.RETRAINING.value
+    assert snapshot.retrain_request is not None
 
 
-def test_drawdown_severo_returns_suspend() -> None:
+def test_drawdown_severo_returns_retraining() -> None:
     snapshot = evaluate_trader_health(
         _design_profile(),
         TraderForwardMetrics(
@@ -130,10 +133,11 @@ def test_drawdown_severo_returns_suspend() -> None:
         current_state="live",
         limits=RiskLimitsConfig(),
     )
-    assert snapshot.action == RiskAction.SUSPEND.value
+    assert snapshot.action == RiskAction.RETRAINING.value
+    assert snapshot.retrain_request is not None
 
 
-def test_many_trades_and_low_health_returns_retire() -> None:
+def test_many_trades_and_low_health_returns_retraining() -> None:
     snapshot = evaluate_trader_health(
         _design_profile(),
         TraderForwardMetrics(
@@ -160,5 +164,5 @@ def test_many_trades_and_low_health_returns_retire() -> None:
         current_state="live",
         limits=RiskLimitsConfig(),
     )
-    assert snapshot.action == RiskAction.RETIRE.value
+    assert snapshot.action == RiskAction.RETRAINING.value
     assert snapshot.retrain_request is not None

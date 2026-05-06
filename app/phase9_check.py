@@ -4,7 +4,6 @@ from pathlib import Path
 
 from app.agents import (
     AgentContext,
-    DataAgent,
     DeveloperAgent,
     PortfolioManagerAgent,
     RiskAgent,
@@ -18,6 +17,7 @@ from app.execution.models import ExecutionMode
 from app.execution.mt5_connector import MT5Connector
 from app.execution.router import ExecutionRouter
 from app.orchestrator.simulation import SimulationRuntime
+from app.services import DataProcess
 from app.storage import StateStore
 
 
@@ -45,14 +45,14 @@ def main(*, db_path: Path | None = None) -> int:
         artifacts_root=Path("app/.tmp/phase9"),
         execution_router=execution_router,
     )
-    data_agent = DataAgent(ctx)
+    data_process = DataProcess(ctx)
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
     portfolio_agent = PortfolioManagerAgent(ctx)
     risk_agent = RiskAgent(ctx)
     simulation = SimulationRuntime(
-        data_agent=data_agent,
+        data_process=data_process,
         developer_agent=developer_agent,
         validation_agent=validation_agent,
         trader_agent=trader_agent,
@@ -94,11 +94,11 @@ def main(*, db_path: Path | None = None) -> int:
     # Data/Developer/Validation no deben tener acceso
     denied = False
     try:
-        ensure_execution_access(data_agent.agent_id)
+        ensure_execution_access(data_process.agent_id)
     except PermissionError:
         denied = True
     if not denied:
-        raise RuntimeError("Expected execution access denied for data_agent.")
+        raise RuntimeError("Expected execution access denied for data_process.")
 
     events = ctx.store.list_events(limit=500)
     print(f"events_total: {len(events)}")

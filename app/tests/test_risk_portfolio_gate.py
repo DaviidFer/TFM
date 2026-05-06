@@ -18,8 +18,8 @@ def _risk_agent() -> RiskAgent:
     store = StateStore(db_path=_tmp_db_path())
     ctx = AgentContext(store=store, artifacts_root=Path("app/.tmp/tests"))
     store.upsert_trader_state(trader_id="tr_live", asset="AAPL", timeframe="D1", state=TraderLifecycleState.LIVE)
-    store.upsert_trader_state(trader_id="tr_deg", asset="MSFT", timeframe="D1", state=TraderLifecycleState.DEGRADED)
-    store.upsert_trader_state(trader_id="tr_sus", asset="NVDA", timeframe="D1", state=TraderLifecycleState.SUSPENDED)
+    store.upsert_trader_state(trader_id="tr_live2", asset="MSFT", timeframe="D1", state=TraderLifecycleState.LIVE)
+    store.upsert_trader_state(trader_id="tr_retrain", asset="NVDA", timeframe="D1", state=TraderLifecycleState.RETRAINING)
     return RiskAgent(ctx)
 
 
@@ -31,25 +31,13 @@ def test_decision_ppo_valida_returns_approve() -> None:
     assert out.adjusted_weights["tr_live"] == 0.20
 
 
-def test_suspended_trader_is_blocked_to_cash() -> None:
+def test_retraining_trader_is_blocked_to_cash() -> None:
     agent = _risk_agent()
-    decision = PortfolioDecision(decision_id="rb_2", as_of="2026-04-01T00:00:00+00:00", selected_traders=["tr_sus"], weights={"tr_sus": 0.25}, target_cash_weight=0.0)
+    decision = PortfolioDecision(decision_id="rb_2", as_of="2026-04-01T00:00:00+00:00", selected_traders=["tr_retrain"], weights={"tr_retrain": 0.25}, target_cash_weight=0.0)
     out = agent.review_portfolio_decision(decision, account_info=None, open_positions=[], limits=RiskLimitsConfig())
-    assert "tr_sus" in out.blocked_traders
+    assert "tr_retrain" in out.blocked_traders
     assert out.adjusted_weights == {}
     assert out.forced_cash_weight >= 1.0 - 1e-9
-
-
-def test_degraded_trader_is_scaled_down() -> None:
-    agent = _risk_agent()
-    decision = PortfolioDecision(decision_id="rb_3", as_of="2026-04-01T00:00:00+00:00", selected_traders=["tr_deg"], weights={"tr_deg": 0.20}, target_cash_weight=0.0)
-    out = agent.review_portfolio_decision(
-        decision,
-        account_info=None,
-        open_positions=[],
-        limits=RiskLimitsConfig(degraded_weight_multiplier=0.5, max_weight_per_trader=0.30, max_weight_per_asset=0.50, min_cash_buffer=0.10),
-    )
-    assert out.adjusted_weights["tr_deg"] == 0.10
 
 
 def test_excessive_weight_is_clipped() -> None:
@@ -65,8 +53,8 @@ def test_total_exposure_and_cash_buffer_scale_down() -> None:
     decision = PortfolioDecision(
         decision_id="rb_5",
         as_of="2026-04-01T00:00:00+00:00",
-        selected_traders=["tr_live", "tr_deg"],
-        weights={"tr_live": 0.70, "tr_deg": 0.20},
+        selected_traders=["tr_live", "tr_live2"],
+        weights={"tr_live": 0.70, "tr_live2": 0.20},
         target_cash_weight=0.10,
     )
     out = agent.review_portfolio_decision(

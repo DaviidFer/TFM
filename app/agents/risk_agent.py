@@ -62,9 +62,9 @@ class RiskAgent:
             self.limits = RiskLimitsConfig(
                 **{
                     **self.limits.to_dict(),
-                    "max_drawdown_multiplier_retire": max(float(self.thresholds.max_drawdown), 0.01),
-                    "min_sharpe_ratio_suspend": max(float(self.thresholds.min_sharpe), -10.0),
-                    "min_forward_trades_for_hard_decision": int(self.thresholds.min_trades),
+                    "max_drawdown_multiplier_retraining": max(float(self.thresholds.max_drawdown), 0.01),
+                    "min_sharpe_ratio_retraining": max(float(self.thresholds.min_sharpe), -10.0),
+                    "min_forward_trades_for_retraining": int(self.thresholds.min_trades),
                 }
             )
         self.data_source = data_source or getattr(ctx.execution_router, "market_data", None)
@@ -153,7 +153,7 @@ class RiskAgent:
         )
         self._append_risk_event(snapshot)
         if snapshot.retrain_request is not None:
-            priority = "high" if snapshot.action == RiskAction.RETIRE.value else "normal"
+            priority = "high" if snapshot.action == RiskAction.RETRAINING.value else "normal"
             self.ctx.store.create_retrain_request(
                 request_id=snapshot.retrain_request.request_id,
                 trader_id=snapshot.retrain_request.trader_id,
@@ -198,7 +198,7 @@ class RiskAgent:
         if spec is None:
             return None
         state_row = self.ctx.store.get_trader_state(str(trader_id))
-        current_state = state_row.state.value if state_row is not None else TraderLifecycleState.PROMOTED.value
+        current_state = state_row.state.value if state_row is not None else TraderLifecycleState.LIVE.value
         design_profile = self._build_design_profile(spec)
         eval_date = evaluation_date or datetime.now(timezone.utc)
         eval_iso = pd.Timestamp(eval_date).isoformat()
@@ -243,9 +243,7 @@ class RiskAgent:
         self.ctx.store.set_agent_status(self.agent_id, AgentStatus.RUNNING, f"risk evaluating universe ({run_type})")
         self.ctx.store.create_risk_evaluation_run(run_id=run_id, run_type=run_type, status="running", metadata={"force_backtest": bool(force_backtest)})
         snapshots: list[TraderHealthSnapshot] = []
-        degraded_count = 0
-        suspended_count = 0
-        retired_count = 0
+        retraining_count = 0
         retrain_requests = 0
         try:
             for trader_id in sorted(self._load_promoted_specs().keys()):
@@ -259,21 +257,15 @@ class RiskAgent:
                 if snapshot is None:
                     continue
                 snapshots.append(snapshot)
-                if snapshot.action == RiskAction.DEGRADED.value:
-                    degraded_count += 1
-                elif snapshot.action == RiskAction.SUSPEND.value:
-                    suspended_count += 1
-                elif snapshot.action == RiskAction.RETIRE.value:
-                    retired_count += 1
+                if snapshot.action == RiskAction.RETRAINING.value:
+                    retraining_count += 1
                 if snapshot.retrain_request is not None:
                     retrain_requests += 1
             self.ctx.store.complete_risk_evaluation_run(
                 run_id=run_id,
                 status="completed",
                 evaluated_traders=len(snapshots),
-                degraded_count=degraded_count,
-                suspended_count=suspended_count,
-                retired_count=retired_count,
+                retraining_count=retraining_count,
                 retrain_requests_count=retrain_requests,
                 metadata={"force_backtest": bool(force_backtest)},
             )
@@ -284,9 +276,7 @@ class RiskAgent:
                 run_id=run_id,
                 status="failed",
                 evaluated_traders=len(snapshots),
-                degraded_count=degraded_count,
-                suspended_count=suspended_count,
-                retired_count=retired_count,
+                retraining_count=retraining_count,
                 retrain_requests_count=retrain_requests,
                 notes=str(exc),
                 metadata={"force_backtest": bool(force_backtest)},
@@ -373,18 +363,11 @@ class RiskAgent:
 
         for trader_id in list(adjusted.keys()):
             state = str((state_map.get(trader_id) or {}).get("state") or TraderLifecycleState.LIVE.value)
-            if state in {TraderLifecycleState.SUSPENDED.value, TraderLifecycleState.RETIRED.value, TraderLifecycleState.RETRAINING.value}:
+            if state == TraderLifecycleState.RETRAINING.value:
                 if adjusted.get(trader_id, 0.0) > 0:
                     blocked.append(trader_id)
-                    reasons.append(f"{trader_id} bloqueado por estado {state}.")
-                adjusted[trader_id] = float(limits.suspended_weight if state == TraderLifecycleState.SUSPENDED.value else limits.retired_weight)
-            elif state == TraderLifecycleState.DEGRADED.value:
-                old = float(adjusted.get(trader_id, 0.0))
-                new = old * float(limits.degraded_weight_multiplier)
-                if new < old:
-                    reasons.append(f"{trader_id} reducido por estado degraded.")
-                    clipped.append(trader_id)
-                adjusted[trader_id] = new
+                    reasons.append(f"{trader_id} bloqueado por estado retraining (cash forzado).")
+                adjusted[trader_id] = 0.0
 
         for trader_id, weight in list(adjusted.items()):
             capped = min(float(weight), float(limits.max_weight_per_trader))
@@ -495,13 +478,13 @@ class RiskAgent:
         action = "keep"
         reason = "within thresholds"
         if dd >= self.thresholds.max_drawdown:
-            action = "retire"
+            action = "retraining"
             reason = f"drawdown breach ({dd:.4f} >= {self.thresholds.max_drawdown:.4f})"
         elif trades >= self.thresholds.min_trades and sharpe <= self.thresholds.min_sharpe:
-            action = "retire"
+            action = "retraining"
             reason = f"sharpe degradation ({sharpe:.4f} <= {self.thresholds.min_sharpe:.4f})"
         elif dd >= (0.8 * self.thresholds.max_drawdown):
-            action = "suspend"
+            action = "retraining"
             reason = f"drawdown warning ({dd:.4f})"
 
         decision = RiskDecision(
@@ -529,14 +512,7 @@ class RiskAgent:
             decision=decision.to_dict(),
         )
 
-        if action == "retire":
-            self.ctx.store.upsert_trader_state(
-                trader_id=trader_id,
-                asset=asset,
-                timeframe=timeframe,
-                state=TraderLifecycleState.RETIRED,
-                notes=reason,
-            )
+        if action == "retraining":
             retrain = RetrainRequest(
                 request_id=f"rr_{uuid4().hex[:10]}",
                 trader_id=trader_id,
@@ -558,15 +534,7 @@ class RiskAgent:
                 asset=asset,
                 timeframe=timeframe,
                 state=TraderLifecycleState.RETRAINING,
-                notes="retrain requested by risk",
-            )
-        elif action == "suspend":
-            self.ctx.store.upsert_trader_state(
-                trader_id=trader_id,
-                asset=asset,
-                timeframe=timeframe,
-                state=TraderLifecycleState.SUSPENDED,
-                notes=reason,
+                notes="retrain requested by risk: " + reason,
             )
 
         self.ctx.store.set_agent_status(self.agent_id, AgentStatus.IDLE, action)

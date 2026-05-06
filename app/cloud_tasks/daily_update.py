@@ -10,7 +10,7 @@ from app.cloud_tasks import summarize_result
 def main() -> int:
     result: dict[str, object] = {"status": "warning", "warning": "data_download_not_available"}
     try:
-        module = importlib.import_module("data_download.download")
+        module = importlib.import_module("app.toolbox.data_download.download")
         runner = getattr(module, "run_data_download", None)
         if callable(runner):
             universe_df, all_results, failed = runner()

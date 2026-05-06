@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pandas as pd
 
-from backtest_eventos.runner import run_event_backtest
+from app.toolbox.backtest_eventos.runner import run_event_backtest
 from app.contracts import DesignRiskProfile, PromotedTraderSpec, TraderForwardMetrics
 from app.core.structured_logging import emit_log
 from app.services.risk.risk_metrics import (

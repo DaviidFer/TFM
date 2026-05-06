@@ -35,7 +35,7 @@ OPS_EVENT_TYPES = {
 }
 OPS_COMPONENTS = {"mt5_connector", "mt5_data_provider", "live_runtime", "execution_router", "trader_agent"}
 DEFAULT_EVENT_LIMIT = 300
-DEFAULT_AUTO_REFRESH_MS = 750
+DEFAULT_AUTO_REFRESH_MS = 2500
 
 
 def _fmt_ts(ts: str | None) -> str:
@@ -424,9 +424,6 @@ def _is_live_portfolio_rebalance(row: Dict[str, Any]) -> bool:
 def _human_risk_action(action: Any) -> str:
     mapping = {
         "keep": "Mantener",
-        "degraded": "Degradado",
-        "suspend": "Suspendido",
-        "retire": "Retirar",
         "retraining": "Reentrenando",
         "approve": "Aprobada",
         "approve_with_clipping": "Aprobada con recorte",
@@ -441,11 +438,7 @@ def _human_risk_action(action: Any) -> str:
 def _human_trader_state(state: Any) -> str:
     mapping = {
         "live": "LIVE",
-        "degraded": "DEGRADED",
-        "suspended": "SUSPENDED",
-        "retired": "RETIRED",
         "retraining": "RETRAINING",
-        "promoted": "PROMOTED",
     }
     return mapping.get(str(state or "").strip().lower(), str(state or "-"))
 
@@ -461,7 +454,6 @@ def _model_name(raw: Any) -> str:
     txt = str(raw or "").strip().lower()
     mapping = {
         "quantile": "Quantiles",
-        "subgroup": "Subgroup",
         "rulefit": "RuleFit",
         "genetic": "Genético",
     }
@@ -527,7 +519,8 @@ def _pretty_dev_event_title(e: Dict[str, Any]) -> str:
     producer = str(e.get("producer", "") or "")
     event_type = str(e.get("event_type", "") or "")
     mapping = {
-        ("data_agent", "dataset_ready"): "Data Agent -> Dataset preparado",
+        ("data_process", "dataset_ready"): "DataProcess -> Dataset preparado",
+        ("data_agent", "dataset_ready"): "DataProcess -> Dataset preparado",
         ("developer_agent", "development_started"): "Developer Agent -> Configuración del desarrollo",
         ("developer_agent", "split_and_target_ready"): "Developer Agent -> Split preparado",
         ("developer_agent", "candidate_rules_ready"): "Developer Agent -> Generación de reglas completada",
@@ -782,8 +775,12 @@ def _get_supervisor() -> DevelopmentOperationalSupervisor:
     if needs_rebuild:
         db_path = Path(getattr(sup, "db_path", default_db_path))
         prev_status = {}
+        resume_development = False
+        resume_runtime = False
         try:
             prev_status = sup.get_status() if hasattr(sup, "get_status") else {}
+            resume_development = bool(prev_status.get("develop_enabled"))
+            resume_runtime = bool(prev_status.get("operational_runtime_started")) or bool(prev_status.get("running"))
             if hasattr(sup, "stop_development"):
                 sup.stop_development()
             if hasattr(sup, "_shutdown"):
@@ -797,28 +794,44 @@ def _get_supervisor() -> DevelopmentOperationalSupervisor:
             rebuilt.set_target_traders(int(prev_status.get("target_traders", 8)))
         except Exception:
             pass
+        try:
+            if resume_development:
+                rebuilt.start()
+            elif resume_runtime:
+                rebuilt.start_operational_runtime()
+        except Exception:
+            pass
         st.session_state["tfm_supervisor"] = rebuilt
     return st.session_state["tfm_supervisor"]
+
+
+@st.cache_data(ttl=2, show_spinner=False)
+def _load_cached_dashboard_snapshot(db_path_str: str, event_limit: int) -> Dict[str, Any]:
+    snap = load_dashboard_snapshot(db_path=Path(db_path_str), event_limit=event_limit)
+    return {
+        "events": list(reversed(snap.events)),
+        "trader_states": list(snap.trader_states),
+    }
 
 
 def _load_events(db_path: Path, event_limit: int) -> List[Dict[str, Any]]:
     if not db_path.exists():
         return []
-    snap = load_dashboard_snapshot(db_path=db_path, event_limit=event_limit)
-    return list(reversed(snap.events))
+    snap = _load_cached_dashboard_snapshot(str(db_path), int(event_limit))
+    return list(snap.get("events", []))
 
 
 def _load_trader_states(db_path: Path) -> List[Dict[str, Any]]:
     if not db_path.exists():
         return []
-    snap = load_dashboard_snapshot(db_path=db_path, event_limit=200)
-    return snap.trader_states
+    snap = _load_cached_dashboard_snapshot(str(db_path), 200)
+    return list(snap.get("trader_states", []))
 
 
 def _filter_dev_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for e in events:
-        if str(e.get("event_type")) in DEV_EVENT_TYPES or str(e.get("producer")) in {"data_agent", "developer_agent", "validation_agent", "supervisor"}:
+        if str(e.get("event_type")) in DEV_EVENT_TYPES or str(e.get("producer")) in {"data_process", "data_agent", "developer_agent", "validation_agent", "supervisor"}:
             out.append(e)
     return out
 
@@ -1351,13 +1364,37 @@ def main() -> None:
     supervisor = _get_supervisor()
 
     status = supervisor.get_status()
-    all_events = _load_events(Path(supervisor.db_path), int(DEFAULT_EVENT_LIMIT))
-    all_states = _load_trader_states(Path(supervisor.db_path))
-    backtests = supervisor.get_backtest_registry() if hasattr(supervisor, "get_backtest_registry") else {}
-    pm_snapshot = supervisor.get_portfolio_manager_snapshot() if hasattr(supervisor, "get_portfolio_manager_snapshot") else {}
-    risk_snapshot = supervisor.get_risk_agent_snapshot() if hasattr(supervisor, "get_risk_agent_snapshot") else {}
+    section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Risk Agent"]
+    selected_section = st.radio(
+        "Sección",
+        options=section_options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="dashboard_section",
+    )
+
+    need_events = selected_section in {"Desarrollo", "Backtest", "Operativa"}
+    need_states = True
+    need_backtests = selected_section == "Backtest"
+    need_pm_history = selected_section == "Portfolio manager"
+    need_risk_history = selected_section == "Risk Agent"
+    need_open_positions = bool(status.get("mt5_connected")) and selected_section == "Operativa"
+
+    all_events = _load_events(Path(supervisor.db_path), int(DEFAULT_EVENT_LIMIT)) if need_events else []
+    all_states = _load_trader_states(Path(supervisor.db_path)) if need_states else []
+    backtests = supervisor.get_backtest_registry() if (need_backtests and hasattr(supervisor, "get_backtest_registry")) else {}
+    pm_snapshot = (
+        supervisor.get_portfolio_manager_snapshot(include_history=need_pm_history)
+        if hasattr(supervisor, "get_portfolio_manager_snapshot")
+        else {}
+    )
+    risk_snapshot = (
+        supervisor.get_risk_agent_snapshot(include_history=need_risk_history)
+        if hasattr(supervisor, "get_risk_agent_snapshot")
+        else {}
+    )
     pending_orders = list(pm_snapshot.get("pending_orders", []) or [])
-    open_positions = _safe_mt5_positions(supervisor)
+    open_positions = _safe_mt5_positions(supervisor) if need_open_positions else []
     signal_book = list(pm_snapshot.get("signal_book", []) or [])
     signal_audit = list(pm_snapshot.get("signal_audit", []) or [])
     last_output = dict(pm_snapshot.get("last_output", {}) or {})
@@ -1380,14 +1417,17 @@ def main() -> None:
         open_positions=open_positions,
         pending_orders=pending_orders,
     )
-    _mount_auto_refresh_watcher(enabled=True, interval_ms=int(DEFAULT_AUTO_REFRESH_MS), signature=live_signature)
+    refresh_ms = 1500 if selected_section == "Desarrollo" else (3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS))
+    _mount_auto_refresh_watcher(enabled=True, interval_ms=refresh_ms, signature=live_signature)
     st.caption(f"DB: `{supervisor.db_path}`")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     c1.metric("Supervisor", "running" if bool(status.get("running")) else "stopped")
     c2.metric("Desarrollo", "activo" if bool(status.get("develop_enabled")) else "parado")
     # Fuente robusta para UI: DB persistida, no solo estado en memoria.
     c3.metric("Traders desarrollados", int(len(all_states)))
-    c4.metric("MT5", "conectado" if bool(status.get("mt5_connected")) else "desconectado")
+    runtime_mode = str(status.get("operational_runtime_mode") or "-")
+    mt5_label = "conectado" if bool(status.get("mt5_connected")) else f"desconectado ({runtime_mode})"
+    c4.metric("MT5", mt5_label)
     c5.metric("Señales PM", int(len(signal_book)))
     c6.metric("Posiciones abiertas", int(len(open_positions)))
     c7.metric("Retries pendientes", int(len(pending_orders)))
@@ -1397,9 +1437,7 @@ def main() -> None:
         if st.button("Refrescar dashboard", key="btn_global_refresh"):
             st.rerun()
 
-    tab_dev, tab_bt, tab_ops, tab_pm, tab_risk = st.tabs(["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Risk Agent"])
-
-    with tab_dev:
+    if selected_section == "Desarrollo":
         st.markdown("### Controles de desarrollo")
         pre_status = supervisor.get_status()
         c_ctl_1, c_ctl_2 = st.columns([1, 2])
@@ -1456,7 +1494,8 @@ def main() -> None:
         if current_steps:
             st.markdown("**Progreso del ciclo actual**")
             human_steps = {
-                "data_agent": "1) DataAgent",
+                "data_process": "1) DataProcess",
+                "data_agent": "1) DataProcess",
                 "developer_agent": "2) DeveloperAgent",
                 "validation_agent": "3) ValidationAgent",
                 "trader_agent": "4) TraderAgent",
@@ -1494,7 +1533,7 @@ def main() -> None:
             st.markdown("### Traders desarrollados")
             st.table(pd.DataFrame(states)[["trader", "asset", "timeframe", "state", "updated_at"]])
 
-    with tab_bt:
+    if selected_section == "Backtest":
         st.markdown("### Backtests por trader")
         states = list(all_states)
         promoted_rules = _build_promoted_rules_index(all_events)
@@ -1657,7 +1696,7 @@ def main() -> None:
                     else:
                         st.info("Backtest pendiente. Se ejecutara al crear/promover el trader.")
 
-    with tab_pm:
+    if selected_section == "Portfolio manager":
         st.markdown("### Portfolio manager")
         pm_btn_1, pm_btn_2 = st.columns(2)
         if pm_btn_1.button("Forzar solo reentrenamiento", key="btn_pm_force_retrain_only"):
@@ -1950,7 +1989,7 @@ def main() -> None:
                 table_df = pd.DataFrame(table_rows).sort_values("rebalance_date", ascending=True).reset_index(drop=True)
                 st.dataframe(table_df, width="stretch", hide_index=True)
 
-    with tab_risk:
+    if selected_section == "Risk Agent":
         st.markdown("### Risk Agent")
         risk_runs = list(risk_snapshot.get("runs", []) or [])
         latest_risk_run = dict(risk_snapshot.get("latest_run", {}) or {})
@@ -1987,19 +2026,15 @@ def main() -> None:
                 st.rerun()
 
         live_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "live")
-        degraded_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "degraded")
-        suspended_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "suspended")
-        retired_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "retired")
+        retraining_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "retraining")
         insufficient_count = sum(1 for row in risk_rows if bool((row.get("forward_metrics") or {}).get("insufficient_evidence")))
-        k1, k2, k3, k4, k5, k6, k7, k8 = st.columns(8)
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
         k1.metric("Última evaluación", _fmt_ts(str(risk_status.get("last_evaluation_at") or latest_risk_run.get("completed_at") or "-")))
         k2.metric("Próxima evaluación", "Días 1-3 / 30 días")
         k3.metric("LIVE", live_count)
-        k4.metric("DEGRADED", degraded_count)
-        k5.metric("SUSPENDED", suspended_count)
-        k6.metric("RETIRED", retired_count)
-        k7.metric("Retrain pendientes", len(pending_retrain_requests))
-        k8.metric("Evidencia insuficiente", insufficient_count)
+        k4.metric("RETRAINING", retraining_count)
+        k5.metric("Retrain pendientes", len(pending_retrain_requests))
+        k6.metric("Evidencia insuficiente", insufficient_count)
         st.caption(
             f"Estado evaluación Risk: {str(risk_status.get('last_evaluation_status') or latest_risk_run.get('status') or '-')}"
             f" | Run ID: {str(risk_status.get('last_evaluation_run_id') or latest_risk_run.get('run_id') or '-')}"
@@ -2170,12 +2205,21 @@ def main() -> None:
         else:
             st.info("Todavía no hay revisiones de cartera PPO por parte de Risk.")
 
-    with tab_ops:
+    if selected_section == "Operativa":
         st.markdown("### Operativa por trader")
+        runtime_mode = str(status.get("operational_runtime_mode") or "paper")
+        if runtime_mode != "live_mt5":
+            st.warning(
+                "La operativa está corriendo en modo degradado `paper` porque MT5 no está listo. "
+                "Aun así, el runtime puede generar señales y auditoría de portfolio/risk."
+            )
         if st.button("Lanzar operativa MT5 con traders actuales", key="btn_start_ops_mt5"):
             out = supervisor.start_operational_runtime() if hasattr(supervisor, "start_operational_runtime") else {"started": False}
             if bool(out.get("started")):
-                st.success(f"Operativa MT5 iniciada con {int(out.get('n_traders', 0))} traders.")
+                st.success(
+                    f"Operativa iniciada con {int(out.get('n_traders', 0))} traders "
+                    f"en modo `{str(out.get('runtime_mode') or runtime_mode)}`."
+                )
             else:
                 st.warning("No se pudo iniciar operativa MT5 en este momento.")
             st.rerun()
@@ -2217,7 +2261,8 @@ def main() -> None:
                 st.error(f"Error enviando orden manual AAPL: {exc}")
         st.caption(
             f"{_market_status_text()} | MT5: {'conectado' if bool(status.get('mt5_connected')) else 'desconectado'} | "
-            f"Runtime: {'activo' if bool(status.get('operational_runtime_started')) else 'parado'}"
+            f"Runtime: {'activo' if bool(status.get('operational_runtime_started')) else 'parado'} | "
+            f"Modo runtime: {runtime_mode}"
         )
         st.markdown("### Ordenes pendientes de retry")
         if not pending_orders:

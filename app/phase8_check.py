@@ -5,7 +5,6 @@ from pathlib import Path
 
 from app.agents import (
     AgentContext,
-    DataAgent,
     DeveloperAgent,
     PortfolioManagerAgent,
     RiskAgent,
@@ -18,6 +17,7 @@ from app.execution.models import ExecutionMode
 from app.execution.mt5_connector import MT5Connector
 from app.execution.router import ExecutionRouter
 from app.orchestrator.simulation import SimulationRuntime
+from app.services import DataProcess
 from app.storage import StateStore
 
 
@@ -45,14 +45,14 @@ def main(*, db_path: Path | None = None) -> int:
         artifacts_root=Path("app/.tmp/phase8"),
         execution_router=execution_router,
     )
-    data_agent = DataAgent(ctx)
+    data_process = DataProcess(ctx)
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
     risk_agent = RiskAgent(ctx)
     portfolio_agent = PortfolioManagerAgent(ctx)
     simulation = SimulationRuntime(
-        data_agent=data_agent,
+        data_process=data_process,
         developer_agent=developer_agent,
         validation_agent=validation_agent,
         trader_agent=trader_agent,
@@ -69,10 +69,13 @@ def main(*, db_path: Path | None = None) -> int:
     states_before = ctx.store.list_trader_states()
     counts_before = Counter([s.state.value for s in states_before])
     print(f"states_before_activation: {dict(counts_before)}")
-    if counts_before.get("promoted", 0) < 3:
-        raise RuntimeError("Expected promoted queue before activation.")
+    # Tras la simplificacion del lifecycle, los traders validados NO se persisten
+    # en trader_states hasta que TraderAgent.activate los pone LIVE. La cola de
+    # validados vive en eventos TRADER_PROMOTED y en _promoted_registry.
     if counts_before.get("live", 0) != 0:
         raise RuntimeError("Expected zero live traders before portfolio activation.")
+    if len(simulation.get_promoted_registry()) < 3:
+        raise RuntimeError("Expected at least 3 validated candidates in registry.")
 
     activated = simulation.activate_top_candidates(max_live_traders=2, max_weight=0.7, min_score=-0.25)
     print(f"activated_traders: {activated}")
@@ -108,8 +111,11 @@ def main(*, db_path: Path | None = None) -> int:
     print(f"states_after_activation: {dict(counts_after)}")
     if counts_after.get("live", 0) <= 0:
         raise RuntimeError("Expected at least one LIVE trader after activation.")
-    if counts_after.get("promoted", 0) <= 0:
-        raise RuntimeError("Expected at least one trader still queued as PROMOTED.")
+    # Los traders validados pero no seleccionados por el portfolio siguen en la
+    # cola de _promoted_registry; no aparecen en trader_states hasta que se activen.
+    not_yet_activated = len(simulation.get_promoted_registry()) - counts_after.get("live", 0)
+    if not_yet_activated <= 0:
+        raise RuntimeError("Expected at least one validated candidate still pending activation.")
 
     metrics = ctx.store.list_trader_metrics()
     print(f"metrics_total: {len(metrics)}")

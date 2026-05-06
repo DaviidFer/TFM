@@ -4,7 +4,7 @@ from typing import Dict
 
 import pandas as pd
 
-from definicion_target import run_target_para_bloques
+from app.toolbox.definicion_target import run_target_para_bloques
 
 
 def apply_target_to_blocks(blocks: Dict[str, pd.DataFrame], *, out_col: str = "Target") -> Dict[str, pd.DataFrame]:

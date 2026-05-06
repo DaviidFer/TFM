@@ -17,16 +17,18 @@ from contextlib import redirect_stdout
 from contextlib import redirect_stderr
 
 import pandas as pd
-from backtest_eventos.runner import run_event_backtest
-from app.agents import AgentContext, DataAgent, DeveloperAgent, PortfolioManagerAgent, RiskAgent, TraderAgent, ValidationAgent
+from app.toolbox.backtest_eventos.runner import run_event_backtest
+from app.agents import AgentContext, DeveloperAgent, PortfolioManagerAgent, RiskAgent, TraderAgent, ValidationAgent
 from app.contracts import PromotedTraderSpec
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
+from app.execution.local_d1_data_provider import LocalD1DataProvider
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.execution.models import ExecutionMode
 from app.execution.mt5_connector import MT5Connector
 from app.execution.mt5_data_provider import MT5DataProvider
 from app.execution.router import ExecutionRouter
 from app.runtime.live_trading_runtime import LiveTradingRuntime
+from app.services import DataProcess
 from app.services.portfolio_rl import PortfolioOHLCRefreshService
 from app.services.risk import build_design_risk_profile
 from app.storage import StateStore
@@ -56,7 +58,7 @@ def _utc_now_iso() -> str:
 
 class DevelopmentOperationalSupervisor:
     _LOG_SEPARATOR = "═" * 54
-    _REPORT_FORMAT_VERSION = 8
+    _REPORT_FORMAT_VERSION = 9
 
     """
     Supervisor no bloqueante para Streamlit:
@@ -89,6 +91,7 @@ class DevelopmentOperationalSupervisor:
             "target_traders": 8,
             "mt5_connected": False,
             "operational_runtime_started": False,
+            "operational_runtime_mode": self.execution_router.mode.value,
             "development_session_started_at": None,
             "last_cycle_completed_at": None,
             "last_cycle_asset": None,
@@ -123,7 +126,7 @@ class DevelopmentOperationalSupervisor:
             artifacts_root=self.db_path.parent,
             execution_router=self.execution_router,
         )
-        self.data_agent = DataAgent(self.ctx)
+        self.data_process = DataProcess(self.ctx)
         self.developer_agent = DeveloperAgent(self.ctx)
         self.validation_agent = ValidationAgent(self.ctx)
         self.trader_agent = TraderAgent(self.ctx)
@@ -150,7 +153,7 @@ class DevelopmentOperationalSupervisor:
         except Exception:
             return []
 
-    def get_portfolio_manager_snapshot(self) -> Dict[str, object]:
+    def get_portfolio_manager_snapshot(self, *, include_history: bool = True) -> Dict[str, object]:
         signal_book: list[Dict[str, object]] = []
         last_output: Dict[str, object] | None = None
         if self._runtime is not None:
@@ -173,13 +176,14 @@ class DevelopmentOperationalSupervisor:
         signal_audit_rows: list[Dict[str, object]] = []
         try:
             latest_model = self.ctx.store.get_latest_portfolio_model_info()
-            training_runs = self.ctx.store.list_portfolio_training_runs(limit=20)
-            if training_runs:
-                training_metrics = self.ctx.store.list_portfolio_training_metrics(str(training_runs[0].get("run_id")))
-            rebalance_rows = self.ctx.store.list_portfolio_rebalance_snapshots(limit=100)
-            forward_rows = self.ctx.store.list_portfolio_forward_evaluations(limit=500)
-            backtest_runs = self.ctx.store.list_trader_backtest_runs(limit=200)
-            signal_audit_rows = self.ctx.store.list_trader_signal_audit(limit=5000)
+            if include_history:
+                training_runs = self.ctx.store.list_portfolio_training_runs(limit=20)
+                if training_runs:
+                    training_metrics = self.ctx.store.list_portfolio_training_metrics(str(training_runs[0].get("run_id")))
+                rebalance_rows = self.ctx.store.list_portfolio_rebalance_snapshots(limit=100)
+                forward_rows = self.ctx.store.list_portfolio_forward_evaluations(limit=500)
+                backtest_runs = self.ctx.store.list_trader_backtest_runs(limit=200)
+                signal_audit_rows = self.ctx.store.list_trader_signal_audit(limit=5000)
         except Exception:
             pass
         return {
@@ -215,7 +219,7 @@ class DevelopmentOperationalSupervisor:
         pending = [row for row in all_requests if str(row.get("status")) == "pending"]
         return {"all_requests": all_requests, "pending_requests": pending}
 
-    def get_risk_agent_snapshot(self) -> Dict[str, object]:
+    def get_risk_agent_snapshot(self, *, include_history: bool = True) -> Dict[str, object]:
         runs: list[Dict[str, object]] = []
         latest_run: Dict[str, object] = {}
         details: list[Dict[str, object]] = []
@@ -225,15 +229,16 @@ class DevelopmentOperationalSupervisor:
         portfolio_checks: list[Dict[str, object]] = []
         retrain_requests: list[Dict[str, object]] = []
         try:
-            runs = list(self.ctx.store.list_risk_evaluation_runs(limit=50))
-            latest_run = runs[0] if runs else {}
-            if latest_run:
-                details = list(self.ctx.store.list_risk_evaluation_details(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
-                forward_metrics = list(self.ctx.store.list_trader_forward_metrics(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
-                forward_runs = list(self.ctx.store.list_trader_forward_backtest_runs(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
-            profiles = list(self.ctx.store.list_trader_design_profiles(limit=2000))
-            portfolio_checks = list(self.ctx.store.list_risk_portfolio_checks(limit=200))
             retrain_requests = list(self.ctx.store.list_retrain_requests(limit=500))
+            if include_history:
+                runs = list(self.ctx.store.list_risk_evaluation_runs(limit=50))
+                latest_run = runs[0] if runs else {}
+                if latest_run:
+                    details = list(self.ctx.store.list_risk_evaluation_details(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                    forward_metrics = list(self.ctx.store.list_trader_forward_metrics(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                    forward_runs = list(self.ctx.store.list_trader_forward_backtest_runs(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                profiles = list(self.ctx.store.list_trader_design_profiles(limit=2000))
+                portfolio_checks = list(self.ctx.store.list_risk_portfolio_checks(limit=200))
         except Exception:
             pass
         details_by_trader = {str(row.get("trader_id")): row for row in details}
@@ -315,6 +320,9 @@ class DevelopmentOperationalSupervisor:
     def _set_backtest_entry(self, trader_id: str, payload: Dict[str, object]) -> None:
         with self._status_lock:
             self._backtest_registry[trader_id] = payload
+
+    def _cycle_should_abort(self) -> bool:
+        return bool(self._shutdown.is_set() or (not self._develop_enabled.is_set()))
 
     @staticmethod
     def _hash_rules(promoted_spec: PromotedTraderSpec) -> str:
@@ -811,7 +819,6 @@ class DevelopmentOperationalSupervisor:
         mapping = {
             "quantile": "Quantiles",
             "rulefit": "RuleFit",
-            "subgroup": "Subgroup",
             "genetico": "Genético",
             "decision_tree": "Decision Tree",
         }
@@ -956,14 +963,14 @@ class DevelopmentOperationalSupervisor:
         print(self._LOG_SEPARATOR)
 
     def _build_strategy(self, asset: str) -> Dict[str, object]:
-        families = ("decision_tree", "rulefit", "genetico", "quantile", "subgroup")
+        families = ("decision_tree", "rulefit", "genetico", "quantile")
         chosen = random.choice(families)
         if chosen == "decision_tree":
-            params = {"decision_tree": {"target_n_rules": random.randint(16, 45), "progress_every": 0}}
+            params = {"decision_tree": {"target_n_rules": random.randint(24, 40), "progress_every": 0}}
         elif chosen == "rulefit":
             params = {
                 "rulefit": {
-                    "target_n_rules": random.randint(16, 45),
+                    "target_n_rules": random.randint(24, 40),
                     "n_estimators": random.randint(20, 55),
                     "max_candidate_rules": random.randint(120, 260),
                     "progress_every": 0,
@@ -972,35 +979,35 @@ class DevelopmentOperationalSupervisor:
         elif chosen == "genetico":
             params = {
                 "genetico": {
-                    "target_n_rules": random.randint(16, 45),
+                    "target_n_rules": random.randint(24, 40),
                     "population_size": random.randint(24, 60),
                     "n_generations": random.randint(6, 14),
                     "progress_every": 0,
                 }
             }
         elif chosen == "quantile":
-            params = {"quantile": {"n_bins": random.randint(3, 6), "combo_size": 1, "min_coverage": random.randint(80, 220)}}
+            params = {"quantile": {"n_bins": 4, "combo_size": 2, "min_coverage": 100}}
         else:
-            params = {"subgroup": {"n_bins": random.randint(4, 7), "min_coverage": random.randint(60, 180)}}
+            raise RuntimeError(f"Familia de generación no soportada: {chosen}")
 
-        is_pct = round(random.uniform(0.55, 0.75), 2)
+        is_pct = round(random.uniform(0.30, 0.70), 2)
         split = {
             "is_pct": is_pct,
             "oos_pct": round(1.0 - is_pct, 2),
             "holdout_year": 2025,
             "lookback_years": 10,
+            "is_recent": random.choice([True, False]),
         }
         validation = {
             "split_assumption": {"holdout_year": 2025},
             "monkey_is": {
-                "n_monkeys": random.randint(90, 160),
-                "is_pass_pct": float(random.randint(85, 94)),
-                "min_coverage_is": random.randint(65, 90),
+                "n_monkeys": random.randint(200, 400),
+                "is_pass_pct": float(random.randint(85, 95)),
                 "n_jobs": 1,
             },
             "monkey_oos": {
-                "n_monkeys": random.randint(90, 160),
-                "oos_pass_pct": float(random.randint(70, 82)),
+                "n_monkeys": random.randint(200, 400),
+                "oos_pass_pct": float(random.randint(75, 85)),
                 "min_coverage_oos": random.randint(50, 75),
                 "n_jobs": 1,
             },
@@ -1031,12 +1038,15 @@ class DevelopmentOperationalSupervisor:
         chosen = str(strategy["chosen_family"])
         self._set_status(
             current_asset=asset,
-            current_stage="data_agent",
-            current_cycle_steps=["data_agent"],
+            current_stage="data_process",
+            current_cycle_steps=["data_process"],
         )
         sink = StringIO()
         with redirect_stdout(sink):
-            dataset = self.data_agent.prepare_dataset(asset=asset, timeframe="D1", asset_csv_path=csv_path)
+            dataset = self.data_process.prepare_dataset(asset=asset, timeframe="D1", asset_csv_path=csv_path)
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             self._set_status(current_stage="developer_agent")
             self._append_cycle_step("developer_agent")
             dev = self.developer_agent.develop(
@@ -1045,6 +1055,9 @@ class DevelopmentOperationalSupervisor:
                 family_params=strategy["params"],
                 split_config=strategy["split"],
             )
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             self._set_status(current_stage="validation_agent")
             self._append_cycle_step("validation_agent")
             val = self.validation_agent.validate_and_promote(
@@ -1052,6 +1065,9 @@ class DevelopmentOperationalSupervisor:
                 validation_profile=strategy["validation"],
                 promote_if_empty=False,
             )
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
 
         generated_long = len(dev.candidate_rules.long_rules)
         generated_short = len(dev.candidate_rules.short_rules)
@@ -1065,11 +1081,17 @@ class DevelopmentOperationalSupervisor:
             self._append_cycle_step("trader_agent")
             with redirect_stdout(sink):
                 self.trader_agent.activate(val.promoted_spec)
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             self._promoted_registry[val.promoted_spec.trader_id] = val.promoted_spec
             trader_id = val.promoted_spec.trader_id
             self._set_status(current_stage="backtest_agent")
             self._append_cycle_step("backtest_agent")
             self._run_backtest_for_promoted(val.promoted_spec)
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             backtest_status = str(self.get_backtest_registry().get(trader_id, {}).get("status", "pending"))
             if self._runtime is not None:
                 self._runtime.upsert_trader(val.promoted_spec)
@@ -1271,7 +1293,7 @@ class DevelopmentOperationalSupervisor:
                     raise FileNotFoundError(f"No CSV encontrado para {asset}")
                 strategy = self._build_strategy(asset)
                 chosen = str(strategy["chosen_family"])
-                dataset = self.data_agent.prepare_dataset(asset=asset, timeframe=timeframe, asset_csv_path=csv_path)
+                dataset = self.data_process.prepare_dataset(asset=asset, timeframe=timeframe, asset_csv_path=csv_path)
                 dev = self.developer_agent.develop(
                     dataset=dataset,
                     families=(chosen,),
@@ -1466,7 +1488,7 @@ class DevelopmentOperationalSupervisor:
 
     def ensure_mt5_execution_ready(self, *, symbols: list[str] | None = None) -> Dict[str, object]:
         try:
-            if not self.mt5.connected and not self.mt5.connect():
+            if not self.mt5.connected and not self.mt5.connect(quick=True):
                 self._set_status(mt5_connected=False)
                 return {"connected": False, "reason": "mt5_connect_failed", "mode": self.execution_router.mode.value}
             self.execution_router.mode = ExecutionMode.LIVE_MT5
@@ -1496,11 +1518,28 @@ class DevelopmentOperationalSupervisor:
         )
         symbols = sorted({spec.asset for spec in operational_specs.values()})
         ready = self.ensure_mt5_execution_ready(symbols=symbols)
-        if not bool(ready.get("connected")):
-            emit_log("supervisor", "mt5_connect_failed_after_threshold")
-            return False
         queue = Queue()
-        provider = MT5DataProvider(events_queue=queue, symbol_list=symbols, timeframe="1d")
+        runtime_mode = ExecutionMode.LIVE_MT5
+        if bool(ready.get("connected")):
+            provider = MT5DataProvider(events_queue=queue, symbol_list=symbols, timeframe="1d")
+            self.execution_router.mode = ExecutionMode.LIVE_MT5
+        else:
+            emit_log("supervisor", "mt5_connect_failed_after_threshold")
+            emit_log(
+                "supervisor",
+                "operational_runtime_paper_fallback",
+                console=False,
+                requested_mode=self.execution_mode.value,
+                reason=str(ready.get("reason") or "mt5_connect_failed"),
+                symbols=symbols,
+            )
+            self.execution_router.mode = ExecutionMode.PAPER
+            runtime_mode = ExecutionMode.PAPER
+            provider = LocalD1DataProvider(
+                events_queue=queue,
+                market_data=self.local_market_data,
+                symbol_list=symbols,
+            )
         self._runtime = LiveTradingRuntime(
             trader_agent=self.trader_agent,
             portfolio_manager=self.portfolio_manager_agent,
@@ -1513,7 +1552,11 @@ class DevelopmentOperationalSupervisor:
             timeframe="1d",
             bars_lookback=260,
         )
-        self._set_status(operational_runtime_started=True)
+        self._set_status(
+            operational_runtime_started=True,
+            operational_runtime_mode=runtime_mode.value,
+            mt5_connected=bool(ready.get("connected")),
+        )
         ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
         print(f"{ts} - STARTUP_SNAPSHOT total={len(operational_specs)} attributed={len(operational_specs)} unattributed=0")
         print("=" * 60)
@@ -1529,6 +1572,8 @@ class DevelopmentOperationalSupervisor:
             console=False,
             symbols=symbols,
             timeframe="1d",
+            runtime_mode=runtime_mode.value,
+            mt5_connected=bool(ready.get("connected")),
         )
         return True
 
@@ -1541,7 +1586,10 @@ class DevelopmentOperationalSupervisor:
             # Reinicio explícito para reconstruir símbolos/traders con el estado actual completo.
             self._runtime.stop()
             self._runtime = None
-            self._set_status(operational_runtime_started=False)
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=self.execution_router.mode.value,
+            )
         started = self._ensure_operational_runtime(force_start=True)
         if started and self._runtime is not None and hasattr(self._runtime, "bootstrap_now"):
             try:
@@ -1549,7 +1597,12 @@ class DevelopmentOperationalSupervisor:
             except Exception:
                 pass
         if started:
-            return {"started": True, "reason": "runtime_started", "n_traders": len(self._build_operational_registry())}
+            return {
+                "started": True,
+                "reason": "runtime_started",
+                "n_traders": len(self._build_operational_registry()),
+                "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
+            }
         return {"started": False, "reason": "runtime_not_started"}
 
     def _loop(self) -> None:
@@ -1612,11 +1665,23 @@ class DevelopmentOperationalSupervisor:
         emit_log("supervisor", "development_disabled", console=False)
 
     def reset_all(self) -> None:
+        self._set_status(
+            develop_enabled=False,
+            current_stage="resetting",
+            current_asset=None,
+            current_cycle_steps=[],
+        )
         self._develop_enabled.clear()
         self._shutdown.set()
         if self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=5)
+        if self._runtime is not None:
+            try:
+                self._runtime.stop()
+            except Exception:
+                pass
         self.mt5.shutdown()
+        self.execution_router.mode = self.execution_mode
         self._promoted_registry = {}
         self._runtime = None
         # Limpieza robusta: primero vacia tablas; luego intenta borrar fichero.
@@ -1647,6 +1712,7 @@ class DevelopmentOperationalSupervisor:
             target_traders=int(self._status.get("target_traders", 8)),
             mt5_connected=False,
             operational_runtime_started=False,
+            operational_runtime_mode=self.execution_router.mode.value,
             development_session_started_at=None,
             last_cycle_completed_at=None,
             last_cycle_asset=None,

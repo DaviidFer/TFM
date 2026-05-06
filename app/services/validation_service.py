@@ -5,10 +5,10 @@ from typing import Dict, Mapping
 import pandas as pd
 
 from app.core.structured_logging import emit_log
-from validacion_correlacion_pl import run_pl_correlation_pruning
-from validacion_estabilidad_pl import run_pl_stability_selection
-from validacion_forward import validate_forward_year_profitability
-from validacion_monos import monkey_validate_is_multi, monkey_validate_oos_multi
+from app.validation.correlation import run_pl_correlation_pruning
+from app.validation.stability import run_pl_stability_selection
+from app.validation.forward import validate_forward_year_profitability
+from app.validation.monos import monkey_validate_is_multi, monkey_validate_oos_multi
 
 
 DEFAULT_VALIDATION_PROFILE: Dict[str, Dict[str, object]] = {
@@ -18,14 +18,13 @@ DEFAULT_VALIDATION_PROFILE: Dict[str, Dict[str, object]] = {
         "holdout_year": 2025,
     },
     "monkey_is": {
-        "n_monkeys": 120,
+        "n_monkeys": 200,
         "is_pass_pct": 90.0,
-        "min_coverage_is": 80,
         "n_jobs": 1,
     },
     "monkey_oos": {
-        "n_monkeys": 120,
-        "oos_pass_pct": 75.0,
+        "n_monkeys": 200,
+        "oos_pass_pct": 80.0,
         "min_coverage_oos": 60,
         "n_jobs": 1,
     },
@@ -99,7 +98,7 @@ def run_validation_pipeline(
         n_monkeys=int(monkey_is_cfg["n_monkeys"]),
         is_pass_pct=float(monkey_is_cfg["is_pass_pct"]),
         n_jobs=int(monkey_is_cfg["n_jobs"]),
-        min_coverage_is=int(monkey_is_cfg["min_coverage_is"]),
+        min_coverage_is=int(monkey_is_cfg.get("min_coverage_is", 0)),
     ) if long_groups else pd.DataFrame()
 
     short_is = monkey_validate_is_multi(
@@ -109,7 +108,7 @@ def run_validation_pipeline(
         n_monkeys=int(monkey_is_cfg["n_monkeys"]),
         is_pass_pct=float(monkey_is_cfg["is_pass_pct"]),
         n_jobs=int(monkey_is_cfg["n_jobs"]),
-        min_coverage_is=int(monkey_is_cfg["min_coverage_is"]),
+        min_coverage_is=int(monkey_is_cfg.get("min_coverage_is", 0)),
     ) if short_groups else pd.DataFrame()
 
     long_oos = monkey_validate_oos_multi(

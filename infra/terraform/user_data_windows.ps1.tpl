@@ -41,6 +41,8 @@ try {
     [Environment]::SetEnvironmentVariable("TFM_S3_BUCKET", "${s3_bucket_name}", "Machine")
     [Environment]::SetEnvironmentVariable("TFM_S3_PREFIX", "${s3_prefix}", "Machine")
     [Environment]::SetEnvironmentVariable("TFM_PROJECT_DIR", $projectDir, "Machine")
+    [Environment]::SetEnvironmentVariable("TFM_ARTIFACTS_ROOT", (Join-Path $projectDir "app\.tmp"), "Machine")
+    [Environment]::SetEnvironmentVariable("TFM_DB_PATH", (Join-Path $projectDir "app\.tmp\supervisor\supervisor.sqlite"), "Machine")
     [Environment]::SetEnvironmentVariable("STREAMLIT_PORT", "${streamlit_port}", "Machine")
 
     if (-not (Test-Path $projectDir)) {

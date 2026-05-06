@@ -28,7 +28,7 @@ Start-Transcript -Path $logFile -Append | Out-Null
 try {
     Set-Location $projectDir
     $pythonExe = Get-PythonExe -ProjectDir $projectDir
-    & $pythonExe -m streamlit run "app\ui\dashboard.py" --server.port $streamlitPort --server.address "0.0.0.0"
+    & $pythonExe -m streamlit run "app\ui\dashboard.py" --server.port $streamlitPort --server.address "0.0.0.0" --server.headless "true" --browser.gatherUsageStats "false"
 }
 finally {
     Stop-Transcript | Out-Null

@@ -21,8 +21,8 @@ def test_state_store_risk_tables_roundtrip() -> None:
         asset="AAPL",
         timeframe="D1",
         previous_state="live",
-        new_state="degraded",
-        action="degraded",
+        new_state="retraining",
+        action="retraining",
         health_score=55.0,
         reasons=["pf deterioration"],
         flags={"insufficient_evidence": False},
@@ -49,9 +49,7 @@ def test_state_store_risk_tables_roundtrip() -> None:
         run_id="risk_1",
         status="completed",
         evaluated_traders=1,
-        degraded_count=1,
-        suspended_count=0,
-        retired_count=0,
+        retraining_count=1,
         retrain_requests_count=1,
     )
     runs = store.list_risk_evaluation_runs()

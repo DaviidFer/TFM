@@ -84,9 +84,13 @@ La carpeta `app/` concentra prácticamente toda la lógica de dominio:
 | `datos/Stocks/` | CSV diarios de acciones. |
 | `datos/ETFs/` | CSV diarios de ETFs. |
 | `datos/_universe/` | Universo congelado o reconstruido desde MT5. |
-| `data_download/` | Script de mantenimiento del universo y descarga masiva de históricos. |
-| `backtest_eventos/` | Motor de backtest histórico basado en eventos. |
-| `validacion_monos/`, `validacion_forward/`, `validacion_correlacion_pl/`, `validacion_estabilidad_pl/` | Implementación cuantitativa de la validación multicapa. |
+| `app/toolbox/data_download/` | Script de mantenimiento del universo y descarga masiva de históricos. |
+| `app/toolbox/backtest_eventos/` | Motor de backtest histórico basado en eventos (envoltura sobre `pyeventbt`). |
+| `app/toolbox/indicators/` | Librería de features técnicas (`build_feature_library`, `validate_feature_frame`). |
+| `app/toolbox/particion_IS_OOS/` | Split temporal IS/OOS/holdout. |
+| `app/toolbox/definicion_target/` | Aplicación del target a los bloques. |
+| `app/toolbox/ML_tools/` | Generadores de reglas (decision tree, rulefit, genético, quantile). |
+| `app/validation/` | Implementación cuantitativa de la validación multicapa (`monos.py`, `correlation.py`, `forward.py`, `stability.py`). |
 | `docs/` | Documentación por fases y documentos de memoria técnica. |
 
 ## 4. Capa de datos
@@ -113,7 +117,7 @@ En consecuencia, el proyecto no trabaja con un único dataset, sino con una cade
 
 ## 4.2. Descarga y construcción del universo
 
-La descarga vive fuera del `DataAgent`, en `data_download/download.py`. Esta decisión es importante: el sistema separa explícitamente el mantenimiento del universo y de los históricos frente al consumo operativo de esos datos.
+La descarga vive fuera del `DataAgent`, en `app/toolbox/data_download/download.py`. Esta decisión es importante: el sistema separa explícitamente el mantenimiento del universo y de los históricos frente al consumo operativo de esos datos.
 
 El script de descarga realiza tres tareas:
 
@@ -244,7 +248,7 @@ Su función es desacoplar agentes, servicios y runtimes, de forma que el sistema
 
 - `AgentKind`: identifica agentes productores o consumidores de decisiones.
 - `AgentStatus`: estado operativo de cada agente (`idle`, `running`, `failed`, `blocked`).
-- `TraderLifecycleState`: ciclo de vida del trader (`candidate`, `validated`, `promoted`, `live`, `degraded`, `suspended`, `retired`, `retraining`).
+- `TraderLifecycleState`: ciclo de vida binario del trader (`live`, `retraining`). El trader o esta operando en produccion (`live`), o esta fuera con peso 0 esperando reentrenamiento (`retraining`). No existen estados intermedios tipo "warning amber".
 - `RiskAction`: vocabulario compartido del `RiskAgent`, tanto para salud de traders como para gate de cartera.
 - `EventType`: tipología completa de eventos persistidos, incluyendo desarrollo, validación, portfolio, riesgo y broker.
 
@@ -388,7 +392,6 @@ Según la configuración recibida, el agente puede emplear distintas familias:
 - `rulefit`;
 - `genetico` o `genetic`;
 - `quantile`;
-- `subgroup`.
 
 No todas tienen por qué ejecutarse en cada ciclo. De hecho, el supervisor puede escoger solo una familia por iteración de desarrollo, mientras que el pipeline offline global puede orquestar varias.
 
@@ -474,7 +477,7 @@ Finalmente, `run_pl_stability_selection(...)` selecciona los ganadores estables 
 Si hay reglas estables suficientes:
 
 1. crea un `PromotedTraderSpec` con `build_promoted_spec(...)`;
-2. inserta al trader en `trader_states` como `PROMOTED`;
+2. NO inserta al trader en `trader_states`: la fila en `trader_states` solo aparece cuando `TraderAgent.activate(...)` lo pone `LIVE`. Mientras tanto el trader vive en el evento `TRADER_PROMOTED` y en `_promoted_registry` como cola de validados pendientes;
 3. persiste:
    - `VALIDATION_COMPLETED`,
    - `TRADER_PROMOTED`;
@@ -515,7 +518,6 @@ La carpeta `app/services/` concentra la mayor parte de la lógica reutilizable n
 | `app/services/rule_generation_service.py` | Generación de reglas candidatas por familia. |
 | `app/services/validation_service.py` | Orquestación completa de la validación multicapa. |
 | `app/services/promotion_service.py` | Construcción del `PromotedTraderSpec`. |
-| `app/services/pipeline_service.py` | Pipeline offline global más amplio para artefactos y pruebas. |
 
 ### 7.2. Significado arquitectónico
 
@@ -529,12 +531,12 @@ La existencia de estos servicios permite:
 
 ## 8.1. Qué significa "promocionar" frente a "activar"
 
-En esta arquitectura, un trader puede pasar por varios estados:
+En esta arquitectura, un trader solo tiene dos estados posibles en `trader_states`:
 
-- `PROMOTED`: el trader ha superado la validación y ya existe formalmente como candidato operativo.
-- `LIVE`: el trader ha sido activado por `TraderAgent`.
+- `LIVE`: el trader ha sido activado por `TraderAgent` y está operando.
+- `RETRAINING`: el trader ha sido sacado del LIVE por el `RiskAgent` y está pendiente de reentrenamiento (peso 0, todo a cash).
 
-Promoción y activación, por tanto, no son sinónimos. La validación crea el trader operativo desde el punto de vista lógico; la activación lo inserta en el runtime y le da métricas iniciales y capacidad de enrutar órdenes.
+La promoción (validación) NO crea fila en `trader_states`: solo emite el evento `TRADER_PROMOTED` y deja el spec en la cola de validados (`_promoted_registry`). Es la activación realizada por `TraderAgent.activate(...)` la que inserta al trader en `trader_states` con estado `LIVE`. Promoción y activación, por tanto, no son sinónimos: la primera certifica que el trader pasa la validación, la segunda lo pone realmente en producción.
 
 ## 8.2. Función del `TraderAgent`
 
@@ -827,14 +829,14 @@ La secuencia por trader es:
 - o cuando han pasado al menos 30 días desde la última evaluación;
 - o siempre que se fuerce manualmente.
 
-`evaluate_trader_universe(...)` además crea y cierra `risk_evaluation_runs`, agregando contadores de degradados, suspendidos, retirados y retrain requests.
+`evaluate_trader_universe(...)` además crea y cierra `risk_evaluation_runs`, agregando el contador de traders enviados a reentrenamiento (`retraining_count`) y el de retrain requests emitidas.
 
 ## 10.4. Gate pre-trade de cartera
 
 `review_portfolio_decision(...)` recibe una `PortfolioDecision` y la filtra según:
 
 - drawdown de cuenta y `emergency stop`;
-- estado del trader (`LIVE`, `DEGRADED`, `SUSPENDED`, `RETIRED`, `RETRAINING`);
+- estado del trader (`LIVE` se aprueba; `RETRAINING` se bloquea con peso 0 forzado a caja);
 - peso máximo por trader;
 - peso máximo por activo;
 - exposición total máxima;
@@ -1154,8 +1156,8 @@ Este log cumple una función complementaria:
 
 El backtest histórico principal vive en:
 
-- `backtest_eventos/runner.py`;
-- `backtest_eventos/rules_engine.py`.
+- `app/toolbox/backtest_eventos/runner.py`;
+- `app/toolbox/backtest_eventos/rules_engine.py`.
 
 El motor:
 
@@ -1320,21 +1322,20 @@ Para que el documento sea útil como base de memoria, conviene dejar explícitas
 
 Si hubiera que estudiar el proyecto leyendo un conjunto limitado de archivos, los más representativos hoy serían:
 
-1. `data_download/download.py`
+1. `app/toolbox/data_download/download.py`
 2. `app/services/data_service.py`
-3. `app/agents/data_agent.py`
-4. `app/agents/developer_agent.py`
-5. `app/services/validation_service.py`
-6. `app/agents/validation_agent.py`
-7. `app/agents/trader_agent.py`
-8. `app/agents/portfolio_agent.py`
-9. `app/services/portfolio_rl/config.py`
-10. `app/agents/risk_agent.py`
-11. `app/runtime/development_operational_supervisor.py`
-12. `app/runtime/live_trading_runtime.py`
-13. `app/storage/state_store.py`
-14. `app/ui/dashboard.py`
-15. `docs/risk_agent_memoria_tecnica.md`
+3. `app/agents/developer_agent.py`
+4. `app/services/validation_service.py`
+5. `app/agents/validation_agent.py`
+6. `app/agents/trader_agent.py`
+7. `app/agents/portfolio_agent.py`
+8. `app/services/portfolio_rl/config.py`
+9. `app/agents/risk_agent.py`
+10. `app/runtime/development_operational_supervisor.py`
+11. `app/runtime/live_trading_runtime.py`
+12. `app/storage/state_store.py`
+13. `app/ui/dashboard.py`
+14. `docs/risk_agent_memoria_tecnica.md`
 
 ## 21. Resumen final
 

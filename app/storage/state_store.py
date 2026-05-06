@@ -286,15 +286,22 @@ class StateStore:
                     started_at TEXT NOT NULL,
                     completed_at TEXT NOT NULL DEFAULT '',
                     evaluated_traders INTEGER NOT NULL DEFAULT 0,
-                    degraded_count INTEGER NOT NULL DEFAULT 0,
-                    suspended_count INTEGER NOT NULL DEFAULT 0,
-                    retired_count INTEGER NOT NULL DEFAULT 0,
+                    retraining_count INTEGER NOT NULL DEFAULT 0,
                     retrain_requests_count INTEGER NOT NULL DEFAULT 0,
                     notes TEXT NOT NULL DEFAULT '',
                     metadata_json TEXT NOT NULL
                 );
                 """
             )
+            # Migracion no destructiva: BBDD existentes con la version anterior
+            # (columnas degraded_count/suspended_count/retired_count) no tienen
+            # la columna retraining_count. La anadimos si falta.
+            try:
+                conn.execute(
+                    "ALTER TABLE risk_evaluation_runs ADD COLUMN retraining_count INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS trader_forward_backtest_runs (
@@ -1608,9 +1615,8 @@ class StateStore:
                 """
                 INSERT INTO risk_evaluation_runs
                     (run_id, run_type, status, started_at, completed_at, evaluated_traders,
-                     degraded_count, suspended_count, retired_count, retrain_requests_count,
-                     notes, metadata_json)
-                VALUES (?, ?, ?, ?, '', 0, 0, 0, 0, 0, ?, ?)
+                     retraining_count, retrain_requests_count, notes, metadata_json)
+                VALUES (?, ?, ?, ?, '', 0, 0, 0, ?, ?)
                 """,
                 (run_id, run_type, status, utc_now_iso(), notes, json.dumps(metadata or {}, ensure_ascii=True)),
             )
@@ -1622,9 +1628,7 @@ class StateStore:
         run_id: str,
         status: str,
         evaluated_traders: int,
-        degraded_count: int,
-        suspended_count: int,
-        retired_count: int,
+        retraining_count: int,
         retrain_requests_count: int,
         notes: str = "",
         metadata: Dict[str, Any] | None = None,
@@ -1636,9 +1640,7 @@ class StateStore:
                 SET status = ?,
                     completed_at = ?,
                     evaluated_traders = ?,
-                    degraded_count = ?,
-                    suspended_count = ?,
-                    retired_count = ?,
+                    retraining_count = ?,
                     retrain_requests_count = ?,
                     notes = ?,
                     metadata_json = ?
@@ -1648,9 +1650,7 @@ class StateStore:
                     status,
                     utc_now_iso(),
                     int(evaluated_traders),
-                    int(degraded_count),
-                    int(suspended_count),
-                    int(retired_count),
+                    int(retraining_count),
                     int(retrain_requests_count),
                     notes,
                     json.dumps(metadata or {}, ensure_ascii=True),
@@ -1664,8 +1664,7 @@ class StateStore:
             rows = conn.execute(
                 """
                 SELECT run_id, run_type, status, started_at, completed_at, evaluated_traders,
-                       degraded_count, suspended_count, retired_count, retrain_requests_count,
-                       notes, metadata_json
+                       retraining_count, retrain_requests_count, notes, metadata_json
                 FROM risk_evaluation_runs
                 ORDER BY started_at DESC
                 LIMIT ?
@@ -1680,9 +1679,7 @@ class StateStore:
                     "started_at": r["started_at"],
                     "completed_at": r["completed_at"],
                     "evaluated_traders": int(r["evaluated_traders"]),
-                    "degraded_count": int(r["degraded_count"]),
-                    "suspended_count": int(r["suspended_count"]),
-                    "retired_count": int(r["retired_count"]),
+                    "retraining_count": int(r["retraining_count"]),
                     "retrain_requests_count": int(r["retrain_requests_count"]),
                     "notes": r["notes"],
                     "metadata": json.loads(r["metadata_json"]),

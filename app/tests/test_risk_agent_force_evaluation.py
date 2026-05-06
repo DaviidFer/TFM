@@ -96,7 +96,7 @@ def test_risk_agent_force_evaluation_persists_snapshots(monkeypatch) -> None:
     details = store.list_risk_evaluation_details()
     assert runs[0]["evaluated_traders"] == 2
     assert len(details) == 2
-    assert any(row["action"] == "retire" for row in details)
+    assert any(row["action"] == "retraining" for row in details)
 
 
 def test_supervisor_force_risk_evaluation_updates_status(monkeypatch) -> None:

@@ -24,13 +24,37 @@ def main() -> int:
             "db_parent": config.db_path.parent.exists(),
         },
     }
-    for module_name in ("app", "app.cloud", "app.runtime"):
+    required_modules = (
+        "app",
+        "app.cloud",
+        "app.runtime",
+        "pydantic",
+        "polars",
+        "numba",
+        "yaml",
+    )
+    for module_name in required_modules:
         try:
             importlib.import_module(module_name)
             result["imports"][module_name] = "ok"
         except Exception as exc:
             result["imports"][module_name] = f"error: {exc}"
             result["status"] = "error"
+
+    mt5_expected = bool(config.mt5_path or config.mt5_login or config.mt5_server)
+    if mt5_expected:
+        try:
+            importlib.import_module("MetaTrader5")
+            result["imports"]["MetaTrader5"] = "ok"
+        except Exception as exc:
+            result["imports"]["MetaTrader5"] = f"error: {exc}"
+            result["status"] = "error"
+
+    try:
+        importlib.import_module("quantdle")
+        result["imports"]["quantdle"] = "ok"
+    except Exception as exc:
+        result["imports"]["quantdle"] = f"error: {exc}"
 
     if config.enable_s3 and config.has_s3_bucket:
         try:

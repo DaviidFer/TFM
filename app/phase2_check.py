@@ -17,34 +17,22 @@ from app.contracts import (
 from app.storage import StateStore
 
 
-def _simulate_lifecycle(store: StateStore, trader_id: str, asset: str, timeframe: str) -> None:
-    chain = [
-        TraderLifecycleState.CANDIDATE,
-        TraderLifecycleState.VALIDATED,
-        TraderLifecycleState.PROMOTED,
-        TraderLifecycleState.LIVE,
-    ]
-    for state in chain:
-        store.upsert_trader_state(
-            trader_id=trader_id,
-            asset=asset,
-            timeframe=timeframe,
-            state=state,
-            notes=f"transition to {state.value}",
-        )
-    row = store.get_trader_state(trader_id)
-    if row is None or row.state != TraderLifecycleState.LIVE:
-        raise RuntimeError("Lifecycle simulation failed: expected LIVE state.")
-
-
-def _simulate_retire_retrain(store: StateStore, trader_id: str, asset: str, timeframe: str) -> None:
+def _simulate_activation(store: StateStore, trader_id: str, asset: str, timeframe: str) -> None:
+    """Activacion del trader: pasa directo a LIVE (no hay estados intermedios)."""
     store.upsert_trader_state(
         trader_id=trader_id,
         asset=asset,
         timeframe=timeframe,
-        state=TraderLifecycleState.RETIRED,
-        notes="risk retire",
+        state=TraderLifecycleState.LIVE,
+        notes="activated by trader agent",
     )
+    row = store.get_trader_state(trader_id)
+    if row is None or row.state != TraderLifecycleState.LIVE:
+        raise RuntimeError("Activation simulation failed: expected LIVE state.")
+
+
+def _simulate_retraining(store: StateStore, trader_id: str, asset: str, timeframe: str) -> None:
+    """Trader que falla validacion de Risk -> RETRAINING (cash) y RetrainRequest."""
     retrain = RetrainRequest(
         request_id=f"rr_{uuid4().hex[:10]}",
         trader_id=trader_id,
@@ -68,7 +56,7 @@ def _simulate_retire_retrain(store: StateStore, trader_id: str, asset: str, time
     )
     row = store.get_trader_state(trader_id)
     if row is None or row.state != TraderLifecycleState.RETRAINING:
-        raise RuntimeError("Retire->retraining simulation failed.")
+        raise RuntimeError("Retraining simulation failed.")
 
 
 def main() -> int:
@@ -131,11 +119,11 @@ def main() -> int:
         db_path.unlink()
 
     store = StateStore(db_path=db_path)
-    _simulate_lifecycle(store, trader_id=promoted.trader_id, asset=promoted.asset, timeframe=promoted.timeframe)
-    print("Lifecycle candidate->validated->promoted->live: OK")
+    _simulate_activation(store, trader_id=promoted.trader_id, asset=promoted.asset, timeframe=promoted.timeframe)
+    print("Lifecycle activation -> LIVE: OK")
 
-    _simulate_retire_retrain(store, trader_id=promoted.trader_id, asset=promoted.asset, timeframe=promoted.timeframe)
-    print("Lifecycle retired->retraining + event: OK")
+    _simulate_retraining(store, trader_id=promoted.trader_id, asset=promoted.asset, timeframe=promoted.timeframe)
+    print("Lifecycle live -> RETRAINING + event: OK")
 
     events = store.list_events(limit=10)
     if len(events) == 0:

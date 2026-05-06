@@ -96,7 +96,7 @@ class PromotedTraderSpec:
     long_rules: List[str]
     short_rules: List[str]
     origin_experiment_id: str
-    lifecycle_state: TraderLifecycleState = TraderLifecycleState.PROMOTED
+    lifecycle_state: TraderLifecycleState = TraderLifecycleState.LIVE
     promoted_at: str = field(default_factory=utc_now_iso)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -287,19 +287,17 @@ class TraderForwardMetrics:
 
 @dataclass(frozen=True)
 class RiskLimitsConfig:
-    min_forward_trades_for_hard_decision: int = 10
-    min_forward_trades_for_retire: int = 25
-    degraded_health_threshold: float = 60.0
-    suspend_health_threshold: float = 40.0
-    retire_health_threshold: float = 25.0
+    """
+    Limites de riesgo simplificados (modelo binario LIVE / RETRAINING).
+    Cualquier metrica forward por debajo del umbral correspondiente colapsa al
+    trader a RETRAINING (peso 0, cash). No existe estado intermedio "amber".
+    """
+    min_forward_trades_for_retraining: int = 10
+    retraining_health_threshold: float = 60.0
     max_losing_streak_multiplier: float = 1.5
-    max_drawdown_multiplier_degraded: float = 1.25
-    max_drawdown_multiplier_suspend: float = 1.75
-    max_drawdown_multiplier_retire: float = 2.25
-    min_profit_factor_ratio_degraded: float = 0.75
-    min_profit_factor_ratio_suspend: float = 0.55
-    min_sharpe_ratio_degraded: float = 0.60
-    min_sharpe_ratio_suspend: float = 0.35
+    max_drawdown_multiplier_retraining: float = 1.5
+    min_profit_factor_ratio_retraining: float = 0.75
+    min_sharpe_ratio_retraining: float = 0.60
     max_weight_per_trader: float = 0.15
     max_weight_per_asset: float = 0.30
     max_total_exposure: float = 1.0
@@ -307,9 +305,6 @@ class RiskLimitsConfig:
     max_portfolio_volatility: Optional[float] = None
     max_portfolio_drawdown: Optional[float] = None
     min_cash_buffer: float = 0.10
-    degraded_weight_multiplier: float = 0.50
-    suspended_weight: float = 0.0
-    retired_weight: float = 0.0
     min_broker_margin_level: Optional[float] = None
     emergency_drawdown_stop: Optional[float] = None
 
