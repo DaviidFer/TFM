@@ -7,6 +7,14 @@ from app.cloud import CLOUD_PATHS, S3Storage, load_cloud_config
 from app.cloud.heartbeat import build_heartbeat_payload, upload_heartbeat_if_enabled, write_heartbeat
 from app.cloud_tasks import summarize_result
 
+# Importaciones que PyEventBT / event-backtest resuelven en runtime (no solo al cargar `runner`).
+EVENT_BACKTEST_PROBE_MODULES: tuple[str, ...] = (
+    "numba",
+    "yaml",
+    "pyeventbt.indicators.indicators",
+    "app.toolbox.backtest_eventos.runner",
+)
+
 
 def main() -> int:
     config = load_cloud_config()
@@ -31,6 +39,7 @@ def main() -> int:
         "pandas",
         "polars",
         "numpy",
+        "numba",
         "boto3",
     )
     for module_name in required_modules:
@@ -55,6 +64,15 @@ def main() -> int:
         result["imports"]["quantdle"] = "ok"
     except Exception as exc:
         result["imports"]["quantdle"] = f"error: {exc}"
+
+    for module_name in EVENT_BACKTEST_PROBE_MODULES:
+        key = f"bt_probe:{module_name}"
+        try:
+            importlib.import_module(module_name)
+            result["imports"][key] = "ok"
+        except Exception as exc:
+            result["imports"][key] = f"error: {exc}"
+            result["status"] = "error"
 
     if config.enable_s3 and config.has_s3_bucket:
         try:
