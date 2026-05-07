@@ -29,6 +29,7 @@ def main() -> int:
         "app.cloud",
         "app.runtime",
         "pandas",
+        "polars",
         "numpy",
         "boto3",
     )
