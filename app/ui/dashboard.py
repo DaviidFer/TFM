@@ -1080,10 +1080,9 @@ def _build_live_signature(
 ) -> str:
     last_event_ts = str(all_events[-1].get("occurred_at")) if all_events else "-"
     last_state_ts = str(all_states[0].get("updated_at")) if all_states else "-"
-    bt_sig_parts: List[str] = []
-    for trader_id in sorted(backtests.keys()):
-        b = backtests.get(trader_id, {})
-        bt_sig_parts.append(f"{trader_id}:{b.get('status')}:{b.get('updated_at')}")
+    bt_last_update = "-"
+    if backtests:
+        bt_last_update = max(str((backtests.get(k, {}) or {}).get("updated_at") or "-") for k in backtests.keys())
     signal_book = list(pm_snapshot.get("signal_book", []) or [])
     last_output = dict(pm_snapshot.get("last_output", {}) or {})
     rebalance_rows = list(pm_snapshot.get("rebalance_rows", []) or [])
@@ -1091,24 +1090,9 @@ def _build_live_signature(
     hr_status = dict(risk_snapshot.get("status", {}) or {})
     hr_runs = list(risk_snapshot.get("runs", []) or [])
     pending_retrain = list(risk_snapshot.get("pending_retrain_requests", []) or [])
-    signal_sig = ",".join(
-        sorted(
-            f"{row.get('trader_id')}:{row.get('status')}:{row.get('ticket')}:{row.get('detected_at')}"
-            for row in signal_book
-        )
-    )
-    position_sig = ",".join(
-        sorted(
-            f"{row.get('ticket')}:{row.get('symbol')}:{row.get('volume')}:{row.get('price_open')}"
-            for row in open_positions
-        )
-    )
-    pending_sig = ",".join(
-        sorted(
-            f"{row.get('pending_key', '')}:{row.get('symbol')}:{row.get('side')}:{row.get('next_retry_at')}"
-            for row in pending_orders
-        )
-    )
+    signal_last_ts = str(max((str(row.get("detected_at") or "") for row in signal_book), default=""))
+    position_last_ticket = str(max((str(row.get("ticket") or "") for row in open_positions), default=""))
+    pending_last_retry = str(max((str(row.get("next_retry_at") or "") for row in pending_orders), default=""))
     return "|".join(
         [
             str(bool(status.get("running"))),
@@ -1122,15 +1106,16 @@ def _build_live_signature(
             str(len(all_events)),
             last_event_ts,
             last_state_ts,
-            ",".join(bt_sig_parts),
+            str(len(backtests)),
+            bt_last_update,
             str(last_output.get("status", "")),
             str(last_output.get("portfolio_phase", "")),
             str(len(signal_book)),
-            signal_sig,
+            signal_last_ts,
             str(len(open_positions)),
-            position_sig,
+            position_last_ticket,
             str(len(pending_orders)),
-            pending_sig,
+            pending_last_retry,
             str(len(rebalance_rows)),
             str(monthly_refresh.get("cutoff_date", "")),
             str(monthly_refresh.get("status", "")),
@@ -1333,23 +1318,21 @@ def main() -> None:
     need_events = selected_section in {"Desarrollo", "Backtest", "Operativa"}
     need_states = True
     need_backtests = selected_section == "Backtest"
+    need_pm_snapshot = selected_section in {"Operativa", "Portfolio manager"}
     need_pm_history = selected_section == "Portfolio manager"
+    need_hr_snapshot = selected_section == "Recursos Humanos"
     need_hr_history = selected_section == "Recursos Humanos"
     need_open_positions = bool(status.get("mt5_connected")) and selected_section == "Operativa"
 
     all_events = _load_events(Path(supervisor.db_path), int(DEFAULT_EVENT_LIMIT)) if need_events else []
     all_states = _load_trader_states(Path(supervisor.db_path)) if need_states else []
     backtests = supervisor.get_backtest_registry() if (need_backtests and hasattr(supervisor, "get_backtest_registry")) else {}
-    pm_snapshot = (
-        supervisor.get_portfolio_manager_snapshot(include_history=need_pm_history)
-        if hasattr(supervisor, "get_portfolio_manager_snapshot")
-        else {}
-    )
-    hr_snapshot = (
-        supervisor.get_human_resources_snapshot(include_history=need_hr_history)
-        if hasattr(supervisor, "get_human_resources_snapshot")
-        else {}
-    )
+    pm_snapshot = {}
+    if need_pm_snapshot and hasattr(supervisor, "get_portfolio_manager_snapshot"):
+        pm_snapshot = supervisor.get_portfolio_manager_snapshot(include_history=need_pm_history)
+    hr_snapshot = {}
+    if need_hr_snapshot and hasattr(supervisor, "get_human_resources_snapshot"):
+        hr_snapshot = supervisor.get_human_resources_snapshot(include_history=need_hr_history)
     pending_orders = list(pm_snapshot.get("pending_orders", []) or [])
     open_positions = _safe_mt5_positions(supervisor) if need_open_positions else []
     signal_book = list(pm_snapshot.get("signal_book", []) or [])
@@ -1371,7 +1354,7 @@ def main() -> None:
         pending_orders=pending_orders,
     )
     auto_refresh_enabled = True
-    refresh_ms = 5000 if selected_section == "Desarrollo" else (3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS))
+    refresh_ms = 2000 if selected_section == "Desarrollo" else (3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS))
     _mount_auto_refresh_watcher(enabled=auto_refresh_enabled, interval_ms=refresh_ms, signature=live_signature)
     st.caption(f"DB: `{supervisor.db_path}`")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
@@ -1382,9 +1365,9 @@ def main() -> None:
     runtime_mode = str(status.get("operational_runtime_mode") or "-")
     mt5_label = "conectado" if bool(status.get("mt5_connected")) else f"desconectado ({runtime_mode})"
     c4.metric("MT5", mt5_label)
-    c5.metric("Señales PM", int(len(signal_book)))
+    c5.metric("Señales PM", int(status.get("pm_signal_count", len(signal_book))))
     c6.metric("Posiciones abiertas", int(len(open_positions)))
-    c7.metric("Retries pendientes", int(len(pending_orders)))
+    c7.metric("Retries pendientes", int(status.get("pending_orders_count", len(pending_orders))))
     st.caption(f"Objetivo traders: {int(status.get('target_traders', 8))}")
     c_global_1, c_global_2, c_global_3 = st.columns([1, 5, 1])
     with c_global_1:
