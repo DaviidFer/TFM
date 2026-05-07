@@ -2052,10 +2052,17 @@ def main() -> None:
     if selected_section == "Operativa":
         st.markdown("### Operativa por trader")
         runtime_mode = str(status.get("operational_runtime_mode") or "paper")
-        if runtime_mode != "live_mt5":
+        runtime_active = bool(status.get("operational_runtime_started"))
+        mt5_connected = bool(status.get("mt5_connected"))
+        if runtime_active and runtime_mode != "live_mt5":
             st.warning(
-                "La operativa estÃ¡ corriendo en modo degradado `paper` porque MT5 no estÃ¡ listo. "
-                "Aun asÃ­, el runtime puede generar seÃ±ales y auditorÃ­a de portfolio/risk."
+                "La operativa está corriendo en modo degradado `paper` porque MT5 no está listo. "
+                "Aun así, el runtime puede generar señales y auditoría de portfolio/risk."
+            )
+        elif (not runtime_active) and (not mt5_connected):
+            st.info(
+                "El runtime operativo está parado y MT5 aparece desconectado. "
+                "Pulsa **Lanzar operativa MT5 con traders actuales** para reintentar la conexión."
             )
         if st.button("Lanzar operativa MT5 con traders actuales", key="btn_start_ops_mt5"):
             out = supervisor.start_operational_runtime() if hasattr(supervisor, "start_operational_runtime") else {"started": False}
@@ -2075,7 +2082,7 @@ def main() -> None:
             try:
                 prep = supervisor.ensure_mt5_execution_ready(symbols=["AAPL"]) if hasattr(supervisor, "ensure_mt5_execution_ready") else {"connected": False}
                 if not bool(prep.get("connected")) or str(prep.get("mode")) != "live_mt5":
-                    st.error(f"MT5 no estÃ¡ listo para ejecuciÃ³n LIVE. Estado={prep}")
+                    st.error(f"MT5 no está listo para ejecución LIVE. Estado={prep}")
                 else:
                     res_manual = supervisor.trader_agent.route_order(
                         trader_id="manual_aapl",
@@ -2090,7 +2097,7 @@ def main() -> None:
                     if accepted and "live_mt5" in mode_manual.lower():
                         st.success(f"Orden manual AAPL enviada correctamente. Ticket={res_manual.get('ticket')}")
                     elif accepted:
-                        st.error(f"La orden no saliÃ³ por LIVE_MT5. mode={mode_manual} reason={res_manual.get('reason')}")
+                        st.error(f"La orden no salió por LIVE_MT5. mode={mode_manual} reason={res_manual.get('reason')}")
                     else:
                         st.error(f"Orden manual AAPL rechazada. Motivo={res_manual.get('reason')}")
                     st.caption(f"Execution mode: {mode_manual}")
@@ -2117,26 +2124,26 @@ def main() -> None:
                 rows_retry.append(
                     {
                         "Trader": _pretty_trader_name(row.get("trader_id"), asset=row.get("symbol"), timeframe="D1"),
-                        "SÃ­mbolo": row.get("symbol"),
+                        "Símbolo": row.get("symbol"),
                         "Lado": _human_side_label(row.get("side")),
-                        "SeÃ±al": _human_signal_label(row.get("signal_label")),
+                        "Señal": _human_signal_label(row.get("signal_label")),
                         "Volumen": row.get("volume"),
-                        "PrÃ³ximo intento": _fmt_ts(str(row.get("next_retry_at", ""))),
+                        "Próximo intento": _fmt_ts(str(row.get("next_retry_at", ""))),
                         "Intentos acumulados": row.get("attempts"),
-                        "Ãšltimo motivo de rechazo": _interpret_pm_reason(row.get("last_reason")),
+                        "Último motivo de rechazo": _interpret_pm_reason(row.get("last_reason")),
                     }
                 )
             st.table(
                 pd.DataFrame(rows_retry)[
                     [
                         "Trader",
-                        "SÃ­mbolo",
+                        "Símbolo",
                         "Lado",
-                        "SeÃ±al",
+                        "Señal",
                         "Volumen",
-                        "PrÃ³ximo intento",
+                        "Próximo intento",
                         "Intentos acumulados",
-                        "Ãšltimo motivo de rechazo",
+                        "Último motivo de rechazo",
                     ]
                 ]
             )
