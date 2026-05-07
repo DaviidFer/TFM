@@ -1319,7 +1319,7 @@ def main() -> None:
     status = supervisor.get_status()
     section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
     selected_section = st.radio(
-        "SecciÃ³n",
+        "Sección",
         options=section_options,
         horizontal=True,
         label_visibility="collapsed",
@@ -1366,8 +1366,9 @@ def main() -> None:
         open_positions=open_positions,
         pending_orders=pending_orders,
     )
-    refresh_ms = 1500 if selected_section == "Desarrollo" else (3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS))
-    _mount_auto_refresh_watcher(enabled=True, interval_ms=refresh_ms, signature=live_signature)
+    auto_refresh_enabled = selected_section != "Desarrollo"
+    refresh_ms = 3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS)
+    _mount_auto_refresh_watcher(enabled=auto_refresh_enabled, interval_ms=refresh_ms, signature=live_signature)
     st.caption(f"DB: `{supervisor.db_path}`")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     c1.metric("Supervisor", "running" if bool(status.get("running")) else "stopped")
