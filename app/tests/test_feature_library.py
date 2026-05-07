@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from app.services.feature_service import build_features
-from indicators import (
+from app.toolbox.indicators import (
     ACTIVE_INDICATOR_FAMILIES,
     NON_PREDICTIVE_COLUMNS,
     validate_feature_frame,

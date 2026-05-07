@@ -1,15 +1,25 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, Mapping, MutableMapping
+from typing import Dict, Iterable, List, Mapping, MutableMapping
 
 import pandas as pd
 
-from ML_tools import (
+from app.toolbox.ML_tools import (
     build_decision_tree_rules_multiseed,
     build_quantile_bin_combinations,
     build_rulefit_rules_multiseed,
     run_genetico_rules,
-    run_subgroup_discovery_rules,
+)
+
+
+# Familias cuyo generador acepta `target_n_rules` y, por tanto, pueden encajar
+# en el bucle iterativo de `DeveloperAgent`. Centralizado aquí para que los
+# consumidores no tengan que hardcodear el conjunto.
+FAMILIES_WITH_RULE_TARGET: tuple[str, ...] = (
+    "decision_tree",
+    "rulefit",
+    "genetico",
+    "genetic",
 )
 
 
@@ -17,10 +27,24 @@ def _safe_df(df: pd.DataFrame | None) -> pd.DataFrame:
     return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
 
 
+def safe_rules_from_df(df: pd.DataFrame | None) -> List[str]:
+    """Extrae la columna de regla (`regla` o `rule`) como lista de strings.
+
+    Helper compartido por el resto de servicios y agentes para evitar
+    duplicar la misma normalización en varios sitios.
+    """
+    if df is None or df.empty:
+        return []
+    col = "regla" if "regla" in df.columns else ("rule" if "rule" in df.columns else None)
+    if col is None:
+        return []
+    return df[col].dropna().astype(str).tolist()
+
+
 def generate_candidate_rules(
     data_is: pd.DataFrame,
     *,
-    families: Iterable[str] = ("decision_tree", "rulefit", "genetico", "quantile", "subgroup"),
+    families: Iterable[str] = ("decision_tree", "rulefit", "genetico", "quantile"),
     family_params: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Dict[str, Mapping[str, pd.DataFrame]]:
     """
@@ -32,9 +56,9 @@ def generate_candidate_rules(
 
     if "decision_tree" in fams:
         dt_params = {
-            "min_coverage": 80,
-            "max_depth": 3,
-            "min_samples_leaf": 80,
+            "min_coverage": 100,
+            "max_depth": 2,
+            "min_samples_leaf": 100,
             "min_samples_split": 160,
             "target_n_rules": 120,
             "progress_every": 0,
@@ -48,11 +72,11 @@ def generate_candidate_rules(
 
     if "rulefit" in fams:
         rf_params = {
-            "min_coverage": 80,
+            "min_coverage": 100,
             "top_k_features": 100,
             "n_estimators": 50,
-            "tree_depth": 3,
-            "min_samples_leaf_tree": 40,
+            "tree_depth": 2,
+            "min_samples_leaf_tree": 100,
             "max_candidate_rules": 500,
             "target_n_rules": 120,
             "progress_every": 0,
@@ -67,7 +91,7 @@ def generate_candidate_rules(
     if "genetico" in fams or "genetic" in fams:
         ga_params = {
             "n_bins": 4,
-            "min_coverage": 80,
+            "min_coverage": 100,
             "top_k_features": 120,
             "max_atoms": 140,
             "population_size": 90,
@@ -85,9 +109,9 @@ def generate_candidate_rules(
 
     if "quantile" in fams:
         q_params = {
-            "n_bins": 5,
+            "n_bins": 4,
             "combo_size": 2,
-            "min_coverage": 120,
+            "min_coverage": 100,
         }
         q_params.update(params.get("quantile", {}))
         long_q, short_q = build_quantile_bin_combinations(
@@ -95,18 +119,6 @@ def generate_candidate_rules(
             **q_params,
         )
         out["quantile"] = {"long": _safe_df(long_q), "short": _safe_df(short_q)}
-
-    if "subgroup" in fams:
-        sd_params = {
-            "min_coverage": 80,
-            "n_bins": 5,
-        }
-        sd_params.update(params.get("subgroup", {}))
-        long_sd, short_sd = run_subgroup_discovery_rules(
-            data=data_is,
-            **sd_params,
-        )
-        out["subgroup"] = {"long": _safe_df(long_sd), "short": _safe_df(short_sd)}
 
     return out
 

@@ -4,7 +4,7 @@ from typing import Dict
 
 import pandas as pd
 
-from particion_IS_OOS import run_particion_is_oos
+from app.toolbox.particion_IS_OOS import run_particion_is_oos
 
 
 def split_is_oos_holdout(
@@ -15,6 +15,7 @@ def split_is_oos_holdout(
     holdout_year: int = 2025,
     holdout_enabled: bool = True,
     lookback_years: int = 10,
+    is_recent: bool | None = None,
 ) -> Dict[str, pd.DataFrame]:
     data, data_oos, data_2025, data_main, data_final = run_particion_is_oos(
         df_full=df_features,
@@ -23,6 +24,7 @@ def split_is_oos_holdout(
         holdout_year=holdout_year,
         holdout_enabled=holdout_enabled,
         lookback_years=lookback_years,
+        is_recent=is_recent,
     )
     return {
         "data_is": data,

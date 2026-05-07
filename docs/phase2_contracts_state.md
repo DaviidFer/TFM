@@ -42,11 +42,11 @@ Objetivo: ofrecer persistencia simple y trazable sin complejidad distribuida en 
 Valida:
 
 1. serializacion de contratos,
-2. transicion de ciclo:
-   `candidate -> validated -> promoted -> live`,
-3. transicion de retiro a regeneracion:
-   `retired -> retraining`,
+2. activacion del trader: insercion directa en `trader_states` con estado `live`,
+3. transicion `live -> retraining` cuando el `RiskAgent` da el trader por inservible,
 4. persistencia de un evento `retrain_requested`.
+
+El ciclo de vida del trader es binario: `live` o `retraining`. No existen estados intermedios.
 
 ## Criterio de salida de Fase 2
 

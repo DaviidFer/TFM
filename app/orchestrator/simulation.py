@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Mapping
 
-from app.agents import DataAgent, DeveloperAgent, PortfolioManagerAgent, TraderAgent, ValidationAgent
-from app.contracts import PromotedTraderSpec, TraderLifecycleState, TraderLiveMetrics
+from app.agents import DeveloperAgent, PortfolioManagerProcess, TraderAgent, ValidationAgent
+from app.contracts import PromotedTraderSpec, TraderLiveMetrics
 from app.core.structured_logging import emit_log
+from app.services import DataProcess
 
 
 def utc_now_iso() -> str:
@@ -26,26 +27,26 @@ class CandidateBuildResult:
 class SimulationRuntime:
     """
     Fase funcional preproduccion (sin MT5):
-    - genera traders promovidos para un universo de activos
-    - mantiene cola de promovidos en estado PROMOTED
+    - genera traders validados para un universo de activos
+    - mantiene cola de validados en _promoted_registry (eventos TRADER_PROMOTED)
     - publica metricas de scouting para que PortfolioManager decida activacion
-    - activa solo un subconjunto a estado LIVE
+    - activa solo un subconjunto a estado LIVE en trader_states
     """
 
     def __init__(
         self,
         *,
-        data_agent: DataAgent,
+        data_process: DataProcess,
         developer_agent: DeveloperAgent,
         validation_agent: ValidationAgent,
         trader_agent: TraderAgent,
-        portfolio_agent: PortfolioManagerAgent,
+        portfolio_manager_process: PortfolioManagerProcess,
     ) -> None:
-        self.data_agent = data_agent
+        self.data_process = data_process
         self.developer_agent = developer_agent
         self.validation_agent = validation_agent
         self.trader_agent = trader_agent
-        self.portfolio_agent = portfolio_agent
+        self.portfolio_manager_process = portfolio_manager_process
         self._promoted_registry: Dict[str, PromotedTraderSpec] = {}
 
     def get_promoted_registry(self) -> Dict[str, PromotedTraderSpec]:
@@ -90,14 +91,13 @@ class SimulationRuntime:
         validation_profile = {
             "split_assumption": {"holdout_year": 2025},
             "monkey_is": {
-                "n_monkeys": 100 + (seed % 50),
-                "is_pass_pct": 85.0 + float(seed % 10),
-                "min_coverage_is": 70 + (seed % 25),
+                "n_monkeys": 200 + (seed % 201),
+                "is_pass_pct": 85.0 + float(seed % 11),
                 "n_jobs": 1,
             },
             "monkey_oos": {
-                "n_monkeys": 90 + (seed % 40),
-                "oos_pass_pct": 70.0 + float(seed % 10),
+                "n_monkeys": 200 + ((seed * 3) % 201),
+                "oos_pass_pct": 75.0 + float(seed % 11),
                 "min_coverage_oos": 55 + (seed % 20),
                 "n_jobs": 1,
             },
@@ -186,7 +186,7 @@ class SimulationRuntime:
                 asset=asset,
                 validation_profile=validation_profile,
             )
-            dataset = self.data_agent.prepare_dataset(asset=asset, timeframe=timeframe, asset_csv_path=csv_path)
+            dataset = self.data_process.prepare_dataset(asset=asset, timeframe=timeframe, asset_csv_path=csv_path)
             dev = self.developer_agent.develop(
                 dataset=dataset,
                 families=(chosen_family,),
@@ -233,7 +233,7 @@ class SimulationRuntime:
         max_weight: float = 0.7,
         min_score: float = -0.25,
     ) -> list[str]:
-        decision = self.portfolio_agent.rebalance(
+        decision = self.portfolio_manager_process.rebalance(
             as_of=as_of or utc_now_iso(),
             max_weight=max_weight,
             min_score=min_score,
@@ -243,8 +243,10 @@ class SimulationRuntime:
         activated: list[str] = []
 
         for trader_id in selected_ids:
-            state = self.data_agent.ctx.store.get_trader_state(trader_id)
-            if state is None or state.state != TraderLifecycleState.PROMOTED:
+            state = self.data_process.ctx.store.get_trader_state(trader_id)
+            # Solo activamos traders validados que no han operado todavia.
+            # Si ya tienen fila en trader_states (LIVE o RETRAINING) se saltan.
+            if state is not None:
                 continue
             promoted = self._promoted_registry.get(trader_id)
             if promoted is None:

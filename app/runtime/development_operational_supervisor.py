@@ -13,22 +13,27 @@ from pathlib import Path
 from queue import Queue
 from time import sleep
 from typing import Dict
+from uuid import uuid4
 from contextlib import redirect_stdout
 from contextlib import redirect_stderr
 
+from app.contracts import EventType
+
 import pandas as pd
-from backtest_eventos.runner import run_event_backtest
-from app.agents import AgentContext, DataAgent, DeveloperAgent, PortfolioManagerAgent, RiskAgent, TraderAgent, ValidationAgent
+from app.toolbox.backtest_eventos.runner import run_event_backtest
+from app.agents import AgentContext, DeveloperAgent, HumanResourcesProcess, PortfolioManagerProcess, TraderAgent, ValidationAgent
 from app.contracts import PromotedTraderSpec
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
+from app.execution.local_d1_data_provider import LocalD1DataProvider
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.execution.models import ExecutionMode
 from app.execution.mt5_connector import MT5Connector
 from app.execution.mt5_data_provider import MT5DataProvider
 from app.execution.router import ExecutionRouter
 from app.runtime.live_trading_runtime import LiveTradingRuntime
+from app.services import DataProcess
 from app.services.portfolio_rl import PortfolioOHLCRefreshService
-from app.services.risk import build_design_risk_profile
+from app.services.trader_health import build_trader_design_profile
 from app.storage import StateStore
 
 # Silencia warnings conocidos de sklearn que saturan la consola durante
@@ -56,7 +61,7 @@ def _utc_now_iso() -> str:
 
 class DevelopmentOperationalSupervisor:
     _LOG_SEPARATOR = "═" * 54
-    _REPORT_FORMAT_VERSION = 8
+    _REPORT_FORMAT_VERSION = 9
 
     """
     Supervisor no bloqueante para Streamlit:
@@ -89,6 +94,7 @@ class DevelopmentOperationalSupervisor:
             "target_traders": 8,
             "mt5_connected": False,
             "operational_runtime_started": False,
+            "operational_runtime_mode": self.execution_router.mode.value,
             "development_session_started_at": None,
             "last_cycle_completed_at": None,
             "last_cycle_asset": None,
@@ -100,16 +106,13 @@ class DevelopmentOperationalSupervisor:
             "portfolio_last_refresh_traders": 0,
             "portfolio_last_refresh_mask_source": None,
             "portfolio_last_refresh_backtests_status": None,
-            "portfolio_last_manual_retrain_at": None,
             "portfolio_last_manual_rebalance_at": None,
-            "portfolio_last_manual_retrain_only_at": None,
-            "portfolio_last_manual_retrain_and_rebalance_at": None,
-            "risk_last_evaluation_at": None,
-            "risk_last_evaluation_status": None,
-            "risk_last_evaluation_run_id": None,
-            "risk_last_evaluation_traders": 0,
-            "risk_last_force_evaluation_at": None,
-            "risk_last_retrain_processed_at": None,
+            "trader_review_last_run_at": None,
+            "trader_review_last_status": None,
+            "trader_review_last_run_id": None,
+            "trader_review_last_traders": 0,
+            "trader_review_last_force_run_at": None,
+            "trader_review_last_retrain_processed_at": None,
         }
         self._promoted_registry: Dict[str, object] = {}
         self._backtest_registry: Dict[str, Dict[str, object]] = {}
@@ -123,12 +126,12 @@ class DevelopmentOperationalSupervisor:
             artifacts_root=self.db_path.parent,
             execution_router=self.execution_router,
         )
-        self.data_agent = DataAgent(self.ctx)
+        self.data_process = DataProcess(self.ctx)
         self.developer_agent = DeveloperAgent(self.ctx)
         self.validation_agent = ValidationAgent(self.ctx)
         self.trader_agent = TraderAgent(self.ctx)
-        self.portfolio_manager_agent = PortfolioManagerAgent(self.ctx)
-        self.risk_agent = RiskAgent(self.ctx, data_source=self.local_market_data)
+        self.portfolio_manager_process = PortfolioManagerProcess(self.ctx)
+        self.human_resources_process = HumanResourcesProcess(self.ctx, data_source=self.local_market_data)
         self.portfolio_refresh_service = PortfolioOHLCRefreshService(self.local_market_data)
 
     def get_status(self) -> Dict[str, object]:
@@ -150,7 +153,7 @@ class DevelopmentOperationalSupervisor:
         except Exception:
             return []
 
-    def get_portfolio_manager_snapshot(self) -> Dict[str, object]:
+    def get_portfolio_manager_snapshot(self, *, include_history: bool = True) -> Dict[str, object]:
         signal_book: list[Dict[str, object]] = []
         last_output: Dict[str, object] | None = None
         if self._runtime is not None:
@@ -164,22 +167,14 @@ class DevelopmentOperationalSupervisor:
                     last_output = self._runtime.get_last_portfolio_output()
                 except Exception:
                     last_output = None
-        latest_model = None
-        training_runs: list[Dict[str, object]] = []
-        training_metrics: list[Dict[str, object]] = []
         rebalance_rows: list[Dict[str, object]] = []
-        forward_rows: list[Dict[str, object]] = []
         backtest_runs: list[Dict[str, object]] = []
         signal_audit_rows: list[Dict[str, object]] = []
         try:
-            latest_model = self.ctx.store.get_latest_portfolio_model_info()
-            training_runs = self.ctx.store.list_portfolio_training_runs(limit=20)
-            if training_runs:
-                training_metrics = self.ctx.store.list_portfolio_training_metrics(str(training_runs[0].get("run_id")))
-            rebalance_rows = self.ctx.store.list_portfolio_rebalance_snapshots(limit=100)
-            forward_rows = self.ctx.store.list_portfolio_forward_evaluations(limit=500)
-            backtest_runs = self.ctx.store.list_trader_backtest_runs(limit=200)
-            signal_audit_rows = self.ctx.store.list_trader_signal_audit(limit=5000)
+            if include_history:
+                rebalance_rows = self.ctx.store.list_portfolio_rebalance_snapshots(limit=100)
+                backtest_runs = self.ctx.store.list_trader_backtest_runs(limit=200)
+                signal_audit_rows = self.ctx.store.list_trader_signal_audit(limit=5000)
         except Exception:
             pass
         return {
@@ -187,11 +182,7 @@ class DevelopmentOperationalSupervisor:
             "signal_audit": signal_audit_rows,
             "last_output": last_output or {},
             "pending_orders": self.get_pending_orders(),
-            "latest_model": latest_model or {},
-            "training_runs": training_runs,
-            "training_metrics": training_metrics,
             "rebalance_rows": rebalance_rows,
-            "forward_rows": forward_rows,
             "backtest_runs": backtest_runs,
             "monthly_refresh": {
                 "last_refresh_at": self.get_status().get("portfolio_last_refresh_at"),
@@ -200,10 +191,7 @@ class DevelopmentOperationalSupervisor:
                 "n_traders": self.get_status().get("portfolio_last_refresh_traders"),
                 "mask_source": self.get_status().get("portfolio_last_refresh_mask_source"),
                 "backtests_status": self.get_status().get("portfolio_last_refresh_backtests_status"),
-                "last_manual_retrain_at": self.get_status().get("portfolio_last_manual_retrain_at"),
                 "last_manual_rebalance_at": self.get_status().get("portfolio_last_manual_rebalance_at"),
-                "last_manual_retrain_only_at": self.get_status().get("portfolio_last_manual_retrain_only_at"),
-                "last_manual_retrain_and_rebalance_at": self.get_status().get("portfolio_last_manual_retrain_and_rebalance_at"),
             },
         }
 
@@ -215,25 +203,30 @@ class DevelopmentOperationalSupervisor:
         pending = [row for row in all_requests if str(row.get("status")) == "pending"]
         return {"all_requests": all_requests, "pending_requests": pending}
 
-    def get_risk_agent_snapshot(self) -> Dict[str, object]:
+    def get_human_resources_snapshot(self, *, include_history: bool = True) -> Dict[str, object]:
+        """
+        Snapshot del estado del `HumanResourcesProcess` para el dashboard:
+        runs de revision de traders, detalles por trader, perfiles de diseno,
+        metricas forward y solicitudes de reentrenamiento. Ya no incluye
+        ningun chequeo previo de cartera: ese gate ha sido eliminado.
+        """
         runs: list[Dict[str, object]] = []
         latest_run: Dict[str, object] = {}
         details: list[Dict[str, object]] = []
         profiles: list[Dict[str, object]] = []
         forward_metrics: list[Dict[str, object]] = []
         forward_runs: list[Dict[str, object]] = []
-        portfolio_checks: list[Dict[str, object]] = []
         retrain_requests: list[Dict[str, object]] = []
         try:
-            runs = list(self.ctx.store.list_risk_evaluation_runs(limit=50))
-            latest_run = runs[0] if runs else {}
-            if latest_run:
-                details = list(self.ctx.store.list_risk_evaluation_details(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
-                forward_metrics = list(self.ctx.store.list_trader_forward_metrics(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
-                forward_runs = list(self.ctx.store.list_trader_forward_backtest_runs(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
-            profiles = list(self.ctx.store.list_trader_design_profiles(limit=2000))
-            portfolio_checks = list(self.ctx.store.list_risk_portfolio_checks(limit=200))
             retrain_requests = list(self.ctx.store.list_retrain_requests(limit=500))
+            if include_history:
+                runs = list(self.ctx.store.list_trader_review_runs(limit=50))
+                latest_run = runs[0] if runs else {}
+                if latest_run:
+                    details = list(self.ctx.store.list_trader_review_details(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                    forward_metrics = list(self.ctx.store.list_trader_forward_metrics(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                    forward_runs = list(self.ctx.store.list_trader_forward_backtest_runs(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                profiles = list(self.ctx.store.list_trader_design_profiles(limit=2000))
         except Exception:
             pass
         details_by_trader = {str(row.get("trader_id")): row for row in details}
@@ -259,9 +252,7 @@ class DevelopmentOperationalSupervisor:
                     "shadow_trades": int(metrics.get("shadow_trades") or 0),
                     "executed_trades": int(metrics.get("executed_trades") or 0),
                     "signal_count": int(metrics.get("signal_count") or 0),
-                    "ppo_selected_count": int(metrics.get("ppo_selected_count") or 0),
-                    "ppo_blocked_count": int(metrics.get("ppo_blocked_count") or 0),
-                    "risk_blocked_count": int(metrics.get("risk_blocked_count") or 0),
+                    "pm_selected_count": int(metrics.get("pm_selected_count") or 0),
                     "sharpe_design": profile.get("sharpe_design"),
                     "sharpe_forward": metrics.get("shadow_sharpe"),
                     "profit_factor_design": profile.get("profit_factor_design"),
@@ -277,7 +268,7 @@ class DevelopmentOperationalSupervisor:
                     "design_profile": profile,
                     "forward_metrics": metrics,
                     "forward_run": run_by_trader.get(trader_id, {}),
-                    "risk_detail": detail,
+                    "review_detail": detail,
                 }
             )
         pending_retrain = [row for row in retrain_requests if str(row.get("status")) == "pending"]
@@ -288,17 +279,16 @@ class DevelopmentOperationalSupervisor:
             "profiles": profiles,
             "forward_metrics": forward_metrics,
             "forward_runs": forward_runs,
-            "portfolio_checks": portfolio_checks,
             "retrain_requests": retrain_requests,
             "pending_retrain_requests": pending_retrain,
             "trader_rows": trader_rows,
             "status": {
-                "last_evaluation_at": self.get_status().get("risk_last_evaluation_at"),
-                "last_evaluation_status": self.get_status().get("risk_last_evaluation_status"),
-                "last_evaluation_run_id": self.get_status().get("risk_last_evaluation_run_id"),
-                "last_evaluation_traders": self.get_status().get("risk_last_evaluation_traders"),
-                "last_force_evaluation_at": self.get_status().get("risk_last_force_evaluation_at"),
-                "last_retrain_processed_at": self.get_status().get("risk_last_retrain_processed_at"),
+                "last_run_at": self.get_status().get("trader_review_last_run_at"),
+                "last_status": self.get_status().get("trader_review_last_status"),
+                "last_run_id": self.get_status().get("trader_review_last_run_id"),
+                "last_traders": self.get_status().get("trader_review_last_traders"),
+                "last_force_run_at": self.get_status().get("trader_review_last_force_run_at"),
+                "last_retrain_processed_at": self.get_status().get("trader_review_last_retrain_processed_at"),
             },
         }
 
@@ -315,6 +305,9 @@ class DevelopmentOperationalSupervisor:
     def _set_backtest_entry(self, trader_id: str, payload: Dict[str, object]) -> None:
         with self._status_lock:
             self._backtest_registry[trader_id] = payload
+
+    def _cycle_should_abort(self) -> bool:
+        return bool(self._shutdown.is_set() or (not self._develop_enabled.is_set()))
 
     @staticmethod
     def _hash_rules(promoted_spec: PromotedTraderSpec) -> str:
@@ -733,7 +726,7 @@ class DevelopmentOperationalSupervisor:
                 refresh_reason=refresh_reason,
             )
             try:
-                design_profile = build_design_risk_profile(
+                design_profile = build_trader_design_profile(
                     promoted_spec=promoted_spec,
                     validation_report=None,
                     backtest_summary={
@@ -811,7 +804,6 @@ class DevelopmentOperationalSupervisor:
         mapping = {
             "quantile": "Quantiles",
             "rulefit": "RuleFit",
-            "subgroup": "Subgroup",
             "genetico": "Genético",
             "decision_tree": "Decision Tree",
         }
@@ -956,14 +948,14 @@ class DevelopmentOperationalSupervisor:
         print(self._LOG_SEPARATOR)
 
     def _build_strategy(self, asset: str) -> Dict[str, object]:
-        families = ("decision_tree", "rulefit", "genetico", "quantile", "subgroup")
+        families = ("decision_tree", "rulefit", "genetico", "quantile")
         chosen = random.choice(families)
         if chosen == "decision_tree":
-            params = {"decision_tree": {"target_n_rules": random.randint(16, 45), "progress_every": 0}}
+            params = {"decision_tree": {"target_n_rules": random.randint(24, 40), "progress_every": 0}}
         elif chosen == "rulefit":
             params = {
                 "rulefit": {
-                    "target_n_rules": random.randint(16, 45),
+                    "target_n_rules": random.randint(24, 40),
                     "n_estimators": random.randint(20, 55),
                     "max_candidate_rules": random.randint(120, 260),
                     "progress_every": 0,
@@ -972,35 +964,35 @@ class DevelopmentOperationalSupervisor:
         elif chosen == "genetico":
             params = {
                 "genetico": {
-                    "target_n_rules": random.randint(16, 45),
+                    "target_n_rules": random.randint(24, 40),
                     "population_size": random.randint(24, 60),
                     "n_generations": random.randint(6, 14),
                     "progress_every": 0,
                 }
             }
         elif chosen == "quantile":
-            params = {"quantile": {"n_bins": random.randint(3, 6), "combo_size": 1, "min_coverage": random.randint(80, 220)}}
+            params = {"quantile": {"n_bins": 4, "combo_size": 2, "min_coverage": 100}}
         else:
-            params = {"subgroup": {"n_bins": random.randint(4, 7), "min_coverage": random.randint(60, 180)}}
+            raise RuntimeError(f"Familia de generación no soportada: {chosen}")
 
-        is_pct = round(random.uniform(0.55, 0.75), 2)
+        is_pct = round(random.uniform(0.30, 0.70), 2)
         split = {
             "is_pct": is_pct,
             "oos_pct": round(1.0 - is_pct, 2),
             "holdout_year": 2025,
             "lookback_years": 10,
+            "is_recent": random.choice([True, False]),
         }
         validation = {
             "split_assumption": {"holdout_year": 2025},
             "monkey_is": {
-                "n_monkeys": random.randint(90, 160),
-                "is_pass_pct": float(random.randint(85, 94)),
-                "min_coverage_is": random.randint(65, 90),
+                "n_monkeys": random.randint(200, 400),
+                "is_pass_pct": float(random.randint(85, 95)),
                 "n_jobs": 1,
             },
             "monkey_oos": {
-                "n_monkeys": random.randint(90, 160),
-                "oos_pass_pct": float(random.randint(70, 82)),
+                "n_monkeys": random.randint(200, 400),
+                "oos_pass_pct": float(random.randint(75, 85)),
                 "min_coverage_oos": random.randint(50, 75),
                 "n_jobs": 1,
             },
@@ -1031,12 +1023,15 @@ class DevelopmentOperationalSupervisor:
         chosen = str(strategy["chosen_family"])
         self._set_status(
             current_asset=asset,
-            current_stage="data_agent",
-            current_cycle_steps=["data_agent"],
+            current_stage="data_process",
+            current_cycle_steps=["data_process"],
         )
         sink = StringIO()
         with redirect_stdout(sink):
-            dataset = self.data_agent.prepare_dataset(asset=asset, timeframe="D1", asset_csv_path=csv_path)
+            dataset = self.data_process.prepare_dataset(asset=asset, timeframe="D1", asset_csv_path=csv_path)
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             self._set_status(current_stage="developer_agent")
             self._append_cycle_step("developer_agent")
             dev = self.developer_agent.develop(
@@ -1045,6 +1040,9 @@ class DevelopmentOperationalSupervisor:
                 family_params=strategy["params"],
                 split_config=strategy["split"],
             )
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             self._set_status(current_stage="validation_agent")
             self._append_cycle_step("validation_agent")
             val = self.validation_agent.validate_and_promote(
@@ -1052,6 +1050,9 @@ class DevelopmentOperationalSupervisor:
                 validation_profile=strategy["validation"],
                 promote_if_empty=False,
             )
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
 
         generated_long = len(dev.candidate_rules.long_rules)
         generated_short = len(dev.candidate_rules.short_rules)
@@ -1065,11 +1066,17 @@ class DevelopmentOperationalSupervisor:
             self._append_cycle_step("trader_agent")
             with redirect_stdout(sink):
                 self.trader_agent.activate(val.promoted_spec)
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             self._promoted_registry[val.promoted_spec.trader_id] = val.promoted_spec
             trader_id = val.promoted_spec.trader_id
             self._set_status(current_stage="backtest_agent")
             self._append_cycle_step("backtest_agent")
             self._run_backtest_for_promoted(val.promoted_spec)
+            if self._cycle_should_abort():
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                return
             backtest_status = str(self.get_backtest_registry().get(trader_id, {}).get("status", "pending"))
             if self._runtime is not None:
                 self._runtime.upsert_trader(val.promoted_spec)
@@ -1233,27 +1240,39 @@ class DevelopmentOperationalSupervisor:
         ts = pd.Timestamp(as_of or pd.Timestamp.utcnow().isoformat())
         return f"{ts.year:04d}-{ts.month:02d}"
 
-    def run_risk_monthly_evaluation(self, *, force: bool = False, as_of: str | None = None, force_backtest: bool = False) -> Dict[str, object]:
-        if not self.risk_agent.should_run_monthly_evaluation(as_of=pd.Timestamp(as_of).to_pydatetime() if as_of else None, force=force):
+    def run_trader_health_monthly_evaluation(self, *, force: bool = False, as_of: str | None = None, force_backtest: bool = False) -> Dict[str, object]:
+        """
+        Lanza la revision mensual de salud de los traders (HumanResourcesProcess).
+        Devuelve `skipped` si todavia no toca segun la politica del proceso.
+        """
+        if not self.human_resources_process.should_run_monthly_evaluation(
+            as_of=pd.Timestamp(as_of).to_pydatetime() if as_of else None,
+            force=force,
+        ):
             return {"status": "skipped", "reason": "not_due"}
-        snapshots = self.risk_agent.evaluate_trader_universe(
+        snapshots = self.human_resources_process.evaluate_trader_universe(
             evaluation_date=pd.Timestamp(as_of).to_pydatetime() if as_of else None,
             run_type="forced" if force else "scheduled_monthly",
             force_backtest=force_backtest,
         )
-        latest_run = self.ctx.store.list_risk_evaluation_runs(limit=1)
-        latest = latest_run[0] if latest_run else {}
+        latest_runs = self.ctx.store.list_trader_review_runs(limit=1)
+        latest = latest_runs[0] if latest_runs else {}
         self._set_status(
-            risk_last_evaluation_at=_utc_now_iso(),
-            risk_last_evaluation_status=str(latest.get("status") or "completed"),
-            risk_last_evaluation_run_id=str(latest.get("run_id") or ""),
-            risk_last_evaluation_traders=len(snapshots),
+            trader_review_last_run_at=_utc_now_iso(),
+            trader_review_last_status=str(latest.get("status") or "completed"),
+            trader_review_last_run_id=str(latest.get("run_id") or ""),
+            trader_review_last_traders=len(snapshots),
         )
         return {"status": str(latest.get("status") or "completed"), "run": latest, "snapshots": [snap.to_dict() for snap in snapshots]}
 
-    def force_risk_evaluation(self, *, force_backtest: bool = True) -> Dict[str, object]:
-        out = self.run_risk_monthly_evaluation(force=True, as_of=pd.Timestamp.utcnow().isoformat(), force_backtest=force_backtest)
-        self._set_status(risk_last_force_evaluation_at=_utc_now_iso())
+    def force_trader_health_evaluation(self, *, force_backtest: bool = True) -> Dict[str, object]:
+        """Atajo de UI para lanzar inmediatamente una revision de salud de traders."""
+        out = self.run_trader_health_monthly_evaluation(
+            force=True,
+            as_of=pd.Timestamp.utcnow().isoformat(),
+            force_backtest=force_backtest,
+        )
+        self._set_status(trader_review_last_force_run_at=_utc_now_iso())
         return out
 
     def process_pending_retrain_requests(self) -> Dict[str, object]:
@@ -1271,7 +1290,7 @@ class DevelopmentOperationalSupervisor:
                     raise FileNotFoundError(f"No CSV encontrado para {asset}")
                 strategy = self._build_strategy(asset)
                 chosen = str(strategy["chosen_family"])
-                dataset = self.data_agent.prepare_dataset(asset=asset, timeframe=timeframe, asset_csv_path=csv_path)
+                dataset = self.data_process.prepare_dataset(asset=asset, timeframe=timeframe, asset_csv_path=csv_path)
                 dev = self.developer_agent.develop(
                     dataset=dataset,
                     families=(chosen,),
@@ -1287,7 +1306,7 @@ class DevelopmentOperationalSupervisor:
                     raise RuntimeError("No se pudo promover un nuevo trader durante el retraining")
                 self.trader_agent.activate(val.promoted_spec)
                 self._promoted_registry[val.promoted_spec.trader_id] = val.promoted_spec
-                self._run_backtest_for_promoted(val.promoted_spec, refresh_reason="risk_retrain_request")
+                self._run_backtest_for_promoted(val.promoted_spec, refresh_reason="hr_retrain_request")
                 if self._runtime is not None:
                     self._runtime.upsert_trader(val.promoted_spec)
                 self.ctx.store.mark_retrain_request_completed(
@@ -1313,7 +1332,7 @@ class DevelopmentOperationalSupervisor:
                 )
                 failed.append({"request_id": request_id, "error": str(exc)})
         if requests:
-            self._set_status(risk_last_retrain_processed_at=_utc_now_iso())
+            self._set_status(trader_review_last_retrain_processed_at=_utc_now_iso())
         return {"processed": processed, "failed": failed, "pending_before": len(requests)}
 
     def _should_run_portfolio_monthly_refresh(self, *, as_of: str | None = None, force: bool = False) -> bool:
@@ -1358,17 +1377,15 @@ class DevelopmentOperationalSupervisor:
                 except Exception as exc:
                     failures.append({"trader_id": str(spec.trader_id), "error": str(exc)})
 
-            risk_out = self.run_risk_monthly_evaluation(force=force, as_of=str(as_of or refresh_result.cutoff_date), force_backtest=True)
-            retrain_out = self.process_pending_retrain_requests()
-            self.portfolio_manager_agent.sync_universe(promoted_specs)
-            model_info = self.portfolio_manager_agent.run_monthly_refresh_and_fine_tune(
-                history_loader=self.get_trader_history_frame,
-                as_of=str(as_of or refresh_result.cutoff_date),
+            trader_health_out = self.run_trader_health_monthly_evaluation(
                 force=force,
+                as_of=str(as_of or refresh_result.cutoff_date),
+                force_backtest=True,
             )
-            dataset_refresh = {}
-            if getattr(self.portfolio_manager_agent, "_latest_dataset", None) is not None:
-                dataset_refresh = dict((self.portfolio_manager_agent._latest_dataset.trade_metadata.get("dataset_refresh") or {}))
+            retrain_out = self.process_pending_retrain_requests()
+            # El PortfolioManagerProcess en modo GA+PSO no requiere entrenamiento mensual.
+            # Se sincroniza el universo y se ejecuta el rebalanceo en el runtime live (semanal).
+            self.portfolio_manager_process.sync_universe(promoted_specs)
             overall_status = "completed" if not failures else "completed_with_errors"
             self._set_status(
                 portfolio_last_refresh_month=month_token,
@@ -1376,7 +1393,7 @@ class DevelopmentOperationalSupervisor:
                 portfolio_last_refresh_cutoff_date=str(refresh_result.cutoff_date),
                 portfolio_last_refresh_status=overall_status,
                 portfolio_last_refresh_traders=len(refreshed_rows),
-                portfolio_last_refresh_mask_source=str(dataset_refresh.get("mask_source") or "unknown"),
+                portfolio_last_refresh_mask_source="real_backtest",
                 portfolio_last_refresh_backtests_status="ok" if not failures else "partial_error",
             )
             emit_log(
@@ -1387,8 +1404,7 @@ class DevelopmentOperationalSupervisor:
                 cutoff_date=str(refresh_result.cutoff_date),
                 n_traders=len(refreshed_rows),
                 failures=failures,
-                mask_source=str(dataset_refresh.get("mask_source") or "unknown"),
-                model_version=str((model_info or {}).get("model_version") or ""),
+                optimizer_mode="ga_pso",
             )
             return {
                 "status": overall_status,
@@ -1402,11 +1418,9 @@ class DevelopmentOperationalSupervisor:
                     "n_refreshed_symbols": refresh_result.n_refreshed_symbols,
                     "refreshed_symbols": refresh_result.refreshed_symbols,
                 },
-                "risk_evaluation": risk_out,
+                "trader_health_evaluation": trader_health_out,
                 "retrain_processing": retrain_out,
-                "mask_source": str(dataset_refresh.get("mask_source") or "unknown"),
-                "dataset_refresh": dataset_refresh,
-                "model_info": model_info or {},
+                "optimizer_mode": "ga_pso",
             }
         except Exception as exc:
             self._set_status(
@@ -1418,46 +1432,30 @@ class DevelopmentOperationalSupervisor:
             emit_log("supervisor", "portfolio_monthly_refresh_error", console=False, month_token=month_token, error=str(exc))
             raise
 
-    def force_portfolio_retraining_only(self) -> Dict[str, object]:
+    def force_portfolio_rebalance(self) -> Dict[str, object]:
+        """
+        Lanza un rebalanceo GA+PSO inmediato. Refresca primero los datos OHLC
+        y backtests para que el optimizador trabaje con la informacion mas
+        reciente y a continuacion solicita al runtime live ejecutar el
+        rebalanceo y actuar sobre el broker. No realiza ningun reentrenamiento
+        de modelos: la version anterior basada en PPO ha sido eliminada.
+        """
         now_iso = pd.Timestamp.utcnow().isoformat()
         refresh_out = self.run_portfolio_monthly_refresh(force=True, as_of=now_iso)
-        self._set_status(
-            portfolio_last_manual_retrain_at=_utc_now_iso(),
-            portfolio_last_manual_retrain_only_at=_utc_now_iso(),
-        )
-        emit_log(
-            "supervisor",
-            "portfolio_manual_retrain_only",
-            console=False,
-            refresh_status=str(refresh_out.get("status") or ""),
-            model_version=str((refresh_out.get("model_info") or {}).get("model_version") or ""),
-        )
-        return {
-            "refresh": refresh_out,
-            "rebalance": {"status": "not_requested", "reason": "manual_retrain_only"},
-        }
-
-    def force_portfolio_retraining_and_rebalance(self) -> Dict[str, object]:
-        now_iso = pd.Timestamp.utcnow().isoformat()
-        refresh_out = self.run_portfolio_monthly_refresh(force=True, as_of=now_iso)
-        self._set_status(
-            portfolio_last_manual_retrain_at=_utc_now_iso(),
-            portfolio_last_manual_retrain_and_rebalance_at=_utc_now_iso(),
-        )
         rebalance_out: Dict[str, object] = {}
         runtime_ready = self._runtime is not None or self._ensure_operational_runtime(force_start=True)
         if runtime_ready and self._runtime is not None and hasattr(self._runtime, "force_rebalance_now"):
-            rebalance_out = dict(self._runtime.force_rebalance_now(reason="manual_ui_retrain") or {})
+            rebalance_out = dict(self._runtime.force_rebalance_now(reason="manual_ui_rebalance") or {})
             self._set_status(portfolio_last_manual_rebalance_at=_utc_now_iso())
         else:
             rebalance_out = {"status": "runtime_not_started", "reason": "operational_runtime_required"}
         emit_log(
             "supervisor",
-            "portfolio_manual_retrain_and_rebalance",
+            "portfolio_manual_rebalance",
             console=False,
             refresh_status=str(refresh_out.get("status") or ""),
             rebalance_status=str(rebalance_out.get("status") or ""),
-            model_version=str((refresh_out.get("model_info") or {}).get("model_version") or ""),
+            optimizer_mode="ga_pso",
         )
         return {
             "refresh": refresh_out,
@@ -1466,7 +1464,7 @@ class DevelopmentOperationalSupervisor:
 
     def ensure_mt5_execution_ready(self, *, symbols: list[str] | None = None) -> Dict[str, object]:
         try:
-            if not self.mt5.connected and not self.mt5.connect():
+            if not self.mt5.connected and not self.mt5.connect(quick=True):
                 self._set_status(mt5_connected=False)
                 return {"connected": False, "reason": "mt5_connect_failed", "mode": self.execution_router.mode.value}
             self.execution_router.mode = ExecutionMode.LIVE_MT5
@@ -1496,15 +1494,31 @@ class DevelopmentOperationalSupervisor:
         )
         symbols = sorted({spec.asset for spec in operational_specs.values()})
         ready = self.ensure_mt5_execution_ready(symbols=symbols)
-        if not bool(ready.get("connected")):
-            emit_log("supervisor", "mt5_connect_failed_after_threshold")
-            return False
         queue = Queue()
-        provider = MT5DataProvider(events_queue=queue, symbol_list=symbols, timeframe="1d")
+        runtime_mode = ExecutionMode.LIVE_MT5
+        if bool(ready.get("connected")):
+            provider = MT5DataProvider(events_queue=queue, symbol_list=symbols, timeframe="1d")
+            self.execution_router.mode = ExecutionMode.LIVE_MT5
+        else:
+            emit_log("supervisor", "mt5_connect_failed_after_threshold")
+            emit_log(
+                "supervisor",
+                "operational_runtime_paper_fallback",
+                console=False,
+                requested_mode=self.execution_mode.value,
+                reason=str(ready.get("reason") or "mt5_connect_failed"),
+                symbols=symbols,
+            )
+            self.execution_router.mode = ExecutionMode.PAPER
+            runtime_mode = ExecutionMode.PAPER
+            provider = LocalD1DataProvider(
+                events_queue=queue,
+                market_data=self.local_market_data,
+                symbol_list=symbols,
+            )
         self._runtime = LiveTradingRuntime(
             trader_agent=self.trader_agent,
-            portfolio_manager=self.portfolio_manager_agent,
-            risk_agent=self.risk_agent,
+            portfolio_manager=self.portfolio_manager_process,
             promoted_specs=operational_specs,
             data_provider=provider,
             history_loader=self.get_trader_history_frame,
@@ -1513,7 +1527,11 @@ class DevelopmentOperationalSupervisor:
             timeframe="1d",
             bars_lookback=260,
         )
-        self._set_status(operational_runtime_started=True)
+        self._set_status(
+            operational_runtime_started=True,
+            operational_runtime_mode=runtime_mode.value,
+            mt5_connected=bool(ready.get("connected")),
+        )
         ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
         print(f"{ts} - STARTUP_SNAPSHOT total={len(operational_specs)} attributed={len(operational_specs)} unattributed=0")
         print("=" * 60)
@@ -1529,6 +1547,8 @@ class DevelopmentOperationalSupervisor:
             console=False,
             symbols=symbols,
             timeframe="1d",
+            runtime_mode=runtime_mode.value,
+            mt5_connected=bool(ready.get("connected")),
         )
         return True
 
@@ -1541,7 +1561,10 @@ class DevelopmentOperationalSupervisor:
             # Reinicio explícito para reconstruir símbolos/traders con el estado actual completo.
             self._runtime.stop()
             self._runtime = None
-            self._set_status(operational_runtime_started=False)
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=self.execution_router.mode.value,
+            )
         started = self._ensure_operational_runtime(force_start=True)
         if started and self._runtime is not None and hasattr(self._runtime, "bootstrap_now"):
             try:
@@ -1549,7 +1572,12 @@ class DevelopmentOperationalSupervisor:
             except Exception:
                 pass
         if started:
-            return {"started": True, "reason": "runtime_started", "n_traders": len(self._build_operational_registry())}
+            return {
+                "started": True,
+                "reason": "runtime_started",
+                "n_traders": len(self._build_operational_registry()),
+                "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
+            }
         return {"started": False, "reason": "runtime_not_started"}
 
     def _loop(self) -> None:
@@ -1612,11 +1640,23 @@ class DevelopmentOperationalSupervisor:
         emit_log("supervisor", "development_disabled", console=False)
 
     def reset_all(self) -> None:
+        self._set_status(
+            develop_enabled=False,
+            current_stage="resetting",
+            current_asset=None,
+            current_cycle_steps=[],
+        )
         self._develop_enabled.clear()
         self._shutdown.set()
         if self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=5)
+        if self._runtime is not None:
+            try:
+                self._runtime.stop()
+            except Exception:
+                pass
         self.mt5.shutdown()
+        self.execution_router.mode = self.execution_mode
         self._promoted_registry = {}
         self._runtime = None
         # Limpieza robusta: primero vacia tablas; luego intenta borrar fichero.
@@ -1647,6 +1687,7 @@ class DevelopmentOperationalSupervisor:
             target_traders=int(self._status.get("target_traders", 8)),
             mt5_connected=False,
             operational_runtime_started=False,
+            operational_runtime_mode=self.execution_router.mode.value,
             development_session_started_at=None,
             last_cycle_completed_at=None,
             last_cycle_asset=None,
@@ -1658,16 +1699,13 @@ class DevelopmentOperationalSupervisor:
             portfolio_last_refresh_traders=0,
             portfolio_last_refresh_mask_source=None,
             portfolio_last_refresh_backtests_status=None,
-            portfolio_last_manual_retrain_at=None,
             portfolio_last_manual_rebalance_at=None,
-            portfolio_last_manual_retrain_only_at=None,
-            portfolio_last_manual_retrain_and_rebalance_at=None,
-            risk_last_evaluation_at=None,
-            risk_last_evaluation_status=None,
-            risk_last_evaluation_run_id=None,
-            risk_last_evaluation_traders=0,
-            risk_last_force_evaluation_at=None,
-            risk_last_retrain_processed_at=None,
+            trader_review_last_run_at=None,
+            trader_review_last_status=None,
+            trader_review_last_run_id=None,
+            trader_review_last_traders=0,
+            trader_review_last_force_run_at=None,
+            trader_review_last_retrain_processed_at=None,
         )
         with self._status_lock:
             self._backtest_registry = {}

@@ -4,12 +4,12 @@ from enum import Enum
 
 
 class AgentKind(str, Enum):
-    DATA = "data_agent"
+    DATA = "data_process"
     DEVELOPER = "developer_agent"
     VALIDATION = "validation_agent"
     TRADER = "trader_agent"
     PORTFOLIO = "portfolio_manager"
-    RISK = "risk_agent"
+    HUMAN_RESOURCES = "human_resources_process"
 
 
 class AgentStatus(str, Enum):
@@ -20,28 +20,19 @@ class AgentStatus(str, Enum):
 
 
 class TraderLifecycleState(str, Enum):
-    CANDIDATE = "candidate"
-    VALIDATED = "validated"
-    PROMOTED = "promoted"
     LIVE = "live"
-    DEGRADED = "degraded"
-    SUSPENDED = "suspended"
-    RETIRED = "retired"
     RETRAINING = "retraining"
 
 
-class RiskAction(str, Enum):
+class TraderReviewAction(str, Enum):
+    """
+    Resultado de la revision periodica que hace HumanResourcesProcess sobre un
+    trader promovido. Solo dos acciones: el trader sigue valido (`KEEP`) o se
+    manda a reentrenamiento (`RETRAINING`).
+    """
+
     KEEP = "keep"
-    DEGRADED = "degraded"
-    SUSPEND = "suspend"
-    RETIRE = "retire"
     RETRAINING = "retraining"
-    APPROVE = "approve"
-    APPROVE_WITH_CLIPPING = "approve_with_clipping"
-    SCALE_DOWN = "scale_down"
-    FORCE_CASH = "force_cash"
-    REJECT_PORTFOLIO = "reject_portfolio"
-    EMERGENCY_STOP = "emergency_stop"
 
 
 class EventType(str, Enum):
@@ -54,14 +45,10 @@ class EventType(str, Enum):
     TRADER_STATE_CHANGED = "trader_state_changed"
     TRADER_METRICS_UPDATED = "trader_metrics_updated"
     PORTFOLIO_DECISION = "portfolio_decision"
-    RISK_DECISION = "risk_decision"
+    TRADER_HEALTH_EVALUATED = "trader_health_evaluated"
     RETRAIN_REQUESTED = "retrain_requested"
     RETRAIN_PROCESSED = "retrain_processed"
-    PORTFOLIO_TRAINING_RUN = "portfolio_training_run"
-    PORTFOLIO_MODEL_UPDATED = "portfolio_model_updated"
     PORTFOLIO_REBALANCE_SNAPSHOT = "portfolio_rebalance_snapshot"
-    PORTFOLIO_FORWARD_EVALUATED = "portfolio_forward_evaluated"
     BROKER_ORDER_ROUTED = "broker_order_routed"
     BROKER_ORDER_REJECTED = "broker_order_rejected"
     BROKER_ACCESS_DENIED = "broker_access_denied"
-

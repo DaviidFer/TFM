@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from queue import Queue
 
-from app.agents import AgentContext, DataAgent, DeveloperAgent, PortfolioManagerAgent, TraderAgent, ValidationAgent
+from app.agents import AgentContext, DeveloperAgent, PortfolioManagerProcess, TraderAgent, ValidationAgent
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.execution.models import ExecutionMode
@@ -13,6 +13,7 @@ from app.execution.mt5_connector import MT5Connector
 from app.execution.router import ExecutionRouter
 from app.orchestrator.simulation import SimulationRuntime
 from app.runtime import LiveTradingRuntime
+from app.services import DataProcess
 from app.storage import StateStore
 
 
@@ -51,18 +52,18 @@ def main(*, db_path: Path | None = None) -> int:
         artifacts_root=Path("app/.tmp/phase10"),
         execution_router=execution_router,
     )
-    data_agent = DataAgent(ctx)
+    data_process = DataProcess(ctx)
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
     # Portfolio/Risk quedan temporalmente fuera de esta fase live MVP.
-    portfolio_agent = PortfolioManagerAgent(ctx)
+    portfolio_manager_process = PortfolioManagerProcess(ctx)
     simulation = SimulationRuntime(
-        data_agent=data_agent,
+        data_process=data_process,
         developer_agent=developer_agent,
         validation_agent=validation_agent,
         trader_agent=trader_agent,
-        portfolio_agent=portfolio_agent,
+        portfolio_manager_process=portfolio_manager_process,
     )
 
     emit_log(

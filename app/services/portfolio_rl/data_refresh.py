@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List
 import pandas as pd
 
 from app.execution.local_data_provider import LocalMarketDataProvider
-from data_download.download import run_data_download
+from app.toolbox.data_download.download import run_data_download
 
 
 @dataclass(frozen=True)

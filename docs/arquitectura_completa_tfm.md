@@ -2,7 +2,7 @@
 
 ## 1. Propósito de este documento
 
-Este documento actúa como descripción maestra del sistema actualmente implementado en el repositorio. Su función no es solo enumerar módulos, sino explicar con criterio técnico cómo se encadenan los datos, los agentes, los servicios cuantitativos, la capa de ejecución y la observabilidad para construir una plataforma experimental de trading algorítmico orientada a un TFM.
+Este documento actúa como descripción maestra del sistema actualmente implementado en el repositorio. Su función no es solo enumerar módulos, sino explicar con criterio técnico cómo se encadenan los datos, los agentes y procesos, los servicios cuantitativos, la capa de ejecución y la observabilidad para construir una plataforma experimental de trading algorítmico orientada a un TFM.
 
 El objetivo del proyecto, en términos operativos, es disponer de una arquitectura capaz de:
 
@@ -11,11 +11,16 @@ El objetivo del proyecto, en términos operativos, es disponer de una arquitectu
 - generar reglas candidatas de trading;
 - validarlas con un esquema multicapa antes de promover un trader;
 - activar traders promovidos en un runtime operativo D1;
-- coordinar señales simultáneas mediante un `PortfolioManagerAgent` basado principalmente en PPO;
-- supervisar la salud de los traders y filtrar la cartera mediante un `RiskAgent`;
+- coordinar señales simultáneas mediante un `PortfolioManagerProcess` basado en un optimizador híbrido GA + PSO determinista;
+- supervisar periódicamente la salud de los traders promovidos mediante un `HumanResourcesProcess` que decide si siguen válidos o si deben pasar a reentrenamiento;
 - persistir todo el proceso para su auditoría posterior desde SQLite y Streamlit.
 
-Este documento se centra exclusivamente en lo que está soportado por el código actual. La contextualización específica sobre Darwinex Zero, sus requisitos formales o su encaje institucional puede añadirse en otro texto complementario si se desea, pero no se desarrolla aquí más allá de reconocer que la arquitectura está diseñada para desplegar operativa real o semirreal conectada a MetaTrader 5.
+Este documento se centra exclusivamente en lo que está soportado por el código actual, tras dos refactorizaciones clave:
+
+1. La sustitución del `PortfolioManagerAgent` (PPO/RL) por un `PortfolioManagerProcess` determinista basado en GA + PSO.
+2. La sustitución del `RiskAgent` (que mezclaba salud de traders y gate pre-trade de cartera) por un `HumanResourcesProcess` enfocado únicamente en supervisar el ciclo de vida del trader (KEEP / RETRAINING).
+
+La contextualización específica sobre Darwinex Zero, sus requisitos formales o su encaje institucional puede añadirse en otro texto complementario si se desea, pero no se desarrolla aquí más allá de reconocer que la arquitectura está diseñada para desplegar operativa real o semirreal conectada a MetaTrader 5.
 
 ## 2. Visión general del sistema
 
@@ -24,39 +29,45 @@ La arquitectura puede entenderse como un ciclo cerrado con cinco planos:
 1. `Datos`: descarga de históricos, mantenimiento del universo y normalización a OHLC.
 2. `Desarrollo cuantitativo`: construcción de features, split temporal, target y generación de reglas.
 3. `Validación y promoción`: filtros estadísticos y selección final de reglas robustas.
-4. `Operación`: activación del trader, evaluación diaria de señales, rebalanceo de cartera, control de riesgo y enrutado al broker.
+4. `Operación`: activación del trader, evaluación diaria de señales, rebalanceo semanal de cartera y enrutado al broker.
 5. `Persistencia y observabilidad`: almacenamiento de estados, eventos, métricas, artefactos y visualización en dashboard.
+
+Una capa transversal vertical, asíncrona respecto al ciclo operativo, supervisa la salud de los traders ya promovidos:
+
+6. `Supervisión de plantilla`: el `HumanResourcesProcess` revisa periódicamente cada trader vivo, lo compara con su perfil de diseño y, si su comportamiento forward se desvía, emite un `RetrainRequest` que el supervisor procesará para generar un sustituto.
 
 El flujo principal real es el siguiente:
 
 ```mermaid
 flowchart TD
     rawData["RawDataCSV"] --> ingestion["DataIngestion"]
-    ingestion --> dataAgent["DataAgent"]
-    dataAgent --> developerAgent["DeveloperAgent"]
+    ingestion --> dataProcess["DataProcess"]
+    dataProcess --> developerAgent["DeveloperAgent"]
     developerAgent --> validationAgent["ValidationAgent"]
     validationAgent --> traderAgent["TraderAgent"]
-    traderAgent --> portfolioAgent["PortfolioManagerAgent"]
-    portfolioAgent --> riskAgent["RiskAgent"]
-    riskAgent --> liveRuntime["LiveTradingRuntime"]
-    liveRuntime --> stateStore["StateStoreAndDashboard"]
+    traderAgent --> portfolioProcess["PortfolioManagerProcess (GA+PSO)"]
+    portfolioProcess --> liveRuntime["LiveTradingRuntime"]
+    liveRuntime --> stateStore["StateStore + Dashboard"]
     stateStore --> supervisor["DevelopmentOperationalSupervisor"]
-    supervisor --> portfolioAgent
-    supervisor --> riskAgent
+    supervisor --> portfolioProcess
+    supervisor --> hrProcess["HumanResourcesProcess"]
+    hrProcess -. RetrainRequest .-> supervisor
 ```
 
 En términos funcionales, la secuencia extremo a extremo es:
 
 1. Se actualizan o descubren datos de acciones y ETFs.
-2. El `DataAgent` produce un `DatasetContract`.
+2. El `DataProcess` produce un `PreparedDataset`.
 3. El `DeveloperAgent` crea el experimento, genera features, divide el histórico y produce reglas candidatas.
 4. El `ValidationAgent` valida esas reglas y, si procede, crea un `PromotedTraderSpec`.
 5. El `TraderAgent` activa el trader promovido y lo pone en estado `LIVE`.
-6. El supervisor recalcula el backtest del trader promovido y persiste artefactos reutilizables.
-7. El `PortfolioManagerAgent` sincroniza el universo promovido, construye dataset semanal y entrena o ajusta su política PPO.
-8. El `LiveTradingRuntime` procesa nuevas velas D1, detecta señales, consulta al portfolio manager y posteriormente al `RiskAgent`.
+6. El supervisor recalcula el backtest del trader promovido y persiste artefactos reutilizables (curvas, máscaras de actividad, retornos semanales).
+7. El `PortfolioManagerProcess` sincroniza el universo promovido y, en cada rebalanceo semanal, ejecuta el optimizador híbrido GA + PSO para asignar pesos.
+8. El `LiveTradingRuntime` procesa nuevas velas D1, detecta señales, consulta al `PortfolioManagerProcess` cuando toca rebalancear y ejecuta órdenes.
 9. El `TraderAgent` envía órdenes y cierres a través de `ExecutionRouter`.
-10. El `StateStore` registra todo el proceso y el dashboard lo expone de forma interpretable.
+10. Asíncronamente, el `HumanResourcesProcess` evalúa la salud de cada trader promovido (mensual o forzado) y, si detecta deterioro, emite un `RetrainRequest`.
+11. El supervisor consume los `RetrainRequest` y reejecuta el pipeline cuantitativo para generar un sustituto.
+12. El `StateStore` registra todo el proceso y el dashboard lo expone de forma interpretable.
 
 ## 3. Estructura principal del repositorio
 
@@ -66,16 +77,17 @@ La carpeta `app/` concentra prácticamente toda la lógica de dominio:
 
 | Ruta | Finalidad |
 |---|---|
-| `app/agents/` | Agentes del sistema: datos, desarrollo, validación, trader, portfolio y riesgo. |
+| `app/agents/` | Agentes y procesos del sistema: desarrollador, validación, trader, gestor de cartera (`PortfolioManagerProcess`) y recursos humanos (`HumanResourcesProcess`). |
 | `app/contracts/` | Enums y dataclasses compartidas por todos los módulos. |
-| `app/services/` | Servicios cuantitativos reutilizables y stack PPO del portfolio. |
+| `app/services/` | Servicios cuantitativos reutilizables: datos, features, split, target, generación y validación de reglas, optimizador GA + PSO, salud de traders y servicios auxiliares de cartera. |
 | `app/runtime/` | Supervisor principal y runtime operativo D1. |
 | `app/orchestrator/` | Orquestadores alternativos de simulación y retraining basado en eventos. |
 | `app/execution/` | Router de ejecución, integración MT5, modelos de orden y providers de datos. |
 | `app/storage/` | Persistencia SQLite del estado completo del sistema. |
 | `app/ui/` | Dashboard Streamlit y agregación de snapshots. |
 | `app/core/` | Logging estructurado y utilidades transversales. |
-| `app/tests/` | Pruebas unitarias e integraciones sobre contratos, runtime, portfolio y riesgo. |
+| `app/cloud/` y `app/cloud_tasks/` | Configuración y tareas planificadas para despliegue cloud (S3, refresh mensual). |
+| `app/tests/` | Pruebas unitarias e integraciones sobre contratos, runtime, optimizador, salud de traders y persistencia. |
 
 ### 3.2. Otras carpetas relevantes
 
@@ -84,20 +96,25 @@ La carpeta `app/` concentra prácticamente toda la lógica de dominio:
 | `datos/Stocks/` | CSV diarios de acciones. |
 | `datos/ETFs/` | CSV diarios de ETFs. |
 | `datos/_universe/` | Universo congelado o reconstruido desde MT5. |
-| `data_download/` | Script de mantenimiento del universo y descarga masiva de históricos. |
-| `backtest_eventos/` | Motor de backtest histórico basado en eventos. |
-| `validacion_monos/`, `validacion_forward/`, `validacion_correlacion_pl/`, `validacion_estabilidad_pl/` | Implementación cuantitativa de la validación multicapa. |
-| `docs/` | Documentación por fases y documentos de memoria técnica. |
+| `app/toolbox/data_download/` | Script de mantenimiento del universo y descarga masiva de históricos. |
+| `app/toolbox/backtest_eventos/` | Motor de backtest histórico basado en eventos (envoltura sobre `pyeventbt`). |
+| `app/toolbox/indicators/` | Librería de features técnicas (`build_feature_library`, `validate_feature_frame`). |
+| `app/toolbox/particion_IS_OOS/` | Split temporal IS/OOS/holdout. |
+| `app/toolbox/definicion_target/` | Aplicación del target a los bloques. |
+| `app/toolbox/ML_tools/` | Generadores de reglas (decision tree, rulefit, genético, quantile). |
+| `app/validation/` | Implementación cuantitativa de la validación multicapa (`monos.py`, `correlation.py`, `forward.py`, `stability.py`). |
+| `infra/terraform/` | Despliegue cloud (EC2 Windows, S3, parámetros SSM). |
+| `docs/` | Documentación por fases y memorias técnicas. |
 
 ## 4. Capa de datos
 
-## 4.1. Papel de los datos dentro del proyecto
+### 4.1. Papel de los datos dentro del proyecto
 
 Los datos no son un simple input genérico. En esta arquitectura desempeñan cuatro funciones diferentes:
 
 1. `Datos de precio diarios`: son la materia prima para construir features, targets, señales y backtests.
 2. `Datos corporativos auxiliares`: volumen, dividendos, splits y metadatos de símbolo; aunque no siempre se consumen en toda la tubería, sí se preservan en los CSV originales.
-3. `Datos derivados semanales`: retornos semanales y máscaras de actividad histórica por trader, usados por el PPO de cartera.
+3. `Datos derivados semanales`: retornos semanales y máscaras de actividad histórica por trader, usados por el optimizador de cartera y por el cálculo de salud post-promoción.
 4. `Datos operativos`: snapshots de cuenta, posiciones abiertas, decisiones de cartera, auditoría de señales y estados de agentes/traders.
 
 En consecuencia, el proyecto no trabaja con un único dataset, sino con una cadena de representaciones sucesivas del dato:
@@ -108,12 +125,12 @@ En consecuencia, el proyecto no trabaja con un único dataset, sino con una cade
 - bloques temporales `IS`, `OOS` y `holdout`;
 - reglas candidatas;
 - artefactos de backtest por trader;
-- dataset semanal de cartera;
+- matriz semanal de retornos para el optimizador GA + PSO;
 - snapshots operativos live.
 
-## 4.2. Descarga y construcción del universo
+### 4.2. Descarga y construcción del universo
 
-La descarga vive fuera del `DataAgent`, en `data_download/download.py`. Esta decisión es importante: el sistema separa explícitamente el mantenimiento del universo y de los históricos frente al consumo operativo de esos datos.
+La descarga vive fuera del `DataProcess`, en `app/toolbox/data_download/download.py`. Esta decisión es importante: el sistema separa explícitamente el mantenimiento del universo y de los históricos frente al consumo operativo de esos datos.
 
 El script de descarga realiza tres tareas:
 
@@ -121,7 +138,7 @@ El script de descarga realiza tres tareas:
 2. Construye el universo de símbolos.
 3. Descarga o actualiza históricos diarios desde Yahoo Finance.
 
-### 4.2.1. Cómo se construye el universo
+#### 4.2.1. Cómo se construye el universo
 
 El universo puede construirse por tres vías:
 
@@ -129,13 +146,7 @@ El universo puede construirse por tres vías:
 - uso de listas congeladas ya existentes en `datos/_universe/`;
 - listas manuales definidas en el propio script.
 
-Cuando se reconstruye desde MT5, el script clasifica símbolos mediante una heurística basada en:
-
-- nombre;
-- `path`;
-- descripción;
-- exclusión de categorías no deseadas como `forex`, índices, commodities, metales, futuros, cripto, bonos u opciones;
-- detección específica de `ETF` y `Stock`.
+Cuando se reconstruye desde MT5, el script clasifica símbolos mediante una heurística basada en nombre, `path`, descripción, exclusión de categorías no deseadas (`forex`, índices, commodities, metales, futuros, cripto, bonos u opciones) y detección específica de `ETF` y `Stock`.
 
 El resultado se persiste en:
 
@@ -144,24 +155,13 @@ El resultado se persiste en:
 - `datos/_universe/dz_universe_full.csv`;
 - `datos/_universe/mt5_all_symbols_raw.csv`.
 
-### 4.2.2. Qué se descarga
+#### 4.2.2. Qué se descarga
 
-La descarga se hace con `yfinance`, en frecuencia `1d`, con:
+La descarga se hace con `yfinance`, en frecuencia `1d`, con `Open`, `High`, `Low`, `Close`, `Adj Close`, `Volume`, `Dividends`, `Stock Splits`, símbolo bruto de origen (`RawSymbol`) y símbolo resuelto para Yahoo (`YahooSymbol`).
 
-- `Open`;
-- `High`;
-- `Low`;
-- `Close`;
-- `Adj Close`;
-- `Volume`;
-- `Dividends`;
-- `Stock Splits`;
-- símbolo bruto de origen (`RawSymbol`);
-- símbolo resuelto para Yahoo (`YahooSymbol`).
+El CSV descargado es por tanto más rico que el mínimo consumido después por los agentes. El pipeline clásico trabaja sobre OHLC, pero el fichero fuente preserva más información para trazabilidad y posibles extensiones.
 
-Por tanto, el CSV descargado es más rico que el mínimo consumido después por los agentes. El pipeline clásico trabaja sobre OHLC, pero el fichero fuente preserva más información para trazabilidad y posibles extensiones.
-
-### 4.2.3. Política de actualización
+#### 4.2.3. Política de actualización
 
 Para cada símbolo:
 
@@ -172,48 +172,28 @@ Para cada símbolo:
 - se eliminan duplicados por fecha conservando la última observación;
 - se registra el estado final como `updated`, `up_to_date` o `failed`.
 
-La salida agregada del proceso se guarda además en:
+La salida agregada se guarda en `datos/update_log.csv` y `datos/failed_symbols.csv`.
 
-- `datos/update_log.csv`;
-- `datos/failed_symbols.csv`.
-
-## 4.3. Normalización e ingesta en la aplicación
+### 4.3. Normalización e ingesta en la aplicación
 
 La aplicación no consume directamente el CSV descargado en bruto. Primero lo normaliza.
 
-### 4.3.1. Servicio `load_asset_ohlc`
+#### 4.3.1. Servicio `load_asset_ohlc` y `DataProcess`
 
-`app/services/data_service.py` define `load_asset_ohlc`, que convierte un CSV estilo Yahoo a la representación estándar interna:
+`app/services/data_service.py` define dos elementos clave:
 
-- índice temporal (`DatetimeIndex`);
-- columnas `open`, `high`, `low`, `close`.
+- `load_asset_ohlc(...)`: convierte un CSV estilo Yahoo a la representación estándar interna (DatetimeIndex, columnas `open`, `high`, `low`, `close`).
+- `DataProcess`: proceso ligero (no es un agente deliberativo) con `agent_id = "data_process"` y método `prepare_dataset(...)`, que llama al loader, persiste el evento `DATASET_READY` y devuelve un `PreparedDataset` (con OHLC ya cargado en memoria) listo para el `DeveloperAgent`.
 
-El servicio:
+La normalización fija el contrato mínimo del dato: renombrar columnas Yahoo, exigir `date/open/high/low/close`, parsear fechas, ordenar, convertir a numérico, eliminar filas inválidas y lanzar excepción si el resultado queda vacío.
 
-1. renombra `Date/Open/High/Low/Close`;
-2. exige la presencia de `date`, `open`, `high`, `low`, `close`;
-3. parsea fechas;
-4. ordena por fecha;
-5. convierte OHLC a numérico;
-6. elimina filas inválidas;
-7. lanza excepción si el resultado queda vacío.
+#### 4.3.2. `LocalMarketDataProvider`
 
-Esta normalización es clave porque fija el contrato mínimo del dato sobre el que trabajan tanto el desarrollo cuantitativo como parte del runtime.
+`app/execution/local_data_provider.py` descubre automáticamente todos los CSV en `datos/Stocks` y `datos/ETFs`, crea el mapeo símbolo -> ruta y expone métodos para recuperar la última barra, conocer el rango temporal disponible, comprobar si un símbolo existe e invalidar caché tras un refresh.
 
-### 4.3.2. `LocalMarketDataProvider`
+Esto permite reutilizar la misma base local de datos tanto en desarrollo como en la operativa en modo paper o en pasos intermedios del supervisor.
 
-`app/execution/local_data_provider.py` descubre automáticamente todos los CSV en `datos/Stocks` y `datos/ETFs`, crea el mapeo símbolo -> ruta y expone métodos para:
-
-- recuperar la última barra;
-- conocer el rango temporal disponible;
-- comprobar si un símbolo existe;
-- invalidar caché tras un refresh.
-
-Esto permite reutilizar la misma base local de datos tanto en desarrollo como en la operativa en modo local o en pasos intermedios del supervisor.
-
-## 4.4. Tipos de datos utilizados realmente
-
-Aunque el sistema parte de CSV diarios, durante su operación maneja varios tipos de dato diferenciados:
+### 4.4. Tipos de datos utilizados realmente
 
 | Tipo | Forma | Uso principal |
 |---|---|---|
@@ -222,9 +202,9 @@ Aunque el sistema parte de CSV diarios, durante su operación maneja varios tipo
 | Bloques temporales | `data_is`, `data_oos`, `data_2025` | validación multicapa |
 | Reglas candidatas | `DataFrame` por familia y lado | entrada del `ValidationAgent` |
 | Reglas estables | listas de strings | construcción del trader promovido |
-| Curvas de equity / balance | `DataFrame` | backtest, portfolio y riesgo |
+| Curvas de equity / balance | `DataFrame` | backtest, optimizador y health scoring |
 | Trades históricos | `DataFrame` | métricas de diseño, forward y salud |
-| Retornos semanales | series normalizadas | entrenamiento e inferencia PPO |
+| Retornos semanales | matriz `(T x N)` | optimizador híbrido GA + PSO |
 | Máscara semanal de actividad | serie binaria por trader | distinguir cuándo un trader estaba realmente activo |
 | Eventos y snapshots | JSON persistido | auditoría, dashboard y reanudación operativa |
 
@@ -242,11 +222,11 @@ Su función es desacoplar agentes, servicios y runtimes, de forma que el sistema
 
 `app/contracts/enums.py` define el vocabulario operativo del sistema:
 
-- `AgentKind`: identifica agentes productores o consumidores de decisiones.
+- `AgentKind`: identifica agentes y procesos productores o consumidores de decisiones (`data_process`, `developer_agent`, `validation_agent`, `trader_agent`, `portfolio_manager`, `human_resources_process`).
 - `AgentStatus`: estado operativo de cada agente (`idle`, `running`, `failed`, `blocked`).
-- `TraderLifecycleState`: ciclo de vida del trader (`candidate`, `validated`, `promoted`, `live`, `degraded`, `suspended`, `retired`, `retraining`).
-- `RiskAction`: vocabulario compartido del `RiskAgent`, tanto para salud de traders como para gate de cartera.
-- `EventType`: tipología completa de eventos persistidos, incluyendo desarrollo, validación, portfolio, riesgo y broker.
+- `TraderLifecycleState`: ciclo de vida binario del trader (`live`, `retraining`). El trader o está operando en producción (`live`), o está fuera con peso 0 esperando reentrenamiento (`retraining`). No existen estados intermedios tipo "warning amber".
+- `TraderReviewAction`: resultado de la revisión periódica del `HumanResourcesProcess`. Solo dos valores: `KEEP` (sigue válido) y `RETRAINING` (debe ser sustituido).
+- `EventType`: tipología completa de eventos persistidos. Los más relevantes para las nuevas semánticas son `TRADER_PROMOTED`, `TRADER_STATE_CHANGED`, `PORTFOLIO_DECISION`, `PORTFOLIO_REBALANCE_SNAPSHOT`, `TRADER_HEALTH_EVALUATED`, `RETRAIN_REQUESTED` y `RETRAIN_PROCESSED`.
 
 ### 5.2. Dataclasses principales
 
@@ -254,324 +234,212 @@ Las dataclasses de `app/contracts/models.py` recogen el contrato formal del pipe
 
 | Tipo | Finalidad |
 |---|---|
-| `DatasetContract` | Describe un dataset ya preparado por el `DataAgent`. |
+| `DatasetContract` | Describe un dataset ya preparado por el `DataProcess`. |
 | `ExperimentConfig` | Formaliza el experimento de desarrollo: activo, timeframe, familias y parámetros. |
 | `CandidateRules` | Resume las reglas candidatas generadas. |
 | `ValidationReport` | Sintetiza el resultado de la validación. |
 | `PromotedTraderSpec` | Define un trader promovido: reglas, activo, timeframe y origen. |
 | `TraderLiveMetrics` | Snapshot de métricas live del trader. |
-| `PortfolioDecision` | Decisión de cartera emitida por el `PortfolioManagerAgent`. |
-| `PortfolioTrainingRun` y `PortfolioModelInfo` | Trazan cada entrenamiento PPO y el modelo vigente. |
-| `PortfolioRebalanceSnapshot` y `PortfolioForwardEvaluation` | Persisten decisiones históricas de cartera y sus evaluaciones forward. |
-| `DesignRiskProfile`, `TraderForwardMetrics`, `TraderHealthSnapshot`, `RiskAdjustedPortfolioDecision` | Contratos avanzados del `RiskAgent`. |
-| `RetrainRequest` | Solicitud formal de retraining. |
+| `PortfolioDecision` | Decisión semanal del `PortfolioManagerProcess` (modo `ga_pso`). Lleva `selected_traders`, `weights`, `target_cash_weight`, `fitness`, `sharpe_neto`, `mdd`, `corr_media` y `metadata` con la trazabilidad del optimizador. |
+| `PortfolioRebalanceSnapshot` | Persistencia histórica de rebalanceos semanales (mismas claves que `PortfolioDecision` ampliadas con `forward_metrics` y diagnostics). |
+| `TraderDesignProfile` | Perfil de diseño del trader: métricas IS / OOS / holdout en el momento de su promoción. Es el "DNI" contra el que se compara su comportamiento forward. |
+| `TraderForwardMetrics` | Métricas forward post-promoción del trader: `shadow_*` (lo que sus reglas hicieron en datos OOS reales), `executed_*` (lo que finalmente ejecutó el broker), `signal_count` y `pm_selected_count`. |
+| `TraderHealthConfig` | Umbrales de salud que utiliza `HumanResourcesProcess` para decidir entre `KEEP` y `RETRAINING`: `min_forward_trades_for_retraining`, `retraining_health_threshold`, `max_losing_streak_multiplier`, `max_drawdown_multiplier_retraining`, `min_profit_factor_ratio_retraining`, `min_sharpe_ratio_retraining`. **No contiene ni un solo campo de cartera, peso, margen o broker.** |
+| `TraderHealthSnapshot` | Resultado de una revisión: previous_state, new_state, action (`KEEP`/`RETRAINING`), `health_score`, razones, `design_profile`, `forward_metrics`, flags y posible `retrain_request`. |
+| `RetrainRequest` | Solicitud formal de reentrenamiento emitida por `HumanResourcesProcess` y consumida por el supervisor. |
 | `EventRecord` | Estructura abstracta de evento persistido. |
 
-### 5.3. Observación importante sobre la calidad del dataset
+### 5.3. Contratos eliminados respecto a la versión anterior
 
-`DatasetContract` incluye un `quality_score`, pero en la implementación actual el `DataAgent` lo fija en `1.0`. Por tanto, existe el campo contractual, pero no una auditoría automática avanzada de calidad del dataset en esta capa.
+Para evitar confusión con documentación previa, conviene dejar registrado lo que ya **no existe**:
 
-## 6. Agentes del sistema
+- `RiskAction`, `RiskDecision`, `RiskAdjustedPortfolioDecision`, `RiskLimitsConfig`, `DesignRiskProfile`, `RiskThresholds`: todos eliminados al rediseñar el componente como `HumanResourcesProcess`.
+- `PortfolioTrainingRun`, `PortfolioModelInfo`, `PortfolioForwardEvaluation` (antiguos contratos del stack PPO): eliminados al sustituir PPO por el optimizador híbrido GA + PSO.
 
-## 6.1. `AgentContext`
+### 5.4. Observación importante sobre la calidad del dataset
 
-Antes de explicar cada agente, conviene describir `AgentContext` (`app/agents/base.py`), que es el objeto de contexto compartido por todos ellos. Contiene:
+El `DataProcess` deja `quality_score = 1.0` por defecto. Existe el campo contractual, pero no una auditoría automática avanzada de calidad del dataset en esta capa.
 
-- `store`;
-- `artifacts_root`;
-- `execution_router`.
+## 6. Agentes y procesos del sistema
+
+### 6.1. Distinción entre "agente" y "proceso"
+
+El proyecto usa con intención los dos términos:
+
+- **Agente** (`...Agent`): componente con un cierto grado de decisión propia, normalmente con estado interno y vocación deliberativa. Ejemplos: `DeveloperAgent`, `ValidationAgent`, `TraderAgent`.
+- **Proceso** (`...Process`): componente determinista, sin aprendizaje online, ejecutado en un horario definido (semanal o mensual) y reproducible desde su entrada. Ejemplos: `DataProcess`, `PortfolioManagerProcess` (GA + PSO), `HumanResourcesProcess`.
+
+Esta distinción no es meramente estética: refleja un cambio arquitectónico real respecto a versiones anteriores del proyecto, donde tanto la cartera como el riesgo se modelaban como agentes con estado de aprendizaje. La arquitectura actual los reduce a procesos deterministas porque su responsabilidad es decidir, no aprender.
+
+### 6.2. `AgentContext`
+
+`app/agents/base.py` define `AgentContext`, el objeto compartido por todos ellos. Contiene:
+
+- `store` (`StateStore`);
+- `artifacts_root` (raíz para artefactos en disco);
+- `execution_router` (opcional).
 
 Este diseño permite que los agentes no conozcan detalles innecesarios de persistencia o ejecución, y se comuniquen a través de contratos estables.
 
-## 6.2. `DataAgent`
+### 6.3. `DataProcess`
 
-### 6.2.1. Función dentro del flujo
+`app/services/data_service.py` implementa `DataProcess` (`agent_id = "data_process"`).
 
-`DataAgent` es el primer agente del pipeline formal. Su cometido no es descargar datos desde Internet, sino tomar un activo ya disponible localmente y transformarlo en un contrato de dataset coherente con el resto del sistema.
+- Cometido: tomar un activo ya disponible localmente y transformarlo en un dataset coherente con el resto del sistema.
+- Método principal: `prepare_dataset(asset, timeframe, asset_csv_path)`.
+- Hace: marcar `running` → `dataset_load_started` → `load_asset_ohlc(...)` → construir `PreparedDataset` → persistir evento `DATASET_READY` → log estructurado `dataset_ready` → volver a `idle`.
 
-### 6.2.2. Qué hace exactamente
+Aunque su lógica es sencilla, formaliza la entrada al pipeline, desacopla la ingesta de la fase de desarrollo y deja traza persistente del dataset realmente utilizado.
 
-`app/agents/data_agent.py` implementa `prepare_dataset(...)`, que:
+### 6.4. `DeveloperAgent`
 
-1. marca el agente como `running`;
-2. emite el log `dataset_load_started`;
-3. llama a `load_asset_ohlc(...)`;
-4. construye un `DatasetContract` con:
-   - `dataset_id`,
-   - `asset`,
-   - `timeframe`,
-   - `source_path`,
-   - número de filas,
-   - fecha inicial y final,
-   - `quality_score`,
-   - metadata;
-5. persiste un evento `DATASET_READY`;
-6. emite log estructurado `dataset_ready`;
-7. deja el agente en `idle`.
+`app/agents/developer_agent.py` transforma un dataset bruto ya normalizado en un experimento cuantitativo completo: features, partición temporal y reglas candidatas.
 
-### 6.2.3. Valor metodológico
+#### 6.4.1. Secuencia interna
 
-Aunque su lógica es sencilla, `DataAgent` cumple una función arquitectónica importante:
+`develop(...)`:
 
-- formaliza la entrada al pipeline;
-- desacopla la ingesta de la fase de desarrollo;
-- deja traza persistente del dataset realmente utilizado.
+1. recibe un `DatasetContract` y las familias de modelos a probar;
+2. fija una configuración de split (`is_pct`, `oos_pct`, `holdout_year`, `lookback_years`);
+3. persiste `DEVELOPMENT_STARTED`;
+4. relee el CSV fuente y vuelve a normalizar columnas;
+5. construye features con `build_features(...)`;
+6. divide el histórico con `split_is_oos_holdout(...)`;
+7. aplica el target con `apply_target_to_blocks(...)`;
+8. persiste `SPLIT_AND_TARGET_READY`;
+9. construye un `ExperimentConfig`;
+10. genera reglas candidatas con `generate_candidate_rules(...)` usando únicamente `data_is`;
+11. agrega las reglas de todas las familias;
+12. crea `CandidateRules` y persiste `CANDIDATE_RULES_READY`.
 
-En otras palabras, convierte un fichero en un objeto de trabajo auditado.
+#### 6.4.2. Construcción de features
 
-## 6.3. `DeveloperAgent`
+Se delega en `app/services/feature_service.py`, que encapsula la librería de indicadores: `Momentum`, `ROC`, `RSI`, `Stoch`, `WPR`, `CCI`, `BullsPower`, `BearsPower`, `DeMarker`, `RVI`, `DPO`. La finalidad es producir un espacio de representación consistente sobre el que evaluar reglas lógicas.
 
-### 6.3.1. Papel metodológico
+#### 6.4.3. Partición temporal
 
-`DeveloperAgent` es el responsable de transformar un dataset bruto ya normalizado en un experimento cuantitativo completo. Es el agente donde se construyen los predictores, se fija la partición temporal del problema y se generan las reglas candidatas.
-
-### 6.3.2. Secuencia interna
-
-`app/agents/developer_agent.py` implementa `develop(...)`, que sigue esta secuencia:
-
-1. recibe un `DatasetContract`;
-2. recibe las familias de modelos a probar;
-3. fija una configuración de split con:
-   - `is_pct`,
-   - `oos_pct`,
-   - `holdout_year`,
-   - `lookback_years`;
-4. persiste `DEVELOPMENT_STARTED`;
-5. relee el CSV fuente y vuelve a normalizar columnas;
-6. construye features con `build_features(...)`;
-7. divide el histórico con `split_is_oos_holdout(...)`;
-8. aplica el target con `apply_target_to_blocks(...)`;
-9. persiste `SPLIT_AND_TARGET_READY`;
-10. construye un `ExperimentConfig`;
-11. genera reglas candidatas con `generate_candidate_rules(...)` usando únicamente `data_is`;
-12. agrega las reglas de todas las familias;
-13. crea `CandidateRules`;
-14. persiste `CANDIDATE_RULES_READY`.
-
-### 6.3.3. Sobre la doble lectura del CSV
-
-Es relevante señalar que el `DeveloperAgent` no reutiliza directamente el `DataFrame` cargado por `DataAgent`, sino que vuelve a leer `dataset.source_path`. Esto introduce cierta redundancia, pero en la práctica mantiene un desacoplamiento claro: el contrato de dataset contiene la referencia al origen, y cada agente posterior reconstruye lo que necesita desde esa fuente.
-
-### 6.3.4. Construcción de features
-
-La construcción de features se delega en `app/services/feature_service.py`, que a su vez encapsula la librería de indicadores utilizada por el proyecto. La documentación existente del repositorio y los servicios asociados indican que el sistema trabaja sobre una biblioteca cerrada de indicadores técnicos clásicos, entre ellos:
-
-- `Momentum`;
-- `ROC`;
-- `RSI`;
-- `Stoch`;
-- `WPR`;
-- `CCI`;
-- `BullsPower`;
-- `BearsPower`;
-- `DeMarker`;
-- `RVI`;
-- `DPO`.
-
-La finalidad de esta capa es producir un espacio de representación consistente para evaluar reglas lógicas sobre el activo.
-
-### 6.3.5. Partición temporal
-
-La política declarada por el agente es `is_oos_holdout_2025`. Además, el propio `DeveloperAgent` registra en log una orientación específica:
+La política declarada es `is_oos_holdout_2025`:
 
 - `IS` reciente;
 - `OOS` más antiguo dentro del histórico utilizado;
 - `holdout` correspondiente al año objetivo.
 
-Esa elección es metodológicamente relevante porque la validación posterior no trabaja sobre cortes arbitrarios, sino sobre una segmentación temporal explícita y persistida.
+Esta segmentación es metodológicamente relevante porque la validación posterior trabaja sobre cortes temporales explícitos y persistidos.
 
-### 6.3.6. Familias de generación
-
-Según la configuración recibida, el agente puede emplear distintas familias:
+#### 6.4.4. Familias de generación
 
 - `decision_tree`;
 - `rulefit`;
-- `genetico` o `genetic`;
-- `quantile`;
-- `subgroup`.
+- `genetico` (alias `genetic`);
+- `quantile`.
 
-No todas tienen por qué ejecutarse en cada ciclo. De hecho, el supervisor puede escoger solo una familia por iteración de desarrollo, mientras que el pipeline offline global puede orquestar varias.
+No todas tienen por qué ejecutarse en cada ciclo. El supervisor puede escoger solo una familia por iteración, mientras que un pipeline offline puede orquestar varias.
 
-### 6.3.7. Salida formal
+### 6.5. `ValidationAgent`
 
-El resultado del agente es `DevelopmentOutput`, que contiene:
+#### 6.5.1. Pipeline de validación elegido
 
-- `experiment_config`;
-- `candidate_rules`;
-- `blocks`;
-- `candidates_by_family`.
+`app/services/validation_service.py` resume el orden:
 
-Esta salida es suficiente para alimentar al `ValidationAgent` sin necesidad de volver a inferir la estructura del experimento.
+`IS/OOS (monos) -> decorrelación -> forward -> estabilidad`.
 
-## 6.4. `ValidationAgent`
+#### 6.5.2. Perfil por defecto (`DEFAULT_VALIDATION_PROFILE`)
 
-### 6.4.1. Problema que resuelve
+- `monkey_is`: `n_monkeys=120`, `is_pass_pct=90.0`, `min_coverage_is=80`.
+- `monkey_oos`: `n_monkeys=120`, `oos_pass_pct=75.0`, `min_coverage_oos=60`.
+- `correlation_pruning`: `corr_threshold=0.50`, `min_ops=50`.
+- `forward_validation`: `target_year=2025`, `min_ops=30`.
+- `stability_selection`: `top_n_long=15`, `top_n_short=15`, `min_ops=50`.
 
-El proyecto no promociona traders por el simple hecho de haber generado reglas. Entre la generación y la promoción existe una fase de validación multicapa diseñada para reducir el riesgo de sobreajuste y exigir robustez temporal y estructural.
+#### 6.5.3. Implementación del agente
 
-### 6.4.2. Pipeline de validación elegido
+`validation_agent.py` recibe el `DevelopmentOutput`, ejecuta `run_validation_pipeline(...)` y construye un `ValidationReport`. Si hay reglas estables suficientes, llama a `build_promoted_spec(...)`, persiste `VALIDATION_COMPLETED` y `TRADER_PROMOTED`, y devuelve `ValidationOutput(report, promoted_spec)`.
 
-La implementación principal vive en `app/services/validation_service.py`. El comentario del servicio lo resume con claridad: la validación sigue el orden
+Importante: la validación **no inserta** al trader en `trader_states`. La fila aparece solo cuando `TraderAgent.activate(...)` lo pone `LIVE`. Mientras tanto el trader vive en el evento `TRADER_PROMOTED` y en `_promoted_registry`.
 
-`IS/OOS (monos) -> decorrelacion -> forward -> estabilidad`.
+#### 6.5.4. Fallback defensivo
 
-Ese orden se ha convertido en la metodología efectiva del proyecto.
+Si la selección de estabilidad devuelve cero reglas, el agente activa un fallback que toma hasta cinco reglas long y cinco short desde los dataframes decorrelacionados (`decor_long`, `decor_short`). La validación ideal busca estabilidad; el fallback es un mecanismo de continuidad.
 
-### 6.4.3. Perfil por defecto
+#### 6.5.5. Promoción permisiva vs estricta
 
-`DEFAULT_VALIDATION_PROFILE` define los parámetros base:
-
-- `monkey_is`:
-  - `n_monkeys = 120`
-  - `is_pass_pct = 90.0`
-  - `min_coverage_is = 80`
-- `monkey_oos`:
-  - `n_monkeys = 120`
-  - `oos_pass_pct = 75.0`
-  - `min_coverage_oos = 60`
-- `correlation_pruning`:
-  - `corr_threshold = 0.50`
-  - `min_ops = 50`
-- `forward_validation`:
-  - `target_year = 2025`
-  - `min_ops = 30`
-- `stability_selection`:
-  - `top_n_long = 15`
-  - `top_n_short = 15`
-  - `min_ops = 50`
-
-Estos valores son especialmente relevantes para la memoria, porque muestran que la validación implementada no es un filtro trivial, sino una cadena de exigencias cuantitativas configurables.
-
-### 6.4.4. Etapas de la validación
-
-#### a) Validación tipo "monos" en `IS`
-
-Sobre las reglas candidatas agrupadas por familia se ejecuta `monkey_validate_is_multi(...)`. Esta primera capa actúa como filtro inicial sobre el segmento de entrenamiento.
-
-#### b) Validación tipo "monos" en `OOS`
-
-Las reglas que superan la primera capa pasan a `monkey_validate_oos_multi(...)` sobre el bloque `OOS`, exigiendo persistencia del comportamiento fuera del tramo principal.
-
-#### c) Decorrelación de P/L
-
-Una vez filtradas por `IS` y `OOS`, se ejecuta `run_pl_correlation_pruning(...)` con el fin de descartar reglas excesivamente redundantes desde el punto de vista del comportamiento de P/L.
-
-#### d) Validación forward anual
-
-Las reglas decorrelacionadas se evalúan después sobre el año holdout mediante `validate_forward_year_profitability(...)`.
-
-#### e) Selección por estabilidad
-
-Finalmente, `run_pl_stability_selection(...)` selecciona los ganadores estables definitivos:
-
-- `winners_long_stable`;
-- `winners_short_stable`.
-
-### 6.4.5. Implementación del `ValidationAgent`
-
-`app/agents/validation_agent.py` recibe el `DevelopmentOutput`, ejecuta `run_validation_pipeline(...)` y construye un `ValidationReport`.
-
-Si hay reglas estables suficientes:
-
-1. crea un `PromotedTraderSpec` con `build_promoted_spec(...)`;
-2. inserta al trader en `trader_states` como `PROMOTED`;
-3. persiste:
-   - `VALIDATION_COMPLETED`,
-   - `TRADER_PROMOTED`;
-4. devuelve `ValidationOutput(report, promoted_spec)`.
-
-### 6.4.6. Fallback defensivo
-
-Hay un detalle metodológico importante: si la selección de estabilidad devuelve cero reglas, el agente activa un fallback defensivo y toma hasta cinco reglas long y cinco short desde los dataframes decorrelacionados (`decor_long`, `decor_short`).
-
-Esto significa que:
-
-- la validación ideal busca estabilidad;
-- la implementación actual mantiene un mecanismo de continuidad para no bloquear toda la integración si la capa de estabilidad queda vacía.
-
-Ese fallback debe explicarse como decisión de ingeniería, no como equivalencia conceptual estricta con "reglas estables".
-
-### 6.4.7. Diferencia entre promoción permisiva y promoción estricta
-
-`validate_and_promote(...)` acepta el parámetro `promote_if_empty`.
-
-- Si `promote_if_empty=True`, el sistema puede seguir una vía más permisiva.
-- Si `promote_if_empty=False`, si no hay reglas válidas tras la validación efectiva, no se promociona ningún trader.
-
-Esta distinción es importante porque el supervisor de desarrollo utiliza la vía estricta en determinadas rutas operativas, mientras que otros orquestadores pueden ser más tolerantes.
+`validate_and_promote(...)` admite el parámetro `promote_if_empty`. La vía estricta (`promote_if_empty=False`) es la que utiliza el supervisor de desarrollo en sus rutas operativas habituales.
 
 ## 7. Servicios cuantitativos reutilizables
 
-La carpeta `app/services/` concentra la mayor parte de la lógica reutilizable no acoplada a un agente concreto.
+`app/services/` concentra la mayor parte de la lógica reutilizable no acoplada a un agente concreto.
 
 ### 7.1. Servicios del pipeline clásico
 
 | Archivo | Finalidad |
 |---|---|
-| `app/services/data_service.py` | Normalización de CSV a OHLC estándar. |
+| `app/services/data_service.py` | `load_asset_ohlc` y `DataProcess`. |
 | `app/services/feature_service.py` | Construcción y validación del frame de features. |
 | `app/services/split_service.py` | División temporal `IS/OOS/holdout`. |
 | `app/services/target_service.py` | Aplicación del target a los bloques. |
 | `app/services/rule_generation_service.py` | Generación de reglas candidatas por familia. |
 | `app/services/validation_service.py` | Orquestación completa de la validación multicapa. |
 | `app/services/promotion_service.py` | Construcción del `PromotedTraderSpec`. |
-| `app/services/pipeline_service.py` | Pipeline offline global más amplio para artefactos y pruebas. |
 
-### 7.2. Significado arquitectónico
+### 7.2. Servicios del optimizador de cartera
+
+| Archivo | Finalidad |
+|---|---|
+| `app/services/portfolio_optimizer.py` | Optimizador híbrido GA + PSO: configuración (`PortfolioOptimizerConfig`), métricas, fitness única, GA binario, PSO de pesos y orquestador `optimize_portfolio_ga_pso`. |
+| `app/services/portfolio_rl/data_refresh.py` | `PortfolioOHLCRefreshService` para refrescar OHLC de los activos del universo promovido (servicio auxiliar usado por el supervisor). |
+| `app/services/portfolio_rl/universe_registry.py` | `UniverseRegistry` para persistir el universo elegible. |
+
+> Nota histórica: el paquete `portfolio_rl` conserva el nombre por motivos de compatibilidad pero **ya no contiene PPO ni ningún código de RL**. Solo retiene los dos servicios auxiliares anteriores.
+
+### 7.3. Servicios de salud de traders (`trader_health`)
+
+| Archivo | Finalidad |
+|---|---|
+| `app/services/trader_health/forward_backtest_service.py` | `ForwardBacktestService` (ejecuta backtest forward post-promoción) y `build_trader_design_profile(...)`. |
+| `app/services/trader_health/health_scoring.py` | `evaluate_trader_health(profile, metrics, current_state, config)` que devuelve un `TraderHealthSnapshot` con `KEEP` o `RETRAINING`. |
+| `app/services/trader_health/metrics.py` | Métricas financieras genéricas (Sharpe, profit factor, drawdown, expectancy, etc.) y `build_metric_comparison_table` para la UI. |
+
+### 7.4. Significado arquitectónico
 
 La existencia de estos servicios permite:
 
 - mantener a los agentes como orquestadores de alto nivel;
-- reutilizar la lógica cuantitativa desde otros runtimes;
+- reutilizar la lógica cuantitativa desde otros runtimes (cloud tasks, scripts de fase);
 - probar bloques específicos sin ejecutar el sistema entero.
 
 ## 8. `TraderAgent` y ciclo de vida del trader
 
-## 8.1. Qué significa "promocionar" frente a "activar"
+### 8.1. Qué significa "promocionar" frente a "activar"
 
-En esta arquitectura, un trader puede pasar por varios estados:
+En esta arquitectura, un trader solo tiene dos estados posibles en `trader_states`:
 
-- `PROMOTED`: el trader ha superado la validación y ya existe formalmente como candidato operativo.
-- `LIVE`: el trader ha sido activado por `TraderAgent`.
+- `LIVE`: el trader ha sido activado por `TraderAgent` y está operando.
+- `RETRAINING`: el `HumanResourcesProcess` lo ha sacado del LIVE y está pendiente de ser sustituido por un nuevo trader (peso 0, todo a cash).
 
-Promoción y activación, por tanto, no son sinónimos. La validación crea el trader operativo desde el punto de vista lógico; la activación lo inserta en el runtime y le da métricas iniciales y capacidad de enrutar órdenes.
+La promoción (validación) **no crea fila** en `trader_states`: solo emite el evento `TRADER_PROMOTED` y deja el spec en la cola de validados (`_promoted_registry`). Es la activación realizada por `TraderAgent.activate(...)` la que inserta al trader en `trader_states` con estado `LIVE`. Promoción y activación, por tanto, no son sinónimos: la primera certifica que el trader pasa la validación, la segunda lo pone realmente en producción.
 
-## 8.2. Función del `TraderAgent`
+### 8.2. Función del `TraderAgent`
 
-`app/agents/trader_agent.py` implementa el agente de activación y de acceso a ejecución.
-
-Sus funciones principales son:
+`app/agents/trader_agent.py` implementa el agente de activación y de acceso a ejecución. Sus funciones principales son:
 
 - `activate(promoted)`;
 - `publish_metrics(metrics)`;
 - `route_order(...)`;
 - `close_position(...)`.
 
-## 8.3. Qué hace `activate(...)`
-
-La activación:
+### 8.3. Qué hace `activate(...)`
 
 1. marca el agente como `running`;
 2. emite `trader_activation_started`;
-3. construye unas `TraderLiveMetrics` iniciales;
+3. construye unas `TraderLiveMetrics` iniciales (`pnl=0`, `sharpe_rolling=0`, `drawdown_rolling=0`, `trade_count=0`, `readiness_score`);
 4. fija el estado del trader en `LIVE`;
 5. persiste métricas iniciales en `trader_metrics_latest`;
-6. emite:
-   - `TRADER_STATE_CHANGED`,
-   - `TRADER_METRICS_UPDATED`;
+6. emite `TRADER_STATE_CHANGED` y `TRADER_METRICS_UPDATED`;
 7. vuelve a `idle`.
 
-Las métricas iniciales son deliberadamente simples:
+`TraderAgent.activate` no arranca por sí mismo un bucle autónomo de mercado. Prepara el trader para ser explotado por el runtime operativo.
 
-- `pnl = 0`;
-- `sharpe_rolling = 0`;
-- `drawdown_rolling = 0`;
-- `trade_count = 0`;
-- `readiness_score` derivado del número de reglas long y short.
-
-Esto deja claro que `TraderAgent.activate` no arranca por sí mismo un bucle autónomo completo de mercado. Prepara el trader para ser explotado por el runtime operativo.
-
-## 8.4. Ejecución de órdenes
+### 8.4. Ejecución de órdenes
 
 Cuando se le solicita operar:
 
@@ -581,371 +449,267 @@ Cuando se le solicita operar:
 4. persiste eventos de broker aceptados o rechazados;
 5. deja traza estructurada del intento.
 
-Esta capa aporta trazabilidad y control de acceso: no cualquier módulo puede interactuar directamente con el broker.
+Esta capa aporta trazabilidad y control de acceso: solo los actores autorizados (ver §13.2) pueden interactuar directamente con el broker.
 
-## 9. `PortfolioManagerAgent` en profundidad
+## 9. `PortfolioManagerProcess` (GA + PSO) en profundidad
 
-## 9.1. Problema que resuelve
+### 9.1. Problema que resuelve
 
-Una vez existen varios traders promovidos y activos, el sistema ya no puede operar todas las señales al mismo tiempo sin una política de asignación de capital. El `PortfolioManagerAgent` resuelve precisamente este problema:
+Una vez existen varios traders promovidos y activos, el sistema ya no puede operar todas las señales al mismo tiempo sin una política de asignación de capital. El `PortfolioManagerProcess` decide:
 
-- decide qué señales activas entran en cartera;
-- asigna pesos objetivo a cada trader seleccionado;
-- determina el peso residual en caja;
-- persiste decisiones, entrenamientos y evaluaciones forward para su auditoría.
+- qué señales activas entran en cartera;
+- qué peso recibe cada trader seleccionado;
+- qué peso residual va a caja;
+- y persiste decisiones y rebalanceos para auditoría.
 
-La cartera no es, por tanto, un accesorio del runtime, sino una capa de decisión estratégica situada entre la generación de señales y la ejecución.
+La cartera no es un accesorio del runtime, sino una capa de decisión estratégica situada entre la generación de señales y la ejecución.
 
-## 9.2. Dos modos de funcionamiento
+### 9.2. Por qué GA + PSO y no PPO
 
-`app/agents/portfolio_agent.py` soporta dos modos:
+Versiones anteriores del proyecto utilizaban un agente PPO (RL) para esta tarea. La arquitectura actual ha sustituido ese stack por un **optimizador híbrido determinista GA + PSO** por tres motivos:
 
-- `ppo`: modo principal actual;
-- `legacy`: modo de referencia y compatibilidad.
+1. **Reproducibilidad**: dado el mismo histórico, los mismos seeds producen exactamente la misma decisión, lo que facilita auditar y defender el comportamiento.
+2. **Interpretabilidad**: la fitness es una expresión matemática cerrada (`Sharpe_neto - λ_dd · MDD - λ_corr · CorrMedia`), no una red neuronal opaca.
+3. **Coste y simplicidad**: no hace falta entrenamiento previo, ni checkpoints, ni infraestructura PPO. La cartera se decide en cada rebalanceo desde cero a partir de la matriz de retornos histórica.
 
-El modo se controla mediante `PORTFOLIO_MANAGER_MODE` y, en la práctica, el sistema actual está construido alrededor del camino PPO.
+El `PortfolioManagerProcess` es por eso un **proceso**, no un agente: no aprende online, no tiene estado interno opaco y se ejecuta como pipeline determinista.
 
-## 9.3. Filosofía del modo PPO
+### 9.3. Estructura del optimizador
 
-El enfoque PPO parte de una idea distinta a la del pipeline de reglas:
+`app/services/portfolio_optimizer.py` encapsula:
 
-- los traders individuales ya fueron seleccionados por validación;
-- la cartera aprende ahora a coordinar esos traders como activos de una cartera secuencial;
-- el objetivo es optimizar una política de asignación de pesos, no inventar nuevas reglas de mercado.
+1. **Métricas de cartera**: `compute_portfolio_returns`, Sharpe neto, MDD, correlación media.
+2. **Función de fitness única**:
+   ```
+   Fitness = Sharpe_neto - λ_dd · MDD - λ_corr · CorrMedia
+   ```
+3. **Algoritmo Genético (GA)** sobre cromosoma binario que selecciona subconjuntos de traders, con reparación de cardinalidad para respetar `min_selected_traders` y `max_selected_traders`.
+4. **Particle Swarm Optimization (PSO)** que asigna pesos dentro del subconjunto elegido (incluido el peso de cash), con proyección/reparación para cumplir `max_weight_per_trader` y `max_cash_weight`.
+5. **Orquestador `optimize_portfolio_ga_pso`** que combina GA + PSO sobre los `top_k_subsets_for_pso` mejores cromosomas.
 
-Por eso la capa `app/services/portfolio_rl/` consume artefactos derivados de traders ya promovidos, especialmente:
+### 9.4. Configuración (`PortfolioOptimizerConfig`)
 
-- retornos históricos;
-- máscaras de actividad;
-- metadatos de promoción;
-- curvas derivadas de backtest.
+Hiperparámetros principales con sus valores por defecto:
 
-## 9.4. Configuración PPO
-
-La configuración se centraliza en `app/services/portfolio_rl/config.py` mediante `PPOPortfolioConfig`.
-
-Entre los parámetros más relevantes se encuentran:
-
-### 9.4.1. Configuración temporal y del dataset
-
+#### Modo y datos
+- `portfolio_manager_mode = "ga_pso"`;
 - `weekly_frequency = "W-FRI"`;
-- `forward_horizon_weeks = 52`;
-- `min_history_weeks = 52`;
-- `initial_training_min_weeks = 104`;
-- `fine_tune_window_weeks = 104`;
-- `train_split = 0.65`;
-- `val_split = 0.20`.
+- `lookback_weeks = 104`.
 
-### 9.4.2. Costes y penalizaciones
-
-- `transaction_cost_rate = 0.0010`;
-- `lambda_turnover = 0.05`;
-- `lambda_concentration = 0.02`;
-- `lambda_dd = 0.25`;
-- `lambda_cash = 0.0`;
-- `dd_soft_limit = 0.15`;
-- `cash_soft_limit = 0.60`.
-
-### 9.4.3. Hiperparámetros PPO
-
-- `gamma = 0.99`;
-- `gae_lambda = 0.95`;
-- `clip_epsilon = 0.20`;
-- `entropy_coef = 0.01`;
-- `value_loss_coef = 0.50`;
-- `learning_rate = 3e-4`;
-- `batch_size = 64`;
-- `ppo_epochs = 6`;
-- `max_grad_norm = 0.5`;
-- `max_updates_initial = 30`;
-- `max_updates_fine_tune = 12`.
-
-### 9.4.4. Arquitectura y restricciones live
-
-- `hidden_dim_encoder = 64`;
-- `hidden_dim_head = 128`;
-- `dropout = 0.05`;
+#### Restricciones de cartera
+- `min_selected_traders = 5`, `max_selected_traders = 20`;
 - `max_weight_per_trader = 0.15`;
 - `min_live_weight = 0.01`;
-- `cash_bias = 0.0`.
+- `max_cash_weight = 0.50`.
 
-### 9.4.5. Score de evaluación
+#### Penalizaciones de la fitness
+- `lambda_dd = 1.0`;
+- `lambda_corr = 0.50`.
 
-La configuración incluye un diccionario `score_weights`, pero la evaluación efectiva en el código de PPO utiliza de manera explícita una combinación centrada sobre todo en:
+#### Algoritmo Genético
+- `ga_population_size = 80`;
+- `ga_generations = 50`;
+- `ga_tournament_size = 3`;
+- `ga_crossover_rate = 0.80`;
+- `ga_mutation_rate = 0.02`;
+- `ga_elitism = 4`;
+- `ga_early_stopping_generations = 10`.
 
-- `net_sharpe`;
-- `max_drawdown`.
+#### Particle Swarm Optimization
+- `top_k_subsets_for_pso = 8`;
+- `pso_swarm_size = 50`;
+- `pso_iterations = 80`;
+- `pso_inertia_start = 0.90`, `pso_inertia_end = 0.40`;
+- `pso_cognitive_coef = 1.5`;
+- `pso_social_coef = 1.5`;
+- `pso_early_stopping_iterations = 15`.
 
-Esto conviene explicarlo así en la memoria: existen pesos configurables declarados, pero la fórmula efectivamente usada por el evaluador es más concreta.
+#### Reproducibilidad
+- `random_seed = 42`.
 
-## 9.5. Construcción del dataset de cartera
+### 9.5. Universo y matriz de retornos
 
-El `PortfolioManagerAgent` no opera directamente sobre precios de mercado sin procesar. Primero sincroniza el universo promovido mediante `sync_universe(...)` y luego construye un dataset maestro.
+El proceso recibe el universo elegible vía `sync_universe(promoted_specs)`. Internamente, antes de optimizar, construye la matriz de retornos `(T × N)` semanal usando los artefactos persistidos por trader (`trader_weekly_returns`, `trader_weekly_signal_mask`). Esta matriz es la única entrada del optimizador.
 
-### 9.5.1. Universo maestro
+Si faltan algunas piezas, el sistema puede recurrir a una máscara proxy. Esto significa que el optimizador intenta apoyarse preferentemente en actividad histórica real, pero conserva una vía de degradación controlada cuando el material persistido aún no es completo.
 
-`sync_universe(...)` guarda internamente los `PromotedTraderSpec` y, si existe `UniverseRegistry`, los persiste en el store como universo elegible de cartera.
+### 9.6. Inferencia live
 
-### 9.5.2. Dataset semanal
+`rebalance_active_signals(...)` es la API utilizada por el runtime en vivo. Su secuencia es:
 
-`_build_master_dataset(...)` delega en `PortfolioDatasetBuilder`. Este dataset utiliza, por trader:
+1. descubrir los traders activos a partir de `sync_universe`;
+2. si no hay señales activas, devolver estado vacío;
+3. construir la matriz de retornos histórica;
+4. ejecutar `optimize_portfolio_ga_pso(...)` con la `PortfolioOptimizerConfig` configurada;
+5. construir un `PortfolioDecision` con `selected_traders`, `weights`, `target_cash_weight`, `fitness`, `sharpe_neto`, `mdd`, `corr_media`, `optimizer_mode = "ga_pso"` y la `metadata` completa de diagnóstico (parámetros GA/PSO usados, baselines, traders excluidos);
+6. persistir un `PortfolioRebalanceSnapshot` y emitir el evento `PORTFOLIO_REBALANCE_SNAPSHOT`;
+7. devolver al runtime la decisión, la asignación en euros, las comparativas y figuras para UI, y la metadata.
 
-- retornos semanales;
-- máscara semanal real de actividad cuando está disponible;
-- metadatos de promoción;
-- features por trader;
-- features globales del conjunto.
+### 9.7. Persistencia
 
-Si faltan algunas piezas, el sistema puede recurrir a una máscara proxy. Eso significa que el PPO intenta apoyarse preferentemente en actividad histórica real, pero conserva una vía de degradación controlada cuando el material persistido aún no es completo.
+El proceso persiste:
 
-## 9.6. Política, acción y recompensa
+- `portfolio_universe_registry`: universo elegible canónico.
+- `portfolio_rebalance_snapshots`: histórico de cada rebalanceo semanal (con `optimizer_mode`, `fitness`, `sharpe_neto`, `mdd`, `corr_media`, `target_weights`, `target_cash_weight`, `diagnostics`, `forward_metrics` y `metadata`).
+- Eventos `PORTFOLIO_DECISION` y `PORTFOLIO_REBALANCE_SNAPSHOT` en la tabla `events`.
 
-La política PPO, implementada en `policy.py`, es de tipo actor-crítico y está diseñada para tratar un conjunto de traders más que una secuencia fija de activos.
+Las antiguas tablas PPO (`portfolio_training_runs`, `portfolio_training_metrics`, `portfolio_model_registry`, `portfolio_forward_evaluations`) ya **no se escriben**. Solo se borran de forma defensiva en `clear_all` para BBDD heredadas.
 
-Sus rasgos principales son:
+### 9.8. Nada de "modo legacy"
 
-- encoder compartido por trader;
-- agregación permutation-invariant;
-- enmascarado de traders inactivos;
-- generación de pesos no negativos;
-- suma total unitaria incluyendo caja.
+A diferencia de la versión PPO, el `PortfolioManagerProcess` **no tiene modo `legacy`**. Solo existe el modo `ga_pso`. Si el optimizador no encuentra solución factible (por ejemplo, universo vacío), devuelve una decisión equivalente a "todo a cash" en lugar de degradarse a un baseline alternativo.
 
-La acción del agente es un vector de pesos objetivo sobre traders activos y un peso residual de caja.
+## 10. `HumanResourcesProcess` (supervisión de plantilla)
 
-La recompensa del entorno semanal combina:
+### 10.1. Responsabilidad única
 
-- retorno neto;
-- coste de transacción;
-- penalización por turnover;
-- penalización por concentración;
-- penalización por drawdown;
-- penalización opcional por caja excesiva.
+`HumanResourcesProcess` (`app/agents/human_resources_process.py`) tiene una sola función: **supervisar periódicamente a los traders promovidos para comprobar si siguen funcionando como salieron de fábrica y, si no, mandarlos a reentrenamiento**.
 
-En otras palabras, no se optimiza solo rentabilidad, sino utilidad ajustada por fricción y robustez.
+La metáfora es la de un departamento de Recursos Humanos: revisa desempeño, decide si el trabajador sigue válido, y si no, gestiona su sustitución. **No interviene en la cartera, no revisa decisiones del PM, no actúa como gate pre-trade, no controla broker ni margen.**
 
-## 9.7. Entrenamiento inicial y `fine-tuning`
+`agent_id = "human_resources_process"`.
 
-### 9.7.1. Entrenamiento inicial
+### 10.2. Flujo por trader
 
-`ensure_initial_model_ready(...)`:
+`evaluate_single_trader(...)` y `evaluate_trader_universe(...)` siguen la secuencia:
 
-1. construye el dataset maestro;
-2. obtiene los splits temporales;
-3. comprueba si ya existe modelo vigente;
-4. si no existe, lanza un `initial_train`;
-5. persiste el resultado completo.
+1. cargar el universo de traders promovidos a partir de eventos `TRADER_PROMOTED` (`_load_promoted_specs`);
+2. obtener o construir su `TraderDesignProfile` (vía `build_trader_design_profile` o lectura de `trader_design_profiles`);
+3. ejecutar un backtest forward post-promoción con `ForwardBacktestService`;
+4. calcular `TraderForwardMetrics` (incluye `signal_count`, `pm_selected_count`, `shadow_*` y `executed_*`);
+5. evaluar la salud con `evaluate_trader_health(profile, metrics, current_state, config)`;
+6. obtener un `TraderHealthSnapshot` con `action ∈ {KEEP, RETRAINING}`;
+7. persistir `trader_review_details`, actualizar `trader_states` si procede y emitir `TRADER_HEALTH_EVALUATED`;
+8. si `action == RETRAINING`, crear y persistir un `RetrainRequest`, emitir `RETRAIN_REQUESTED` y poner el trader en estado `retraining`.
 
-### 9.7.2. Ajuste mensual
+### 10.3. Pipeline mensual y forzado
 
-`run_monthly_refresh_and_fine_tune(...)`:
-
-1. reconstruye el dataset con los artefactos refrescados;
-2. verifica si el modelo ya fue ajustado en el mes actual;
-3. si no, lanza un `fine_tune`;
-4. persiste la nueva versión.
-
-Este diseño evita reentrenar indiscriminadamente y establece un ritmo rolling de actualización.
-
-## 9.8. Persistencia de resultados PPO
-
-`_persist_training_result(...)` persiste:
-
-- `portfolio_training_runs`;
-- `portfolio_training_metrics`;
-- `portfolio_model_registry`;
-- `portfolio_rebalance_snapshots`;
-- `portfolio_forward_evaluations`;
-- eventos `PORTFOLIO_TRAINING_RUN` y `PORTFOLIO_MODEL_UPDATED`.
-
-Esto permite reconstruir tanto la historia de entrenamiento como las decisiones offline del agente de cartera.
-
-## 9.9. Inferencia live
-
-`rebalance_active_signals(...)` es la API principal utilizada por el runtime en vivo.
-
-Su secuencia es:
-
-1. descubrir sistemas activos;
-2. si el modo es `legacy`, ir por la rama antigua;
-3. si no hay señales activas, devolver estado vacío;
-4. asegurar que existe modelo PPO inicial;
-5. cargar el último snapshot previo, si existe;
-6. ejecutar inferencia con `PPOInferenceService`;
-7. construir tablas y figuras para UI;
-8. devolver:
-   - seleccionados;
-   - pesos;
-   - asignación en euros;
-   - comparativas;
-   - figuras;
-   - metadata de modelo y decisión.
-
-Si el camino PPO falla por cualquier motivo, la implementación cae a un fallback `legacy`. Esto es importante: la arquitectura principal es PPO, pero mantiene una vía de degradación operativa.
-
-## 9.10. Modo `legacy`
-
-El modo `legacy` se conserva como baseline y soporte transicional. Conceptualmente:
-
-- la selección se basa en un genético;
-- el fitness usa el número de condición;
-- los pesos se resuelven mediante HRP o equal weight.
-
-Sin embargo, este ya no es el corazón metodológico del sistema y no debe confundirse con la arquitectura principal actual.
-
-## 10. `RiskAgent` en la arquitectura actual
-
-## 10.1. Papel dual del riesgo
-
-El `RiskAgent` cumple dos funciones distintas pero complementarias:
-
-1. `supervisión de salud de trader`: evalúa si un trader promovido o live sigue alineado con su perfil de diseño;
-2. `gate pre-trade de cartera`: revisa la decisión del `PortfolioManagerAgent` antes de que se materialice en órdenes.
-
-Esta separación es metodológicamente muy valiosa porque desacopla:
-
-- la calidad estructural del trader en el tiempo;
-- el control instantáneo de exposición de la cartera.
-
-## 10.2. Evaluación de salud del trader
-
-`app/agents/risk_agent.py` implementa `evaluate_single_trader(...)` y `evaluate_trader_universe(...)`.
-
-La secuencia por trader es:
-
-1. reconstruir el universo promovido a partir de eventos `TRADER_PROMOTED`;
-2. obtener o construir `DesignRiskProfile`;
-3. lanzar un forward backtest post-promoción con `ForwardBacktestService`;
-4. calcular `TraderForwardMetrics`;
-5. evaluar la salud con `evaluate_trader_health(...)`;
-6. persistir detalle, estado, evento de riesgo y posible `RetrainRequest`.
-
-## 10.3. Pipeline mensual de riesgo
-
-`should_run_monthly_evaluation(...)` considera que el riesgo debe reevaluarse:
+`should_run_monthly_evaluation(...)` decide si toca lanzar la revisión:
 
 - durante los tres primeros días del mes;
 - o cuando han pasado al menos 30 días desde la última evaluación;
 - o siempre que se fuerce manualmente.
 
-`evaluate_trader_universe(...)` además crea y cierra `risk_evaluation_runs`, agregando contadores de degradados, suspendidos, retirados y retrain requests.
+`evaluate_trader_universe(...)` crea y cierra `trader_review_runs`, agregando el contador de traders enviados a reentrenamiento (`retraining_count`) y el de retrain requests emitidas.
 
-## 10.4. Gate pre-trade de cartera
+`force_evaluation(...)` es la entrada usada por la UI ("Forzar revisión de salud ahora") y por el supervisor (`force_trader_health_evaluation`).
 
-`review_portfolio_decision(...)` recibe una `PortfolioDecision` y la filtra según:
+### 10.4. Configuración (`TraderHealthConfig`)
 
-- drawdown de cuenta y `emergency stop`;
-- estado del trader (`LIVE`, `DEGRADED`, `SUSPENDED`, `RETIRED`, `RETRAINING`);
-- peso máximo por trader;
-- peso máximo por activo;
-- exposición total máxima;
-- buffer mínimo de caja;
-- margen mínimo de broker, si se define.
+Solo umbrales de salud, sin nada de cartera:
 
-Su salida es un `RiskAdjustedPortfolioDecision`, que puede:
+- `min_forward_trades_for_retraining = 10`: mínima evidencia forward para considerar enviar a reentrenamiento.
+- `retraining_health_threshold = 60.0`: si el `health_score` cae por debajo de este valor con evidencia suficiente, el trader pasa a `RETRAINING`.
+- `max_losing_streak_multiplier = 1.5`: si la racha perdedora forward supera 1.5 × racha de diseño, contribuye a degradar la puntuación.
+- `max_drawdown_multiplier_retraining = 1.5`: si el drawdown forward supera 1.5 × drawdown de diseño, dispara retraining.
+- `min_profit_factor_ratio_retraining = 0.75`: si el PF forward cae por debajo del 75% del PF de diseño.
+- `min_sharpe_ratio_retraining = 0.60`: si el Sharpe forward cae por debajo del 60% del Sharpe de diseño.
 
-- aprobar sin cambios;
-- aprobar con clipping;
-- reducir exposición;
-- forzar caja;
-- rechazar la cartera;
-- activar `emergency_stop`.
+### 10.5. Lógica de scoring
 
-## 10.5. Documento especializado de riesgo
+`evaluate_trader_health(...)` (en `trader_health/health_scoring.py`):
 
-La parte de riesgo cuenta además con un documento dedicado, `docs/risk_agent_memoria_tecnica.md`, que desarrolla con mucho más detalle:
+1. comprueba si la evidencia es insuficiente (`shadow_trades < min_forward_trades_for_retraining`); en ese caso devuelve `KEEP` con flag `insufficient_evidence`.
+2. compara métricas forward vs diseño y construye una lista de razones de deterioro.
+3. calcula `health_score` (0–100) penalizando cada deterioro detectado.
+4. si `health_score < retraining_health_threshold`, devuelve `RETRAINING` y prepara un `RetrainRequest`.
+5. en otro caso, devuelve `KEEP`.
 
-- scoring de salud;
-- perfiles de diseño;
-- forward metrics;
-- persistencia específica;
-- dashboard de riesgo;
-- validación mediante tests.
+### 10.6. Lo que ya no hace
 
-En este documento maestro el `RiskAgent` se integra dentro de la arquitectura global, mientras que el documento especializado profundiza en su diseño interno.
+Elementos completamente eliminados respecto a la antigua versión `RiskAgent`:
+
+- ❌ revisión de `PortfolioDecision` o gate pre-trade;
+- ❌ generación de `RiskAdjustedPortfolioDecision`;
+- ❌ clipping de pesos por trader o por activo;
+- ❌ control de exposición total / cash buffer / drawdown de cuenta / margen / emergency stop;
+- ❌ acceso a información del broker;
+- ❌ estados intermedios `DEGRADED`, `SUSPENDED`, `RETIRED`;
+- ❌ acción `EMERGENCY_STOP`, `FORCE_CASH`, `SCALE_DOWN`, etc.
+
+El componente queda reducido a un loop simple con dos resultados posibles. Esto se puede explicar en una frase: *"`HumanResourcesProcess` compara el comportamiento forward del trader con su perfil de diseño y decide si sigue válido o si debe pasar a reentrenamiento."*
 
 ## 11. Supervisor, runtime y operación real
 
-## 11.1. `DevelopmentOperationalSupervisor`
+### 11.1. `DevelopmentOperationalSupervisor`
 
 `app/runtime/development_operational_supervisor.py` es el centro operativo del sistema cuando se trabaja desde la UI. Su responsabilidad va mucho más allá de lanzar ciclos de desarrollo:
 
 - crea el contexto compartido (`AgentContext`);
-- instancia todos los agentes;
+- instancia todos los agentes/procesos: `DataProcess`, `DeveloperAgent`, `ValidationAgent`, `TraderAgent`, `PortfolioManagerProcess`, `HumanResourcesProcess`;
 - mantiene el registro de traders promovidos;
-- ejecuta backtests al promocionar;
-- prepara artefactos para portfolio y riesgo;
+- ejecuta backtests al promocionar y persiste artefactos reutilizables;
 - arranca y reinicia el runtime live;
-- coordina refresh mensual, riesgo, retraining y PPO;
+- coordina refresh mensual, revisión de salud, retraining y rebalanceos manuales;
 - expone snapshots consumibles por Streamlit.
 
-### 11.1.1. Estado interno relevante
+#### 11.1.1. Estado interno relevante
 
-Mantiene, entre otros, estos campos:
+Mantiene, entre otros, estos campos en `_status`:
 
-- `_promoted_registry`;
-- `_backtest_registry`;
-- `_runtime`;
-- `_status`;
-- información del último refresh de portfolio;
-- información de la última evaluación de riesgo;
-- marcas temporales de reentrenamientos y rebalanceos manuales.
+- `_promoted_registry`, `_backtest_registry`;
+- `_runtime` (referencia al `LiveTradingRuntime` activo);
+- `mt5_connected`, `develop_enabled`;
+- `portfolio_last_*` (último refresh mensual y rebalanceos manuales del PM);
+- `trader_review_last_*`: `last_run_at`, `last_status`, `last_run_id`, `last_traders`, `last_force_run_at`, `last_retrain_processed_at`. Estas claves sustituyen a las antiguas `risk_last_*`.
 
-### 11.1.2. Desarrollo continuo
+#### 11.1.2. Desarrollo continuo
 
-Durante el desarrollo continuo el supervisor encadena:
+Durante el desarrollo continuo encadena:
 
-1. `DataAgent.prepare_dataset`;
+1. `DataProcess.prepare_dataset`;
 2. `DeveloperAgent.develop`;
 3. `ValidationAgent.validate_and_promote`;
 4. `TraderAgent.activate`;
 5. recalculado de backtest del trader promovido;
-6. persistencia de artefactos y actualización del registro interno.
+6. persistencia de artefactos (`trader_backtest_runs`, `trader_backtest_artifacts`, `trader_weekly_signal_mask`, `trader_weekly_returns`, `trader_design_profiles`) y actualización del registro interno.
 
-## 11.2. Arranque del runtime operativo
+### 11.2. Arranque del runtime operativo
 
-El supervisor puede arrancar `LiveTradingRuntime` cuando existe masa crítica suficiente de traders. En la implementación actual, la lógica de `_ensure_operational_runtime(...)` exige un mínimo operativo de traders promovidos antes de levantar la operativa real, salvo forzado manual.
+El supervisor puede arrancar `LiveTradingRuntime` cuando existe masa crítica suficiente de traders. La lógica de `_ensure_operational_runtime(...)` exige un mínimo operativo de traders promovidos antes de levantar la operativa real, salvo forzado manual.
 
-Este runtime se construye con:
+El runtime se construye con:
 
 - `TraderAgent`;
-- `PortfolioManagerAgent`;
-- `RiskAgent`;
+- `PortfolioManagerProcess` (modo `ga_pso`);
 - `MT5DataProvider` o provider equivalente;
 - acceso al histórico mediante `history_loader`;
 - proveedor de capital y de estado de universo.
 
-## 11.3. Flujo mensual real
+Conviene destacar lo que **no** se inyecta al runtime: ningún `HumanResourcesProcess`. La supervisión de salud es asíncrona, externa al camino caliente, y la ejecuta el supervisor (no el runtime) en el calendario mensual o por orden manual.
+
+### 11.3. Flujo mensual real
 
 `run_portfolio_monthly_refresh(...)` implementa la secuencia operativa mensual efectiva:
 
-1. refrescar OHLC de los símbolos promovidos;
-2. recalcular backtests de traders promovidos;
-3. ejecutar evaluación mensual de riesgo;
-4. procesar `RetrainRequest` pendientes;
-5. sincronizar el universo en el portfolio manager;
-6. lanzar `run_monthly_refresh_and_fine_tune(...)` del PPO;
+1. refrescar OHLC de los símbolos promovidos (`PortfolioOHLCRefreshService`);
+2. recalcular backtests de traders promovidos y refrescar artefactos por trader;
+3. ejecutar `run_trader_health_monthly_evaluation(...)` (revisión del `HumanResourcesProcess`);
+4. procesar `RetrainRequest` pendientes vía `process_pending_retrain_requests(...)`;
+5. sincronizar el universo en el `PortfolioManagerProcess`;
+6. el siguiente rebalanceo semanal del runtime usará el universo refrescado;
 7. actualizar estado y snapshot visibles en la UI.
 
-Esto significa que el refresh mensual no es solo "reentrenar PPO". Es un pipeline coordinado de datos, backtest, riesgo, retraining y cartera.
+El refresh mensual no es solo "reentrenar PPO" (concepto que ya no existe). Es un pipeline coordinado de datos, backtest, salud de traders, retraining y refresco del universo de cartera.
 
-## 11.4. Acciones manuales
+### 11.4. Acciones manuales
 
-El supervisor expone además dos acciones manuales importantes:
+El supervisor expone, entre otras, estas acciones manuales importantes:
 
-- `force_portfolio_retraining_only()`;
-- `force_portfolio_retraining_and_rebalance()`.
+- `run_portfolio_monthly_refresh(force=True)`: encadena el flujo mensual completo bajo demanda.
+- `force_trader_health_evaluation(force_backtest=True)`: dispara una revisión del `HumanResourcesProcess`, opcionalmente recalculando el backtest forward de cada trader.
+- `process_pending_retrain_requests()`: vacía la cola de retrain pendientes ejecutando el pipeline de sustitución.
+- `force_portfolio_retraining_only()` y `force_portfolio_retraining_and_rebalance()`: equivalentes a refresh + rebalanceo opcional inmediato.
 
-La primera fuerza refresh y reentrenamiento sin disparar un rebalanceo operativo inmediato. La segunda fuerza, además, un rebalanceo live a través del runtime.
+### 11.5. Procesamiento de retraining
 
-## 11.5. Procesamiento de retraining
-
-`process_pending_retrain_requests()` recorre la cola persistida de solicitudes y, por cada una:
+`process_pending_retrain_requests()` recorre la cola persistida (`retrain_requests`) y por cada solicitud:
 
 1. marca la request como `running`;
-2. vuelve a preparar dataset;
-3. vuelve a desarrollar;
-4. vuelve a validar;
-5. activa el nuevo trader promovido;
+2. vuelve a preparar dataset (`DataProcess`);
+3. vuelve a desarrollar (`DeveloperAgent`);
+4. vuelve a validar (`ValidationAgent`);
+5. activa el nuevo trader promovido (`TraderAgent.activate`);
 6. recalcula backtest;
 7. lo inserta en el runtime si este ya está activo;
 8. marca la request como `completed` o `failed`.
@@ -954,37 +718,32 @@ Esto demuestra que el sistema no contempla el retraining como un simple flag, si
 
 ## 12. `LiveTradingRuntime`
 
-## 12.1. Qué hace
+### 12.1. Qué hace
 
-`app/runtime/live_trading_runtime.py` es el bucle D1 que conecta señal, cartera, riesgo y ejecución.
-
-Su función principal es:
+`app/runtime/live_trading_runtime.py` es el bucle D1 que conecta señal, cartera y ejecución. Su función principal:
 
 1. escuchar nuevas velas cerradas;
 2. reconstruir features actuales;
 3. evaluar reglas long y short de los traders ligados a ese símbolo;
 4. crear candidatos de apertura y cierre;
 5. aplicar la política temporal de rebalanceo;
-6. consultar al `PortfolioManagerAgent`;
-7. consultar al `RiskAgent`;
-8. abrir, cerrar o reintentar órdenes mediante `TraderAgent`.
+6. consultar al `PortfolioManagerProcess` cuando toca rebalancear;
+7. abrir, cerrar o reintentar órdenes mediante `TraderAgent`.
 
-## 12.2. Evaluación de señales
+> Importante: el runtime **ya no llama a ningún gate previo a ejecución**. La decisión del `PortfolioManagerProcess` se aplica tal cual, sin pasar por una capa de revisión adicional. Esto era responsabilidad del antiguo `RiskAgent.review_portfolio_decision`, que ha desaparecido por completo.
+
+### 12.2. Evaluación de señales
 
 Para cada símbolo, el runtime:
 
 - carga barras recientes;
 - construye un `feature_row`;
 - evalúa las reglas del trader con `DataFrame.eval(...)`;
-- detecta:
-  - señal long,
-  - señal short,
-  - ausencia de señal,
-  - cambio de lado.
+- detecta señal long, short, ausencia de señal o cambio de lado.
 
 Si una señal desaparece o cambia de sentido, se generan candidatos de cierre. Si una señal aparece y no hay posición ya abierta del mismo lado, se genera un candidato de apertura.
 
-## 12.3. Política temporal de despliegue y rebalanceo
+### 12.3. Política temporal de despliegue y rebalanceo
 
 El runtime distingue dos fases:
 
@@ -998,36 +757,29 @@ Las reglas actuales son:
 - por defecto, el día de rebalanceo es el lunes;
 - si no toca rebalanceo y no hay forzado manual, la señal queda anotada como `waiting_next_monday`.
 
-## 12.4. Integración portfolio -> riesgo -> ejecución
+### 12.4. Integración portfolio → ejecución
 
 La lógica de `_process_signal_candidates(...)` es el núcleo operativo:
 
 1. construye el conjunto de señales activas;
 2. llama a `portfolio_manager.rebalance_active_signals(...)`;
-3. convierte la salida en `PortfolioDecision`;
-4. llama a `risk_agent.review_portfolio_decision(...)`;
-5. ajusta pesos y euros según el resultado de riesgo;
-6. actualiza el libro de señales;
-7. persiste auditoría de señal;
-8. enruta las órdenes aceptadas;
-9. marca el rebalanceo como ejecutado.
+3. la salida es un `PortfolioDecision` con `selected_traders`, `weights` y `target_cash_weight`;
+4. actualiza el libro de señales (`_signal_book`);
+5. persiste auditoría de señal en `trader_signal_audit` con `pm_selected` y `pm_weight`;
+6. enruta las órdenes aceptadas vía `TraderAgent.route_order`;
+7. marca el rebalanceo como ejecutado.
 
-Esto deja claro que el `RiskAgent` está insertado después de la decisión PPO y antes de la ejecución. No reemplaza a la cartera; la supervisa.
+El flujo es PortfolioDecision → ejecución directa. No hay capa intermedia entre el optimizador de cartera y el broker.
 
-## 12.5. Reintentos y cierres
+### 12.5. Reintentos y cierres
 
-El runtime mantiene además:
-
-- `_pending_orders`;
-- `_pending_closures`.
-
-Si una orden o un cierre fallan, se programa un reintento a 30 minutos y esa cola se persiste también en SQLite.
+El runtime mantiene `_pending_orders` y `_pending_closures`. Si una orden o un cierre fallan, se programa un reintento a 30 minutos y la cola se persiste también en SQLite (`pending_orders`).
 
 ## 13. Capa de ejecución y conexión a MT5
 
-## 13.1. `ExecutionRouter`
+### 13.1. `ExecutionRouter`
 
-`app/execution/router.py` centraliza el acceso a ejecución. Sus responsabilidades principales son:
+`app/execution/router.py` centraliza el acceso a ejecución:
 
 - enrutar órdenes de mercado;
 - cerrar posiciones;
@@ -1035,29 +787,35 @@ Si una orden o un cierre fallan, se programa un reintento a 30 minutos y esa col
 - decidir si opera en `paper` o `live_mt5`;
 - aplicar control de acceso por actor.
 
-## 13.2. Control de acceso
+### 13.2. Control de acceso (`ALLOWED_EXECUTION_ACTORS`)
 
-La ejecución no está abierta a cualquier módulo. `app/execution/access.py` restringe qué actores pueden:
+`app/execution/access.py` restringe qué actores pueden enviar órdenes y consultar broker:
 
-- enviar órdenes;
-- consultar cuenta;
-- consultar posiciones.
+```
+ALLOWED_EXECUTION_ACTORS = {
+    "portfolio_manager_process",
+    "portfolio_manager_agent",
+    "portfolio_manager",
+    "trader_agent",
+}
+```
 
-Esto mejora la seguridad lógica del sistema y evita acoplar la capa de broker a cualquier clase interna.
+Es decir: solo el `TraderAgent` y el `PortfolioManagerProcess` (con sus alias por compatibilidad) tienen acceso. El `HumanResourcesProcess`, el `DataProcess`, el `DeveloperAgent` y el `ValidationAgent` **no aparecen aquí**: si alguno intentara llamar al router, recibiría un `PermissionError`.
 
-## 13.3. `MT5Connector`
+Esto refleja la arquitectura que se quiere defender: la salud del trader se evalúa fuera del camino de ejecución.
+
+### 13.3. `MT5Connector`
 
 `app/execution/mt5_connector.py` encapsula la interacción real con MetaTrader 5:
 
-- conexión al terminal;
-- carga de credenciales desde `.env`;
+- conexión al terminal y carga de credenciales desde `.env`;
 - alta de símbolos en Market Watch;
 - `order_check` y `order_send`;
 - normalización de comentario y `magic`;
 - cierre de posiciones;
 - consulta de cuenta y posiciones.
 
-## 13.4. Providers de datos
+### 13.4. Providers de datos
 
 | Archivo | Finalidad |
 |---|---|
@@ -1068,28 +826,25 @@ Esto mejora la seguridad lógica del sistema y evita acoplar la capa de broker a
 
 ## 14. Persistencia, auditoría y trazabilidad
 
-## 14.1. `StateStore`
+### 14.1. `StateStore`
 
-`app/storage/state_store.py` es uno de los elementos más importantes del proyecto. Funciona como memoria persistente del sistema y evita que la UI o los runtimes dependan de estado efímero en memoria.
-
-Persiste:
+`app/storage/state_store.py` es uno de los elementos más importantes del proyecto. Funciona como memoria persistente del sistema y evita que la UI o los runtimes dependan de estado efímero en memoria. Persiste:
 
 - estados de traders;
 - estado de agentes;
 - eventos de negocio;
 - métricas live;
 - órdenes pendientes;
-- entrenamientos PPO;
-- snapshots de rebalanceo;
-- evaluaciones forward;
-- artefactos y runs de backtest;
-- perfiles de diseño y métricas forward de riesgo;
-- checks de cartera de riesgo;
+- universo elegible y rebalanceos del PM (GA + PSO);
+- artefactos y runs de backtest por trader;
+- perfiles de diseño y métricas forward;
+- runs y detalles de revisión de salud (HR);
+- requests de retraining;
 - auditoría de señales live.
 
-## 14.2. Tablas principales por dominio
+### 14.2. Tablas principales por dominio
 
-### 14.2.1. Núcleo del sistema
+#### 14.2.1. Núcleo del sistema
 
 - `trader_states`;
 - `agent_status`;
@@ -1097,191 +852,179 @@ Persiste:
 - `trader_metrics_latest`;
 - `pending_orders`.
 
-### 14.2.2. Portfolio PPO
+#### 14.2.2. Cartera (GA + PSO)
 
-- `portfolio_universe_registry`;
-- `portfolio_training_runs`;
-- `portfolio_training_metrics`;
-- `portfolio_model_registry`;
-- `portfolio_rebalance_snapshots`;
-- `portfolio_forward_evaluations`.
+- `portfolio_universe_registry`: universo elegible canónico;
+- `portfolio_rebalance_snapshots`: histórico de rebalanceos (con `optimizer_mode='ga_pso'`, `fitness`, `sharpe_neto`, `mdd`, `corr_media`, pesos y diagnósticos).
 
-### 14.2.3. Backtests por trader
+> Las antiguas tablas PPO (`portfolio_training_runs`, `portfolio_training_metrics`, `portfolio_model_registry`, `portfolio_forward_evaluations`) ya no se mantienen. Si una BBDD heredada las contiene, se borran de forma defensiva en `clear_all`.
+
+#### 14.2.3. Backtests por trader
 
 - `trader_backtest_runs`;
 - `trader_backtest_artifacts`;
 - `trader_weekly_returns`;
 - `trader_weekly_signal_mask`.
 
-### 14.2.4. Riesgo
+#### 14.2.4. Salud de traders (Recursos Humanos)
 
-- `trader_design_profiles`;
-- `risk_evaluation_runs`;
-- `trader_forward_backtest_runs`;
-- `trader_forward_metrics`;
-- `risk_evaluation_details`;
-- `retrain_requests`;
-- `risk_portfolio_checks`;
-- `trader_signal_audit`.
+- `trader_design_profiles`: perfil de diseño por trader (DNI cuantitativo).
+- `trader_review_runs`: cabeceras de cada run mensual o forzado de revisión (renombre de la antigua `risk_evaluation_runs`).
+- `trader_review_details`: detalle por trader dentro de cada run (renombre de la antigua `risk_evaluation_details`).
+- `trader_forward_backtest_runs`: cabeceras de cada backtest forward por trader.
+- `trader_forward_metrics`: snapshots de métricas forward por trader y run.
+- `retrain_requests`: cola de solicitudes de reentrenamiento emitidas por el `HumanResourcesProcess`.
 
-## 14.3. SQLite frente a JSONL
+> La antigua `risk_portfolio_checks` (gate pre-trade) ha sido **eliminada**. El bootstrap del store ejecuta `DROP TABLE IF EXISTS` defensivo para limpiar BBDD antiguas.
 
-La arquitectura usa dos niveles de trazabilidad:
+#### 14.2.5. Auditoría de señales
 
-### SQLite
+`trader_signal_audit` ahora registra qué seleccionó realmente el `PortfolioManagerProcess` y qué acabó ejecutando el broker. Sus columnas activas son:
 
-Se utiliza como fuente principal para:
+- `pm_selected` (bool), `pm_weight` (float): qué hizo el PM.
+- `signal_active`, `signal_side`, `signal_count`: qué señal emitió el trader.
+- `executed`, `hypothetical_return`, `executed_return`: qué hizo el broker.
 
-- snapshots del dashboard;
-- estado operativo actual;
-- reconstrucción histórica estructurada;
-- reanudación de colas y procesos;
-- analítica persistida de portfolio y riesgo.
+Las columnas heredadas `ppo_selected`, `ppo_weight` y `risk_approved` se conservan con valores neutros (rellenadas a partir de `pm_*` y `1` respectivamente) **solo por compatibilidad de esquema** con BBDD anteriores. El código nuevo no las consume semánticamente.
 
-### JSONL estructurado
+### 14.3. Migraciones in-place
 
-`app/core/structured_logging.py` escribe además en `app/.tmp/logs/runtime_flow.log`.
+El bootstrap del `StateStore` aplica varias migraciones defensivas:
 
-Este log cumple una función complementaria:
+- `risk_evaluation_runs` → `trader_review_runs` (rename).
+- `risk_evaluation_details` → `trader_review_details` (rename).
+- `risk_portfolio_checks` → drop.
+- `trader_signal_audit`: `ALTER TABLE ADD COLUMN pm_selected/pm_weight` si faltan.
+- `trader_review_runs`: `ALTER TABLE ADD COLUMN retraining_count` si falta (BBDD antiguas tenían contadores `degraded_count`/`suspended_count`/`retired_count`).
 
-- troubleshooting fino;
-- reconstrucción cronológica de flujos;
-- depuración cuando el snapshot tabular no es suficiente.
+Esto evita romper despliegues con datos previos sin necesidad de migraciones manuales.
+
+### 14.4. SQLite frente a JSONL
+
+#### SQLite
+
+Fuente principal para snapshots del dashboard, estado operativo actual, reconstrucción histórica estructurada, reanudación de colas y procesos, y analítica persistida de cartera y salud.
+
+#### JSONL estructurado
+
+`app/core/structured_logging.py` escribe además en `app/.tmp/logs/runtime_flow.log`. Función complementaria: troubleshooting fino, reconstrucción cronológica de flujos y depuración cuando el snapshot tabular no es suficiente.
 
 ## 15. Backtest y artefactos históricos
 
-## 15.1. Motor de backtest
+### 15.1. Motor de backtest
 
 El backtest histórico principal vive en:
 
-- `backtest_eventos/runner.py`;
-- `backtest_eventos/rules_engine.py`.
+- `app/toolbox/backtest_eventos/runner.py`;
+- `app/toolbox/backtest_eventos/rules_engine.py`.
 
-El motor:
+El motor prepara datos OHLC, interpreta reglas long y short, ejecuta el backtest y devuelve curvas y trades. Sirve de base tanto a la UI como a los artefactos reutilizados por cartera y por la supervisión de salud.
 
-- prepara datos OHLC;
-- interpreta reglas long y short;
-- ejecuta el backtest;
-- devuelve curvas y trades;
-- sirve de base tanto a la UI como a los artefactos reutilizados por portfolio y riesgo.
-
-## 15.2. Uso dentro del sistema
+### 15.2. Uso dentro del sistema
 
 Los backtests no son solo una salida visual. También alimentan:
 
-- la construcción del `DesignRiskProfile`;
-- la generación de retornos semanales para cartera;
+- la construcción del `TraderDesignProfile` (vía `build_trader_design_profile`);
+- la generación de retornos semanales para la matriz del optimizador GA + PSO;
 - la máscara semanal de actividad histórica;
-- el refresco mensual del universo promovido.
+- el refresco mensual del universo promovido;
+- el backtest forward post-promoción ejecutado por `ForwardBacktestService`.
 
 ## 16. Dashboard y observabilidad
 
-## 16.1. Arquitectura de la UI
+### 16.1. Arquitectura de la UI
 
-La UI principal está en:
-
-- `app/ui/dashboard.py`;
-- `app/ui/dashboard_data.py`.
-
-Su estrategia es simple pero robusta:
+La UI principal está en `app/ui/dashboard.py` y `app/ui/dashboard_data.py`:
 
 - mantiene el supervisor en `st.session_state`;
 - consulta SQLite para reconstruir snapshots;
-- usa `load_dashboard_snapshot(...)` como agregador ligero de estado, eventos y resumen de riesgo;
+- usa `load_dashboard_snapshot(...)` como agregador ligero de estado, eventos y resumen de Recursos Humanos;
 - combina estado en memoria del supervisor con persistencia;
 - muestra tablas, métricas y figuras por bloque funcional.
 
-## 16.2. Qué observa cada pestaña
+### 16.2. Secciones del dashboard
 
-### `Desarrollo`
+La barra lateral selecciona una de cinco secciones:
 
-Muestra:
+```
+section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
+```
 
-- controles de desarrollo;
-- estado del ciclo actual;
-- reporte por activo;
-- traders desarrollados.
+#### `Desarrollo`
+Controles de desarrollo, estado del ciclo actual, reporte por activo y traders desarrollados.
 
-### `Backtest`
+#### `Backtest`
+Reglas long y short, curvas históricas y métricas cuantitativas compactas.
 
-Muestra:
+#### `Operativa`
+Estado de MT5, operativa activa, órdenes pendientes, posiciones y reintentos, detalle de órdenes y motivos de rechazo.
 
-- reglas long y short;
-- curvas históricas;
-- métricas cuantitativas compactas.
-
-### `Operativa`
-
-Muestra:
-
-- estado de MT5;
-- operativa activa;
-- órdenes pendientes;
-- posiciones y reintentos;
-- detalle de órdenes y motivos de rechazo.
-
-### `Portfolio manager`
-
-Muestra:
-
-- modelo vigente;
-- histórico de entrenamientos PPO;
-- métricas y curvas `train/val/test`;
+#### `Portfolio manager`
+- modo del optimizador (`ga_pso`);
+- histórico de rebalanceos semanales con `fitness`, `sharpe_neto`, `mdd`, `corr_media`;
+- pesos asignados y peso de cash;
 - asignación en euros;
-- histórico de rebalanceos;
-- evaluaciones forward;
 - señales seleccionadas, descartadas y ejecutadas;
-- acciones manuales de reentrenamiento y rebalanceo.
+- acciones manuales de refresh y rebalanceo.
 
-### `Risk Agent`
+#### `Recursos Humanos`
+Esta es la sección que sustituye al antiguo "Risk Agent". Muestra:
 
-Muestra:
+- KPIs de la última revisión (`Última revisión`, `Próxima revisión`, traders LIVE, traders RETRAINING, retrain pendientes, traders con evidencia insuficiente).
+- Tabla por trader: nombre, activo, timeframe, fecha de promoción, estado actual, `health_score`, última acción (`KEEP`/`RETRAINING`), trades shadow, trades ejecutados, `signal_count`, `pm_selected_count`, métricas de diseño vs forward.
+- Curvas de comparación diseño vs forward.
+- Historial de runs de revisión (`trader_review_runs`).
+- `RetrainRequest` pendientes y procesados.
+- Botones manuales: "Forzar revisión de salud ahora", "Forzar backtest forward de todos los traders", "Procesar RetrainRequests pendientes".
 
-- KPIs de última evaluación;
-- traders evaluados;
-- scores y acciones;
-- curvas de diseño frente a forward;
-- historial de decisiones de riesgo;
-- `portfolio risk checks`;
-- requests de retraining pendientes.
+> Lo que **ya no aparece** en el dashboard: ningún bloque de "Portfolio Risk Checks", ningún panel de "Risk Adjusted Portfolio Decision", ninguna tabla de pesos clipados o de cash forzado por riesgo.
 
-## 16.3. Importancia para la memoria
+### 16.3. Importancia para la memoria
 
-La UI no es solo una capa cosmética. En este proyecto cumple una función metodológica:
+La UI no es solo una capa cosmética. Cumple una función metodológica:
 
 - convierte el sistema en auditable;
 - permite observar la evolución temporal del desarrollo y la operación;
-- facilita contrastar entrenamiento, backtest, portfolio y riesgo desde un único punto.
+- facilita contrastar entrenamiento, backtest, cartera y salud de traders desde un único punto.
 
 ## 17. Calendario operativo real
 
-El sistema actual implementa tres ritmos temporales distintos.
+El sistema implementa tres ritmos temporales distintos.
 
-## 17.1. Ritmo diario
+### 17.1. Ritmo diario
 
 - recepción de nuevas velas D1;
 - evaluación de señales por trader;
 - cierres por desaparición o cambio de lado;
 - gestión de reintentos.
 
-## 17.2. Ritmo semanal
+### 17.2. Ritmo semanal
 
-- rebalanceo de cartera, normalmente los lunes;
+- rebalanceo de cartera por el `PortfolioManagerProcess`, normalmente los lunes;
 - tras el despliegue inicial, no se rebalancea todos los días, sino con frecuencia semanal.
 
-## 17.3. Ritmo mensual
+### 17.3. Ritmo mensual
 
-- refresh de OHLC;
-- recalculado de backtests;
-- evaluación de riesgo del universo;
-- procesamiento de requests de retraining;
-- `fine_tuning` del PPO.
+- refresh de OHLC del universo;
+- recalculado de backtests por trader;
+- evaluación de salud de traders por el `HumanResourcesProcess`;
+- procesamiento de `RetrainRequest` pendientes;
+- sincronización del universo de cartera para los rebalanceos posteriores.
 
-Este escalado temporal es una de las piezas más importantes del diseño: cada capa trabaja en el horizonte que tiene sentido para su función.
+Este escalado temporal es una de las piezas más importantes del diseño: cada capa trabaja en el horizonte que tiene sentido para su función. La supervisión de salud no se ejecuta en el camino caliente intradía precisamente porque su ventana mínima de evidencia es mucho mayor.
 
-## 18. Validación mediante tests
+## 18. Capa cloud (despliegue Windows EC2)
 
-El repositorio incluye pruebas automáticas que refuerzan varias de las piezas más relevantes de la arquitectura actual. Entre las más significativas están:
+Aunque el sistema funciona localmente, el repositorio incluye una capa para despliegue cloud:
+
+- `infra/terraform/`: define una instancia EC2 Windows, almacenamiento S3 (`s3_storage.py`) y parámetros SSM (`locals.tf`).
+- `app/cloud/cloud_config.py`: configuración cloud (rutas S3, parámetros).
+- `app/cloud_tasks/monthly_refresh.py`: tarea programada que invoca `supervisor.force_trader_health_evaluation(...)` y orquesta el refresh mensual desde un job cloud.
+- `scripts/cloud/bootstrap_windows_ec2.ps1` y `scripts/cloud/run_streamlit.ps1`: bootstrap del nodo y arranque del dashboard.
+
+## 19. Validación mediante tests
+
+Tras la refactorización, el repositorio mantiene una batería de tests **alineada con la arquitectura actual**:
 
 | Test | Cobertura principal |
 |---|---|
@@ -1289,64 +1032,80 @@ El repositorio incluye pruebas automáticas que refuerzan varias de las piezas m
 | `app/tests/test_dashboard_snapshot.py` | reconstrucción del snapshot principal consumido por la UI |
 | `app/tests/test_runtime_logs.py` | logging estructurado y trazabilidad básica del runtime |
 | `app/tests/test_feature_library.py` | capa de features e indicadores |
-| `app/tests/test_portfolio_ppo.py` | funcionamiento principal del bloque PPO |
-| `app/tests/test_design_risk_profile_serialization.py` | serialización y persistencia del perfil de diseño de riesgo |
-| `app/tests/test_risk_health_scoring.py` | scoring de salud del trader |
-| `app/tests/test_risk_portfolio_gate.py` | revisión pre-trade de cartera por riesgo |
-| `app/tests/test_state_store_risk_tables.py` | nuevas tablas de persistencia de riesgo |
-| `app/tests/test_live_runtime_risk_integration.py` | integración entre runtime live y gate de riesgo |
-| `app/tests/test_risk_agent_force_evaluation.py` | evaluación forzada de riesgo y su integración con el supervisor |
+| `app/tests/test_backtest_normalization.py` | normalización del motor de backtest histórico |
+| `app/tests/test_portfolio_optimizer.py` | optimizador híbrido GA + PSO (fitness, GA, PSO, orquestador) |
+| `app/tests/test_portfolio_data_refresh.py` | refresh de OHLC del universo de cartera |
+| `app/tests/test_trader_design_profile_serialization.py` | serialización y persistencia del `TraderDesignProfile` |
+| `app/tests/test_trader_health_scoring.py` | scoring de salud (`evaluate_trader_health`) y mapeo a `KEEP`/`RETRAINING` |
+| `app/tests/test_human_resources_force_evaluation.py` | evaluación forzada del `HumanResourcesProcess` y su integración con el supervisor |
+| `app/tests/test_state_store_trader_review_tables.py` | tablas `trader_review_runs`, `trader_review_details` y `retrain_requests` |
+| `app/tests/test_forward_backtest_service_normalization.py` | normalización interna del `ForwardBacktestService` |
+| `app/tests/test_cloud_config.py` | configuración cloud (rutas S3, parámetros SSM) |
 
-Desde el punto de vista de la memoria, esta batería no prueba todo el comportamiento del sistema, pero sí demuestra que el proyecto ya dispone de:
+Tests **eliminados** respecto a la versión anterior (porque cubrían funcionalidades suprimidas):
 
-- validación de contratos y persistencia;
-- comprobaciones específicas sobre portfolio PPO;
-- pruebas focalizadas sobre riesgo y runtime;
-- evidencias de integración entre componentes, no solo tests aislados de funciones auxiliares.
+- `test_risk_portfolio_gate.py`;
+- `test_live_runtime_risk_integration.py`;
+- `test_risk_agent_force_evaluation.py` (sustituido por `test_human_resources_force_evaluation.py`);
+- `test_risk_health_scoring.py` (sustituido por `test_trader_health_scoring.py`);
+- `test_state_store_risk_tables.py` (sustituido por `test_state_store_trader_review_tables.py`);
+- `test_design_risk_profile_serialization.py` (sustituido por `test_trader_design_profile_serialization.py`);
+- toda la suite de tests del stack PPO.
 
-## 19. Limitaciones y notas metodológicas
+La suite completa pasa con **44 tests verdes** (`pytest app/tests/`).
+
+## 20. Limitaciones y notas metodológicas
 
 Para que el documento sea útil como base de memoria, conviene dejar explícitas varias limitaciones del estado actual:
 
 1. El `quality_score` del dataset existe contractual y estructuralmente, pero hoy no representa una auditoría sofisticada del dato.
-2. El `DeveloperAgent` relee el CSV aunque el `DataAgent` ya haya normalizado el dataset.
+2. El `DeveloperAgent` relee el CSV aunque el `DataProcess` ya haya normalizado el dataset.
 3. El fallback del `ValidationAgent` puede promocionar reglas decorrelacionadas aunque no existan ganadores estables.
-4. La ruta `legacy` sigue existiendo y debe documentarse como baseline, no como flujo principal.
-5. Parte del comportamiento fino de los módulos externos de validación o toolbox depende de librerías del repositorio que no siempre están descritas con el mismo nivel de detalle interno que los agentes.
-6. Existen diferencias entre rutas de simulación, rutas legacy y el flujo operativo principal actual, por lo que no conviene describirlas como idénticas.
-7. La observación live del PPO y la observación de entrenamiento no son exactamente la misma representación en todos sus detalles.
+4. El `PortfolioManagerProcess` solo opera en modo `ga_pso`. No mantiene un baseline alternativo (HRP, equal weight, etc.) como ruta de degradación; si el optimizador no encuentra solución factible, devuelve "todo a cash". Esto es deliberado pero conviene documentarlo.
+5. El `HumanResourcesProcess` reconstruye su universo a partir de eventos `TRADER_PROMOTED` persistidos. Si esos eventos no se emiten correctamente, la revisión opera sobre un universo incompleto.
+6. El `trader_signal_audit` mantiene columnas `ppo_*` y `risk_approved` por compatibilidad, aunque el código nuevo no las consume. Una migración mayor podría eliminarlas en el futuro.
+7. Existen diferencias entre rutas de simulación (`SimulationRuntime`, `phase*_check`) y el flujo operativo principal del `LiveTradingRuntime`. No conviene describirlas como idénticas.
+8. La memoria técnica histórica `docs/risk_agent_memoria_tecnica.md` se conserva como documento de archivo de la versión anterior. La memoria del componente actual (`HumanResourcesProcess`) debe redactarse como documento separado para no mezclar épocas.
 
-## 20. Archivos más importantes para entender el sistema
+## 21. Archivos más importantes para entender el sistema
 
 Si hubiera que estudiar el proyecto leyendo un conjunto limitado de archivos, los más representativos hoy serían:
 
-1. `data_download/download.py`
+1. `app/toolbox/data_download/download.py`
 2. `app/services/data_service.py`
-3. `app/agents/data_agent.py`
-4. `app/agents/developer_agent.py`
-5. `app/services/validation_service.py`
-6. `app/agents/validation_agent.py`
-7. `app/agents/trader_agent.py`
-8. `app/agents/portfolio_agent.py`
-9. `app/services/portfolio_rl/config.py`
-10. `app/agents/risk_agent.py`
-11. `app/runtime/development_operational_supervisor.py`
-12. `app/runtime/live_trading_runtime.py`
-13. `app/storage/state_store.py`
-14. `app/ui/dashboard.py`
-15. `docs/risk_agent_memoria_tecnica.md`
+3. `app/agents/developer_agent.py`
+4. `app/services/validation_service.py`
+5. `app/agents/validation_agent.py`
+6. `app/agents/trader_agent.py`
+7. `app/agents/portfolio_manager_process.py`
+8. `app/services/portfolio_optimizer.py`
+9. `app/agents/human_resources_process.py`
+10. `app/services/trader_health/health_scoring.py`
+11. `app/services/trader_health/forward_backtest_service.py`
+12. `app/runtime/development_operational_supervisor.py`
+13. `app/runtime/live_trading_runtime.py`
+14. `app/storage/state_store.py`
+15. `app/ui/dashboard.py`
+16. `app/contracts/models.py`
+17. `app/contracts/enums.py`
+18. `docs/human_resources_process_refactor_report.md`
 
-## 21. Resumen final
+## 22. Resumen final
 
-La arquitectura actual del TFM ya no puede entenderse como un único algoritmo de trading ni como un conjunto aislado de backtests. El repositorio implementa un sistema multiagente completo donde cada capa tiene un papel definido:
+La arquitectura actual del TFM ya no puede entenderse como un único algoritmo de trading ni como un conjunto aislado de backtests. El repositorio implementa un sistema multiagente completo donde cada capa tiene un papel definido, con responsabilidades claramente desacopladas:
 
-- los datos se descargan, normalizan y tipan;
-- el desarrollo cuantitativo genera reglas sobre un espacio de features consistente;
-- la validación aplica una metodología multicapa antes de promover traders;
-- el `TraderAgent` activa y ejecuta;
-- el `PortfolioManagerAgent` coordina señales simultáneas con un enfoque PPO;
-- el `RiskAgent` supervisa la salud de los traders y revisa la cartera antes de su ejecución;
-- el supervisor organiza ciclos de desarrollo, refresh mensual y runtime live;
+- los **datos** se descargan, normalizan y tipan, manteniendo separadas la ingesta y el consumo operativo;
+- el **desarrollo cuantitativo** genera reglas sobre un espacio de features consistente;
+- la **validación** aplica una metodología multicapa (`IS/OOS → decorrelación → forward → estabilidad`) antes de promover traders;
+- el `TraderAgent` activa traders promovidos y enruta órdenes al broker bajo control de acceso explícito;
+- el `PortfolioManagerProcess` coordina señales simultáneas con un **optimizador híbrido GA + PSO determinista**, con fitness cerrada (`Sharpe_neto - λ_dd · MDD - λ_corr · CorrMedia`);
+- el `HumanResourcesProcess` supervisa periódicamente a los traders promovidos comparando su comportamiento forward con su perfil de diseño y, si se desvían, los manda a reentrenamiento;
+- el supervisor organiza ciclos de desarrollo, refresh mensual y runtime live, integrando todo lo anterior;
 - SQLite y Streamlit convierten todo el proceso en auditable y observable.
 
-En consecuencia, el proyecto ha evolucionado hacia una plataforma experimental y operativa de ciclo completo. Esta arquitectura permite documentar en la memoria no solo modelos o resultados aislados, sino una metodología integral de creación, validación, despliegue, asignación de capital y control de riesgo sobre sistemas de trading algorítmico.
+Dos rasgos arquitectónicos definen el sistema actual frente a versiones anteriores:
+
+1. **Determinismo sobre los puntos críticos de decisión**. La cartera ya no es un agente PPO con estado opaco; es un proceso GA + PSO reproducible. La salud del trader ya no la decide un componente con vocación de gate; la decide un proceso simple que solo escoge entre KEEP y RETRAINING. Ambos son defendibles ante un tribunal: dada la misma entrada y el mismo seed, producen exactamente la misma salida.
+2. **Separación nítida entre el camino caliente y la supervisión asíncrona**. El runtime live solo mira señal y cartera. La salud de traders se evalúa fuera de él, en una cadencia más larga, y nunca bloquea ni reescribe la decisión del PM. Esto reduce drásticamente la superficie de fallo del runtime y simplifica su razonamiento.
+
+En consecuencia, el proyecto ha evolucionado hacia una plataforma experimental y operativa de ciclo completo. Esta arquitectura permite documentar en la memoria no solo modelos o resultados aislados, sino una metodología integral de creación, validación, despliegue, asignación de capital y supervisión continua de la plantilla de traders algorítmicos.

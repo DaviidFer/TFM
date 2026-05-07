@@ -4,7 +4,7 @@ from typing import Sequence
 
 import pandas as pd
 
-from indicators import build_feature_library, validate_feature_frame
+from app.toolbox.indicators import build_feature_library, validate_feature_frame
 
 
 def build_features(

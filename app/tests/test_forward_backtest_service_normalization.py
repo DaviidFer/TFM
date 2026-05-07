@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from app.services.risk.forward_backtest_service import (
+from app.services.trader_health.forward_backtest_service import (
     _normalize_pnl_frame,
     _normalize_trades_frame,
     _to_naive_datetime_series,

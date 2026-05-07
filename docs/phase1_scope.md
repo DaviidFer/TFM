@@ -16,20 +16,19 @@ Este documento formaliza la primera fase de migracion del proyecto a aplicacion 
 
 Las etapas congeladas en Fase 1 son:
 
-1. features (`indicators.build_feature_library`) con 11 indicadores cerrados:
+1. features (`app.toolbox.indicators.build_feature_library`) con 11 indicadores cerrados:
    `Momentum`, `ROC`, `RSI`, `Stoch`, `WPR`, `CCI`, `BullsPower`, `BearsPower`, `DeMarker`, `RVI`, `DPO`
-2. split IS/OOS + holdout (`particion_IS_OOS.run_particion_is_oos`)
-3. target (`definicion_target.run_target_para_bloques`)
-4. reglas cuantiles (`ML_tools.build_quantile_bin_combinations`)
-5. reglas arbol (`ML_tools.build_decision_tree_rules_multiseed`)
-6. reglas rulefit (`ML_tools.build_rulefit_rules_multiseed`)
-7. reglas genetico (`ML_tools.run_genetico_rules`)
-8. reglas subgroup (`ML_tools.run_subgroup_discovery_rules`)
-9. validacion monos (`validacion_monos.monkey_validate_oos_multi`)
-10. pruning correlacion (`validacion_correlacion_pl.run_pl_correlation_pruning`)
-11. validacion forward (`validacion_forward.validate_forward_year_profitability`)
-12. estabilidad (`validacion_estabilidad_pl.run_pl_stability_selection`)
-13. ejecucion reglas (`backtest_eventos.run_event_backtest`)
+2. split IS/OOS + holdout (`app.toolbox.particion_IS_OOS.run_particion_is_oos`)
+3. target (`app.toolbox.definicion_target.run_target_para_bloques`)
+4. reglas cuantiles (`app.toolbox.ML_tools.build_quantile_bin_combinations`)
+5. reglas arbol (`app.toolbox.ML_tools.build_decision_tree_rules_multiseed`)
+6. reglas rulefit (`app.toolbox.ML_tools.build_rulefit_rules_multiseed`)
+7. reglas genetico (`app.toolbox.ML_tools.run_genetico_rules`)
+9. validacion monos (`app.validation.monos.monkey_validate_oos_multi`)
+10. pruning correlacion (`app.validation.correlation.run_pl_correlation_pruning`)
+11. validacion forward (`app.validation.forward.validate_forward_year_profitability`)
+12. estabilidad (`app.validation.stability.run_pl_stability_selection`)
+13. ejecucion reglas (`app.toolbox.backtest_eventos.run_event_backtest`)
 
 ## Check automatizable de fase
 

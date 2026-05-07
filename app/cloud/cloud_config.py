@@ -5,6 +5,30 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _load_project_dotenv() -> None:
+    try:
+        from dotenv import load_dotenv  # type: ignore
+    except Exception:
+        return
+
+    candidate_paths: list[Path] = []
+    env_project_dir = str(os.getenv("TFM_PROJECT_DIR", "")).strip()
+    if env_project_dir:
+        candidate_paths.append(Path(env_project_dir) / ".env")
+    candidate_paths.append(Path.cwd() / ".env")
+    candidate_paths.append(Path(r"C:\tfm\tfm-project") / ".env")
+
+    seen: set[str] = set()
+    for candidate in candidate_paths:
+        candidate_str = str(candidate)
+        if candidate_str in seen:
+            continue
+        seen.add(candidate_str)
+        if candidate.exists():
+            load_dotenv(dotenv_path=candidate, override=False)
+            break
+
+
 def _to_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
@@ -53,6 +77,7 @@ class CloudConfig:
 
 
 def load_cloud_config() -> CloudConfig:
+    _load_project_dotenv()
     project_dir = Path(os.getenv("TFM_PROJECT_DIR", r"C:\tfm\tfm-project")).expanduser()
     artifacts_root = Path(
         os.getenv("TFM_ARTIFACTS_ROOT", str(project_dir / "app" / ".tmp"))
@@ -67,7 +92,7 @@ def load_cloud_config() -> CloudConfig:
         artifacts_root=artifacts_root,
         db_path=db_path,
         logs_dir=logs_dir,
-        aws_region=str(os.getenv("AWS_REGION", "eu-west-1")).strip() or "eu-west-1",
+        aws_region=str(os.getenv("AWS_REGION", "eu-west-2")).strip() or "eu-west-2",
         s3_bucket=str(os.getenv("TFM_S3_BUCKET", "")).strip(),
         s3_prefix=str(os.getenv("TFM_S3_PREFIX", "tfm-trading")).strip() or "tfm-trading",
         enable_s3=_to_bool(os.getenv("TFM_ENABLE_S3"), default=False),

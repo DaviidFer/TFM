@@ -7,8 +7,8 @@ from typing import Callable, Dict, Iterable, Mapping, Any
 
 import pandas as pd
 
-from app.agents import PortfolioManagerAgent, RiskAgent, TraderAgent
-from app.contracts import PortfolioDecision, PromotedTraderSpec, RiskAction
+from app.agents import PortfolioManagerProcess, TraderAgent
+from app.contracts import PromotedTraderSpec
 from app.core.structured_logging import emit_log
 from app.execution.mt5_events import DataEvent
 from app.services import build_features
@@ -16,19 +16,23 @@ from app.services import build_features
 
 class LiveTradingRuntime:
     """
-    Runtime D1 que reutiliza la lógica de data_provider del mt5-framework:
-    - espera nueva vela cerrada por símbolo,
+    Runtime D1 que reutiliza la logica de data_provider del mt5-framework:
+    - espera nueva vela cerrada por simbolo,
     - recalcula features,
-    - evalúa reglas del trader,
-    - enruta orden automáticamente si hay señal.
+    - evalua reglas del trader,
+    - enruta orden automaticamente si hay senal.
+
+    El runtime ya no integra ningun gate previo a ejecucion: la decision del
+    `PortfolioManagerProcess` se aplica tal cual. La supervision de salud de
+    los traders la hace `HumanResourcesProcess` de forma asincrona, fuera del
+    camino caliente de operativa.
     """
 
     def __init__(
         self,
         *,
         trader_agent: TraderAgent,
-        portfolio_manager: PortfolioManagerAgent | None = None,
-        risk_agent: RiskAgent | None = None,
+        portfolio_manager: PortfolioManagerProcess | None = None,
         promoted_specs: Mapping[str, PromotedTraderSpec],
         data_provider: Any,
         history_loader: Callable[[str], pd.DataFrame | pd.Series | None] | None = None,
@@ -39,7 +43,6 @@ class LiveTradingRuntime:
     ) -> None:
         self.trader_agent = trader_agent
         self.portfolio_manager = portfolio_manager
-        self.risk_agent = risk_agent
         self.promoted_specs = dict(promoted_specs)
         self.history_loader = history_loader
         self.capital_provider = capital_provider
@@ -385,9 +388,8 @@ class LiveTradingRuntime:
         timeframe: str,
         signal_side: str,
         signal_active: bool,
-        ppo_selected: bool,
-        ppo_weight: float,
-        risk_approved: bool,
+        pm_selected: bool,
+        pm_weight: float,
         executed: bool,
         reason_if_blocked: str = "",
         metadata: Mapping[str, Any] | None = None,
@@ -400,9 +402,8 @@ class LiveTradingRuntime:
                 timeframe=timeframe,
                 signal_side=signal_side,
                 signal_active=signal_active,
-                ppo_selected=ppo_selected,
-                ppo_weight=float(ppo_weight),
-                risk_approved=risk_approved,
+                pm_selected=pm_selected,
+                pm_weight=float(pm_weight),
                 executed=executed,
                 reason_if_blocked=reason_if_blocked,
                 metadata=dict(metadata or {}),
@@ -423,8 +424,6 @@ class LiveTradingRuntime:
         portfolio_weight: float | None = None,
         portfolio_euros: float | None = None,
         rebalance_id: str = "",
-        training_run_id: str = "",
-        model_version: str = "",
         detected_at: str = "",
     ) -> Dict[str, Any]:
         tf_label = self._tf_label()
@@ -490,8 +489,6 @@ class LiveTradingRuntime:
                     "detected_at": str(detected_at or datetime.now().isoformat()),
                     "portfolio_phase": self._current_portfolio_phase(),
                     "rebalance_id": str(rebalance_id or ""),
-                    "training_run_id": str(training_run_id or ""),
-                    "model_version": str(model_version or ""),
                 }
             )
         else:
@@ -538,8 +535,6 @@ class LiveTradingRuntime:
                     "detected_at": str(detected_at or datetime.now().isoformat()),
                     "portfolio_phase": self._current_portfolio_phase(),
                     "rebalance_id": str(rebalance_id or ""),
-                    "training_run_id": str(training_run_id or ""),
-                    "model_version": str(model_version or ""),
                 }
             )
 
@@ -560,9 +555,8 @@ class LiveTradingRuntime:
             timeframe=self._tf_label(),
             signal_side=str(side).lower(),
             signal_active=True,
-            ppo_selected=True,
-            ppo_weight=float(portfolio_weight or 0.0),
-            risk_approved=True,
+            pm_selected=True,
+            pm_weight=float(portfolio_weight or 0.0),
             executed=bool(res.get("accepted")),
             reason_if_blocked="" if bool(res.get("accepted")) else str(res.get("reason") or ""),
             metadata={
@@ -572,8 +566,6 @@ class LiveTradingRuntime:
                 "volume": float(v),
                 "ticket": res.get("ticket"),
                 "rebalance_id": str(rebalance_id or ""),
-                "training_run_id": str(training_run_id or ""),
-                "model_version": str(model_version or ""),
                 "detected_at": str(detected_at or ""),
             },
         )
@@ -767,53 +759,15 @@ class LiveTradingRuntime:
             pm_out["manual_retrain_reason"] = str(manual_reason or "manual_ui_retrain")
         decision_payload = dict(pm_out.get("decision") or {})
         rebalance_id = str(decision_payload.get("decision_id") or "")
-        training_run_id = str(decision_payload.get("training_run_id") or pm_out.get("training_run_id") or "")
-        model_version = str(decision_payload.get("model_version") or pm_out.get("model_version") or "")
         selected_ids = set(pm_out.get("selected_tickers", []) or [])
         weights = dict(pm_out.get("weights", {}) or {})
         euros_map = dict(pm_out.get("euros", {}) or {})
-        risk_out = None
-        if self.risk_agent is not None:
-            try:
-                portfolio_decision = PortfolioDecision(
-                    decision_id=str(decision_payload.get("decision_id") or f"rt_{datetime.now().strftime('%Y%m%d%H%M%S')}"),
-                    as_of=str(decision_payload.get("as_of") or datetime.now().isoformat()),
-                    selected_traders=list(decision_payload.get("selected_traders") or list(selected_ids)),
-                    weights={str(k): float(v) for k, v in dict(decision_payload.get("weights") or weights).items()},
-                    rationale=str(decision_payload.get("rationale") or "live_runtime_portfolio_gate"),
-                    model_version=str(decision_payload.get("model_version") or pm_out.get("model_version") or ""),
-                    training_run_id=str(decision_payload.get("training_run_id") or pm_out.get("training_run_id") or ""),
-                    fine_tune_run_id=str(decision_payload.get("fine_tune_run_id") or ""),
-                    target_cash_weight=float(decision_payload.get("target_cash_weight") or pm_out.get("target_cash_weight") or 0.0),
-                    active_universe_size=int(decision_payload.get("active_universe_size") or len(signal_candidates)),
-                    selected_universe_size=int(decision_payload.get("selected_universe_size") or len(selected_ids)),
-                    metadata=dict(decision_payload.get("metadata") or {}),
-                )
-                risk_out = self.risk_agent.review_portfolio_decision(
-                    portfolio_decision=portfolio_decision,
-                    account_info=self.risk_agent.get_broker_account_info(),
-                    open_positions=self._get_open_positions(),
-                )
-                weights = dict(risk_out.adjusted_weights or {})
-                selected_ids = {tid for tid, weight in weights.items() if float(weight) > 0.0}
-                euros_map = {tid: float(weight) * float(total_capital) for tid, weight in weights.items()}
-                pm_out["risk_adjusted_decision"] = risk_out.to_dict()
-                pm_out["target_cash_weight"] = float(risk_out.forced_cash_weight)
-                if risk_out.action == RiskAction.EMERGENCY_STOP.value:
-                    pm_out["status"] = "risk_emergency_stop"
-                elif risk_out.action == RiskAction.REJECT_PORTFOLIO.value:
-                    pm_out["status"] = "risk_rejected_portfolio"
-            except Exception as exc:
-                emit_log("live_runtime", "risk_agent_review_error", console=False, error=str(exc))
         self._last_portfolio_output = pm_out
 
         for candidate in signal_candidates:
             trader_id = str(candidate["trader_id"])
             selected = trader_id in selected_ids
             already_open = bool(candidate.get("already_open"))
-            risk_reason = ""
-            if risk_out is not None and trader_id in set(risk_out.blocked_traders or []):
-                risk_reason = "; ".join(list(risk_out.reasons or [])[:2]) or "risk_blocked"
             self._update_signal_book(
                 {
                     "trader_id": trader_id,
@@ -826,11 +780,9 @@ class LiveTradingRuntime:
                     "euros": float(euros_map.get(trader_id, 0.0)),
                     "price": float(candidate.get("price") or 0.0),
                     "detected_at": candidate["detected_at"],
-                    "reason": str(risk_reason or candidate.get("reason") or ("position_already_open" if already_open else manual_reason or "")),
+                    "reason": str(candidate.get("reason") or ("position_already_open" if already_open else manual_reason or "")),
                     "portfolio_phase": self._current_portfolio_phase(),
                     "rebalance_id": rebalance_id,
-                    "training_run_id": training_run_id,
-                    "model_version": model_version,
                 }
             )
             self._audit_signal(
@@ -839,18 +791,14 @@ class LiveTradingRuntime:
                 timeframe=self._tf_label(),
                 signal_side=str(candidate["side"]),
                 signal_active=True,
-                ppo_selected=bool(str(candidate["trader_id"]) in set(pm_out.get("selected_tickers", []) or [])),
-                ppo_weight=float(dict(pm_out.get("weights", {}) or {}).get(trader_id, 0.0)),
-                risk_approved=bool(selected),
+                pm_selected=bool(selected),
+                pm_weight=float(weights.get(trader_id, 0.0)),
                 executed=False,
-                reason_if_blocked=risk_reason,
+                reason_if_blocked="",
                 metadata={
                     "signal_label": candidate["signal_label"],
                     "portfolio_phase": self._current_portfolio_phase(),
-                    "risk_action": str((risk_out.action if risk_out is not None else "")),
                     "rebalance_id": rebalance_id,
-                    "training_run_id": training_run_id,
-                    "model_version": model_version,
                 },
             )
 
@@ -882,8 +830,6 @@ class LiveTradingRuntime:
                 portfolio_weight=float(weights.get(trader_id, 0.0)),
                 portfolio_euros=euros,
                 rebalance_id=rebalance_id,
-                training_run_id=training_run_id,
-                model_version=model_version,
                 detected_at=str(candidate.get("detected_at") or ""),
             )
         self._mark_rebalance_executed()

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.agents import AgentContext, DataAgent, DeveloperAgent, TraderAgent, ValidationAgent
+from app.agents import AgentContext, DeveloperAgent, TraderAgent, ValidationAgent
+from app.services import DataProcess
 from app.contracts import TraderLifecycleState
 from app.storage import StateStore
 
@@ -19,12 +20,12 @@ def main() -> int:
         artifacts_root=Path("app/.tmp/phase4"),
     )
 
-    data_agent = DataAgent(ctx)
+    data_process = DataProcess(ctx)
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
 
-    dataset = data_agent.prepare_dataset(
+    dataset = data_process.prepare_dataset(
         asset="AAPL",
         timeframe="D1",
         asset_csv_path="datos/Stocks/AAPL.csv",
@@ -33,13 +34,12 @@ def main() -> int:
 
     dev = developer_agent.develop(
         dataset=dataset,
-        families=("decision_tree", "rulefit", "genetico", "quantile", "subgroup"),
+        families=("decision_tree", "rulefit", "genetico", "quantile"),
         family_params={
             "decision_tree": {"target_n_rules": 60, "progress_every": 0},
             "rulefit": {"target_n_rules": 60, "n_estimators": 35, "max_candidate_rules": 250, "progress_every": 0},
             "genetico": {"target_n_rules": 60, "population_size": 50, "n_generations": 12, "progress_every": 0},
-            "quantile": {"n_bins": 4, "combo_size": 1, "min_coverage": 180},
-            "subgroup": {"n_bins": 5, "min_coverage": 80},
+            "quantile": {"n_bins": 4, "combo_size": 2, "min_coverage": 100},
         },
     )
     print(

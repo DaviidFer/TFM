@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional
 
-from .enums import AgentKind, EventType, RiskAction, TraderLifecycleState
+from .enums import AgentKind, EventType, TraderLifecycleState, TraderReviewAction
 
 
 def utc_now_iso() -> str:
@@ -96,7 +96,7 @@ class PromotedTraderSpec:
     long_rules: List[str]
     short_rules: List[str]
     origin_experiment_id: str
-    lifecycle_state: TraderLifecycleState = TraderLifecycleState.PROMOTED
+    lifecycle_state: TraderLifecycleState = TraderLifecycleState.LIVE
     promoted_at: str = field(default_factory=utc_now_iso)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -122,68 +122,27 @@ class TraderLiveMetrics:
 
 @dataclass(frozen=True)
 class PortfolioDecision:
+    """
+    Decision semanal del PortfolioManagerProcess (modo GA + PSO).
+
+    Toda la trazabilidad del optimizador hibrido va en `metadata` (parametros
+    GA/PSO, lambdas, baselines, traders excluidos, etc.).
+    """
+
     decision_id: str
     as_of: str
     selected_traders: List[str]
     weights: Dict[str, float]
     rationale: str = ""
-    model_version: str = ""
-    training_run_id: str = ""
-    fine_tune_run_id: str = ""
+    optimizer_mode: str = "ga_pso"
     target_cash_weight: float = 0.0
     active_universe_size: int = 0
+    valid_universe_size: int = 0
     selected_universe_size: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class PortfolioModelInfo:
-    model_version: str
-    mode: str
-    checkpoint_path: str
-    universe_size: int
-    trained_at: str = ""
-    fine_tuned_at: str = ""
-    config: Dict[str, Any] = field(default_factory=dict)
-    metrics: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class PortfolioTrainingRun:
-    run_id: str
-    run_type: str
-    model_version: str
-    status: str
-    started_at: str
-    completed_at: str = ""
-    algorithm: str = "ppo"
-    seed: int = 0
-    device: str = "cpu"
-    hyperparameters: Dict[str, Any] = field(default_factory=dict)
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    artifacts: Dict[str, Any] = field(default_factory=dict)
-    notes: str = ""
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class PortfolioForwardEvaluation:
-    evaluation_id: str
-    rebalance_id: str
-    benchmark_name: str
-    as_of: str
-    cumulative_return_1y: float
-    sharpe_1y: float
-    max_drawdown_1y: float
-    curve_points: List[Dict[str, Any]] = field(default_factory=list)
+    fitness: float = 0.0
+    sharpe_neto: float = 0.0
+    mdd: float = 0.0
+    corr_media: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -192,15 +151,19 @@ class PortfolioForwardEvaluation:
 
 @dataclass(frozen=True)
 class PortfolioRebalanceSnapshot:
+    """Snapshot persistido del rebalanceo semanal (modo GA + PSO)."""
+
     rebalance_id: str
     rebalance_date: str
-    model_version: str
-    training_run_id: str = ""
-    fine_tune_run_id: str = ""
+    optimizer_mode: str = "ga_pso"
     active_traders: List[str] = field(default_factory=list)
     selected_traders: List[str] = field(default_factory=list)
     target_weights: Dict[str, float] = field(default_factory=dict)
     target_cash_weight: float = 0.0
+    fitness: float = 0.0
+    sharpe_neto: float = 0.0
+    mdd: float = 0.0
+    corr_media: float = 0.0
     diagnostics: Dict[str, Any] = field(default_factory=dict)
     forward_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -210,7 +173,13 @@ class PortfolioRebalanceSnapshot:
 
 
 @dataclass(frozen=True)
-class DesignRiskProfile:
+class TraderDesignProfile:
+    """
+    Perfil de diseno del trader: metricas de su comportamiento esperado
+    medidas en backtest historico (IS / OOS / holdout). Es el "DNI" contra
+    el que se compara el comportamiento forward post-promocion.
+    """
+
     trader_id: str
     asset: str
     timeframe: str
@@ -249,6 +218,19 @@ class DesignRiskProfile:
 
 @dataclass(frozen=True)
 class TraderForwardMetrics:
+    """
+    Metricas forward post-promocion: lo que el trader hace REALMENTE despues
+    de salir a operativa, comparable contra `TraderDesignProfile`.
+
+    Conceptos:
+    - shadow_*: backtest forward con sus reglas sobre datos OOS reales.
+    - executed_*: lo que ejecuto el broker (subset de las senales que el
+      PortfolioManagerProcess termino seleccionando).
+    - signal_count: cuantas senales emitio en el periodo forward.
+    - pm_selected_count: cuantas senales acabaron seleccionadas por el
+      PortfolioManagerProcess (GA+PSO).
+    """
+
     trader_id: str
     asset: str
     timeframe: str
@@ -275,9 +257,7 @@ class TraderForwardMetrics:
     shadow_expectancy: Optional[float] = None
     shadow_losing_streak: Optional[int] = None
     signal_count: int = 0
-    ppo_selected_count: int = 0
-    ppo_blocked_count: int = 0
-    risk_blocked_count: int = 0
+    pm_selected_count: int = 0
     insufficient_evidence: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -286,32 +266,19 @@ class TraderForwardMetrics:
 
 
 @dataclass(frozen=True)
-class RiskLimitsConfig:
-    min_forward_trades_for_hard_decision: int = 10
-    min_forward_trades_for_retire: int = 25
-    degraded_health_threshold: float = 60.0
-    suspend_health_threshold: float = 40.0
-    retire_health_threshold: float = 25.0
+class TraderHealthConfig:
+    """
+    Configuracion de umbrales de salud que usa HumanResourcesProcess para
+    decidir entre `KEEP` y `RETRAINING`. No mezcla nada de cartera, pesos,
+    margen ni broker: este componente ya no tiene esas competencias.
+    """
+
+    min_forward_trades_for_retraining: int = 10
+    retraining_health_threshold: float = 60.0
     max_losing_streak_multiplier: float = 1.5
-    max_drawdown_multiplier_degraded: float = 1.25
-    max_drawdown_multiplier_suspend: float = 1.75
-    max_drawdown_multiplier_retire: float = 2.25
-    min_profit_factor_ratio_degraded: float = 0.75
-    min_profit_factor_ratio_suspend: float = 0.55
-    min_sharpe_ratio_degraded: float = 0.60
-    min_sharpe_ratio_suspend: float = 0.35
-    max_weight_per_trader: float = 0.15
-    max_weight_per_asset: float = 0.30
-    max_total_exposure: float = 1.0
-    max_sector_exposure: Optional[float] = None
-    max_portfolio_volatility: Optional[float] = None
-    max_portfolio_drawdown: Optional[float] = None
-    min_cash_buffer: float = 0.10
-    degraded_weight_multiplier: float = 0.50
-    suspended_weight: float = 0.0
-    retired_weight: float = 0.0
-    min_broker_margin_level: Optional[float] = None
-    emergency_drawdown_stop: Optional[float] = None
+    max_drawdown_multiplier_retraining: float = 1.5
+    min_profit_factor_ratio_retraining: float = 0.75
+    min_sharpe_ratio_retraining: float = 0.60
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -319,6 +286,11 @@ class RiskLimitsConfig:
 
 @dataclass(frozen=True)
 class TraderHealthSnapshot:
+    """
+    Resultado de una revision de salud de un trader: estado anterior,
+    nuevo estado, accion (`KEEP` / `RETRAINING`), score y razones.
+    """
+
     trader_id: str
     asset: str
     timeframe: str
@@ -329,9 +301,9 @@ class TraderHealthSnapshot:
     health_score: float
     action: str
     reasons: List[str] = field(default_factory=list)
-    design_profile: Optional[DesignRiskProfile] = None
+    design_profile: Optional[TraderDesignProfile] = None
     forward_metrics: Optional[TraderForwardMetrics] = None
-    risk_flags: Dict[str, Any] = field(default_factory=dict)
+    flags: Dict[str, Any] = field(default_factory=dict)
     retrain_request: Optional["RetrainRequest"] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -340,42 +312,6 @@ class TraderHealthSnapshot:
         out["design_profile"] = _serialize_dataclass(self.design_profile)
         out["forward_metrics"] = _serialize_dataclass(self.forward_metrics)
         out["retrain_request"] = _serialize_dataclass(self.retrain_request)
-        return out
-
-
-@dataclass(frozen=True)
-class RiskDecision:
-    decision_id: str
-    trader_id: str
-    as_of: str
-    action: str
-    reason: str
-    triggered_metrics: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class RiskAdjustedPortfolioDecision:
-    rebalance_id: str
-    evaluation_id: str
-    original_decision: PortfolioDecision
-    approved: bool
-    action: str
-    adjusted_weights: Dict[str, float]
-    original_weights: Dict[str, float]
-    forced_cash_weight: float = 0.0
-    blocked_traders: List[str] = field(default_factory=list)
-    clipped_traders: List[str] = field(default_factory=list)
-    scaled_down: bool = False
-    reasons: List[str] = field(default_factory=list)
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
-    created_at: str = field(default_factory=utc_now_iso)
-
-    def to_dict(self) -> Dict[str, Any]:
-        out = asdict(self)
-        out["original_decision"] = _serialize_dataclass(self.original_decision)
         return out
 
 
@@ -411,4 +347,3 @@ class EventRecord:
         out["producer"] = self.producer.value
         out["payload"] = dict(self.payload)
         return out
-

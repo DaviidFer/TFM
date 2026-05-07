@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Mapping, Optional
+from typing import Mapping, Optional
 from uuid import uuid4
 
 import pandas as pd
@@ -10,23 +10,14 @@ from app.contracts import (
     AgentStatus,
     EventType,
     PromotedTraderSpec,
-    TraderLifecycleState,
     ValidationReport,
 )
 from app.core.structured_logging import emit_log
 from app.services import build_promoted_spec, run_validation_pipeline
+from app.services.rule_generation_service import safe_rules_from_df
 
 from .base import AgentContext
 from .developer_agent import DevelopmentOutput
-
-
-def _rules_from_df(df: pd.DataFrame) -> List[str]:
-    if df is None or df.empty:
-        return []
-    col = "regla" if "regla" in df.columns else ("rule" if "rule" in df.columns else None)
-    if col is None:
-        return []
-    return df[col].dropna().astype(str).tolist()
 
 
 @dataclass
@@ -75,8 +66,8 @@ class ValidationAgent:
         fallback_used = False
         if len(winners_long) + len(winners_short) == 0:
             # Fallback defensivo para no romper fase de integración si estabilidad queda vacía.
-            winners_long = _rules_from_df(out.get("decor_long", pd.DataFrame()))[:5]
-            winners_short = _rules_from_df(out.get("decor_short", pd.DataFrame()))[:5]
+            winners_long = safe_rules_from_df(out.get("decor_long", pd.DataFrame()))[:5]
+            winners_short = safe_rules_from_df(out.get("decor_short", pd.DataFrame()))[:5]
             fallback_used = True
 
         report = ValidationReport(
@@ -126,14 +117,9 @@ class ValidationAgent:
             winners_short_stable=winners_short,
         )
 
-        self.ctx.store.upsert_trader_state(
-            trader_id=promoted.trader_id,
-            asset=promoted.asset,
-            timeframe=promoted.timeframe,
-            state=TraderLifecycleState.PROMOTED,
-            notes="promoted by validation agent",
-        )
-
+        # El ValidationAgent NO marca estado en trader_states. El trader solo
+        # aparece en trader_states cuando el TraderAgent.activate lo pone LIVE.
+        # Mientras tanto vive en el evento TRADER_PROMOTED (cola validada).
         self.ctx.store.append_event(
             event_id=f"evt_{uuid4().hex[:10]}",
             event_type=EventType.VALIDATION_COMPLETED,

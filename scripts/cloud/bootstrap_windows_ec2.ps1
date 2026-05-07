@@ -42,10 +42,12 @@ try {
     Install-ChocoPackageIfNeeded -CommandName "python" -PackageName "python" -ExtraArgs "'/InstallDir:C:\Python311 /PrependPath:1'"
     Install-ChocoPackageIfNeeded -CommandName "aws" -PackageName "awscli"
 
-    [Environment]::SetEnvironmentVariable("AWS_REGION", $(if ($env:AWS_REGION) { $env:AWS_REGION } else { "eu-west-1" }), "Machine")
+    [Environment]::SetEnvironmentVariable("AWS_REGION", $(if ($env:AWS_REGION) { $env:AWS_REGION } else { "eu-west-2" }), "Machine")
     [Environment]::SetEnvironmentVariable("TFM_S3_BUCKET", $env:TFM_S3_BUCKET, "Machine")
     [Environment]::SetEnvironmentVariable("TFM_S3_PREFIX", $(if ($env:TFM_S3_PREFIX) { $env:TFM_S3_PREFIX } else { "tfm-trading" }), "Machine")
     [Environment]::SetEnvironmentVariable("TFM_PROJECT_DIR", $ProjectDir, "Machine")
+    [Environment]::SetEnvironmentVariable("TFM_ARTIFACTS_ROOT", (Join-Path $ProjectDir "app\.tmp"), "Machine")
+    [Environment]::SetEnvironmentVariable("TFM_DB_PATH", (Join-Path $ProjectDir "app\.tmp\supervisor\supervisor.sqlite"), "Machine")
     [Environment]::SetEnvironmentVariable("STREAMLIT_PORT", $(if ($env:STREAMLIT_PORT) { $env:STREAMLIT_PORT } else { "8501" }), "Machine")
 
     if (-not (Test-Path $ProjectDir)) {

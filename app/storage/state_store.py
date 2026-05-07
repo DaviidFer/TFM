@@ -121,59 +121,16 @@ class StateStore:
                 );
                 """
             )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS portfolio_training_runs (
-                    run_id TEXT PRIMARY KEY,
-                    run_type TEXT NOT NULL,
-                    model_version TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    completed_at TEXT NOT NULL DEFAULT '',
-                    algorithm TEXT NOT NULL,
-                    seed INTEGER NOT NULL,
-                    device TEXT NOT NULL,
-                    hyperparameters_json TEXT NOT NULL,
-                    metrics_json TEXT NOT NULL,
-                    artifacts_json TEXT NOT NULL,
-                    notes TEXT NOT NULL DEFAULT ''
-                );
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS portfolio_training_metrics (
-                    run_id TEXT NOT NULL,
-                    step INTEGER NOT NULL,
-                    split TEXT NOT NULL,
-                    metric_name TEXT NOT NULL,
-                    metric_value REAL NOT NULL,
-                    recorded_at TEXT NOT NULL,
-                    PRIMARY KEY (run_id, step, split, metric_name)
-                );
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS portfolio_model_registry (
-                    model_version TEXT PRIMARY KEY,
-                    mode TEXT NOT NULL,
-                    checkpoint_path TEXT NOT NULL,
-                    universe_size INTEGER NOT NULL,
-                    trained_at TEXT NOT NULL DEFAULT '',
-                    fine_tuned_at TEXT NOT NULL DEFAULT '',
-                    config_json TEXT NOT NULL,
-                    metrics_json TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                """
-            )
+            # Snapshot persistido del rebalanceo semanal del PortfolioManagerProcess.
+            # En esquemas antiguos esta tabla contenia columnas PPO (model_version,
+            # training_run_id, fine_tune_run_id). Mantenemos esas columnas como NULL
+            # para no romper BBDD existentes pero el codigo nuevo no las escribe.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS portfolio_rebalance_snapshots (
                     rebalance_id TEXT PRIMARY KEY,
                     rebalance_date TEXT NOT NULL,
-                    model_version TEXT NOT NULL,
+                    model_version TEXT NOT NULL DEFAULT '',
                     training_run_id TEXT NOT NULL DEFAULT '',
                     fine_tune_run_id TEXT NOT NULL DEFAULT '',
                     active_traders_json TEXT NOT NULL,
@@ -182,22 +139,6 @@ class StateStore:
                     target_cash_weight REAL NOT NULL,
                     diagnostics_json TEXT NOT NULL,
                     forward_metrics_json TEXT NOT NULL,
-                    metadata_json TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS portfolio_forward_evaluations (
-                    evaluation_id TEXT PRIMARY KEY,
-                    rebalance_id TEXT NOT NULL,
-                    benchmark_name TEXT NOT NULL,
-                    as_of TEXT NOT NULL,
-                    cumulative_return_1y REAL NOT NULL,
-                    sharpe_1y REAL NOT NULL,
-                    max_drawdown_1y REAL NOT NULL,
-                    curve_points_json TEXT NOT NULL,
                     metadata_json TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -277,24 +218,38 @@ class StateStore:
                 );
                 """
             )
+            # Tabla de runs de revision de traders (HumanResourcesProcess).
+            # En esquemas antiguos esta tabla se llamaba `risk_evaluation_runs`;
+            # si existe la migramos in-place a `trader_review_runs`.
+            try:
+                conn.execute("ALTER TABLE risk_evaluation_runs RENAME TO trader_review_runs")
+            except sqlite3.OperationalError:
+                pass
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS risk_evaluation_runs (
+                CREATE TABLE IF NOT EXISTS trader_review_runs (
                     run_id TEXT PRIMARY KEY,
                     run_type TEXT NOT NULL,
                     status TEXT NOT NULL,
                     started_at TEXT NOT NULL,
                     completed_at TEXT NOT NULL DEFAULT '',
                     evaluated_traders INTEGER NOT NULL DEFAULT 0,
-                    degraded_count INTEGER NOT NULL DEFAULT 0,
-                    suspended_count INTEGER NOT NULL DEFAULT 0,
-                    retired_count INTEGER NOT NULL DEFAULT 0,
+                    retraining_count INTEGER NOT NULL DEFAULT 0,
                     retrain_requests_count INTEGER NOT NULL DEFAULT 0,
                     notes TEXT NOT NULL DEFAULT '',
                     metadata_json TEXT NOT NULL
                 );
                 """
             )
+            # Migracion no destructiva: BBDD existentes con la version anterior
+            # (columnas degraded_count/suspended_count/retired_count) no tienen
+            # la columna retraining_count. La anadimos si falta.
+            try:
+                conn.execute(
+                    "ALTER TABLE trader_review_runs ADD COLUMN retraining_count INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS trader_forward_backtest_runs (
@@ -327,9 +282,15 @@ class StateStore:
                 );
                 """
             )
+            # Detalle por trader de cada run de revision de salud.
+            # En esquemas antiguos esta tabla se llamaba `risk_evaluation_details`.
+            try:
+                conn.execute("ALTER TABLE risk_evaluation_details RENAME TO trader_review_details")
+            except sqlite3.OperationalError:
+                pass
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS risk_evaluation_details (
+                CREATE TABLE IF NOT EXISTS trader_review_details (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     evaluation_run_id TEXT NOT NULL,
                     trader_id TEXT NOT NULL,
@@ -363,23 +324,18 @@ class StateStore:
                 );
                 """
             )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS risk_portfolio_checks (
-                    check_id TEXT PRIMARY KEY,
-                    rebalance_id TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    approved INTEGER NOT NULL,
-                    action TEXT NOT NULL,
-                    original_weights_json TEXT NOT NULL,
-                    adjusted_weights_json TEXT NOT NULL,
-                    blocked_traders_json TEXT NOT NULL,
-                    clipped_traders_json TEXT NOT NULL,
-                    reasons_json TEXT NOT NULL,
-                    diagnostics_json TEXT NOT NULL
-                );
-                """
-            )
+            # `risk_portfolio_checks` (gate pre-trade del antiguo RiskAgent) ha
+            # sido eliminada del modelo: ya no existe ningun gate de cartera en
+            # el sistema. Si la BBDD venia de una version antigua, dropeamos la
+            # tabla de forma defensiva.
+            try:
+                conn.execute("DROP TABLE IF EXISTS risk_portfolio_checks")
+            except sqlite3.OperationalError:
+                pass
+            # Auditoria por senal: que selecciono el PortfolioManagerProcess y que
+            # acabo ejecutando el broker. Mantenemos columnas legacy `ppo_*` y
+            # `risk_approved` por compatibilidad con BBDD antiguas (se rellenan
+            # con NULL/0 desde el codigo nuevo).
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS trader_signal_audit (
@@ -390,9 +346,11 @@ class StateStore:
                     timeframe TEXT NOT NULL,
                     signal_side TEXT NOT NULL,
                     signal_active INTEGER NOT NULL,
-                    ppo_selected INTEGER NOT NULL,
-                    ppo_weight REAL NOT NULL,
-                    risk_approved INTEGER NOT NULL,
+                    pm_selected INTEGER NOT NULL DEFAULT 0,
+                    pm_weight REAL NOT NULL DEFAULT 0.0,
+                    ppo_selected INTEGER NOT NULL DEFAULT 0,
+                    ppo_weight REAL NOT NULL DEFAULT 0.0,
+                    risk_approved INTEGER NOT NULL DEFAULT 1,
                     executed INTEGER NOT NULL,
                     hypothetical_return REAL NOT NULL DEFAULT 0.0,
                     executed_return REAL NOT NULL DEFAULT 0.0,
@@ -401,6 +359,15 @@ class StateStore:
                 );
                 """
             )
+            # BBDD antiguas no tienen columnas pm_*: las anadimos.
+            for ddl in (
+                "ALTER TABLE trader_signal_audit ADD COLUMN pm_selected INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE trader_signal_audit ADD COLUMN pm_weight REAL NOT NULL DEFAULT 0.0",
+            ):
+                try:
+                    conn.execute(ddl)
+                except sqlite3.OperationalError:
+                    pass
             conn.commit()
 
     def upsert_trader_state(
@@ -745,22 +712,28 @@ class StateStore:
             conn.execute("DELETE FROM trader_metrics_latest;")
             conn.execute("DELETE FROM pending_orders;")
             conn.execute("DELETE FROM portfolio_universe_registry;")
-            conn.execute("DELETE FROM portfolio_training_runs;")
-            conn.execute("DELETE FROM portfolio_training_metrics;")
-            conn.execute("DELETE FROM portfolio_model_registry;")
             conn.execute("DELETE FROM portfolio_rebalance_snapshots;")
-            conn.execute("DELETE FROM portfolio_forward_evaluations;")
+            # Tablas PPO heredadas: si no existen en la BBDD nueva, ignoramos el error.
+            for legacy in (
+                "portfolio_training_runs",
+                "portfolio_training_metrics",
+                "portfolio_model_registry",
+                "portfolio_forward_evaluations",
+            ):
+                try:
+                    conn.execute(f"DELETE FROM {legacy};")
+                except sqlite3.OperationalError:
+                    pass
             conn.execute("DELETE FROM trader_backtest_runs;")
             conn.execute("DELETE FROM trader_backtest_artifacts;")
             conn.execute("DELETE FROM trader_weekly_signal_mask;")
             conn.execute("DELETE FROM trader_weekly_returns;")
             conn.execute("DELETE FROM trader_design_profiles;")
-            conn.execute("DELETE FROM risk_evaluation_runs;")
+            conn.execute("DELETE FROM trader_review_runs;")
             conn.execute("DELETE FROM trader_forward_backtest_runs;")
             conn.execute("DELETE FROM trader_forward_metrics;")
-            conn.execute("DELETE FROM risk_evaluation_details;")
+            conn.execute("DELETE FROM trader_review_details;")
             conn.execute("DELETE FROM retrain_requests;")
-            conn.execute("DELETE FROM risk_portfolio_checks;")
             conn.execute("DELETE FROM trader_signal_audit;")
             conn.commit()
 
@@ -1137,214 +1110,11 @@ class StateStore:
                 for r in rows
             ]
 
-    def upsert_portfolio_training_run(
-        self,
-        *,
-        run_id: str,
-        run_type: str,
-        model_version: str,
-        status: str,
-        started_at: str,
-        completed_at: str = "",
-        algorithm: str = "ppo",
-        seed: int = 0,
-        device: str = "cpu",
-        hyperparameters: Dict[str, Any] | None = None,
-        metrics: Dict[str, Any] | None = None,
-        artifacts: Dict[str, Any] | None = None,
-        notes: str = "",
-    ) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO portfolio_training_runs
-                    (run_id, run_type, model_version, status, started_at, completed_at, algorithm, seed, device,
-                     hyperparameters_json, metrics_json, artifacts_json, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(run_id) DO UPDATE SET
-                    run_type=excluded.run_type,
-                    model_version=excluded.model_version,
-                    status=excluded.status,
-                    started_at=excluded.started_at,
-                    completed_at=excluded.completed_at,
-                    algorithm=excluded.algorithm,
-                    seed=excluded.seed,
-                    device=excluded.device,
-                    hyperparameters_json=excluded.hyperparameters_json,
-                    metrics_json=excluded.metrics_json,
-                    artifacts_json=excluded.artifacts_json,
-                    notes=excluded.notes;
-                """,
-                (
-                    run_id,
-                    run_type,
-                    model_version,
-                    status,
-                    started_at,
-                    completed_at,
-                    algorithm,
-                    int(seed),
-                    device,
-                    json.dumps(hyperparameters or {}, ensure_ascii=True),
-                    json.dumps(metrics or {}, ensure_ascii=True),
-                    json.dumps(artifacts or {}, ensure_ascii=True),
-                    notes,
-                ),
-            )
-            conn.commit()
-
-    def list_portfolio_training_runs(self, limit: int = 100) -> List[Dict[str, Any]]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT run_id, run_type, model_version, status, started_at, completed_at, algorithm, seed, device,
-                       hyperparameters_json, metrics_json, artifacts_json, notes
-                FROM portfolio_training_runs
-                ORDER BY started_at DESC
-                LIMIT ?
-                """,
-                (int(limit),),
-            ).fetchall()
-            return [
-                {
-                    "run_id": r["run_id"],
-                    "run_type": r["run_type"],
-                    "model_version": r["model_version"],
-                    "status": r["status"],
-                    "started_at": r["started_at"],
-                    "completed_at": r["completed_at"],
-                    "algorithm": r["algorithm"],
-                    "seed": int(r["seed"]),
-                    "device": r["device"],
-                    "hyperparameters": json.loads(r["hyperparameters_json"]),
-                    "metrics": json.loads(r["metrics_json"]),
-                    "artifacts": json.loads(r["artifacts_json"]),
-                    "notes": r["notes"],
-                }
-                for r in rows
-            ]
-
-    def upsert_portfolio_training_metric(
-        self,
-        *,
-        run_id: str,
-        step: int,
-        split: str,
-        metric_name: str,
-        metric_value: float,
-    ) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO portfolio_training_metrics
-                    (run_id, step, split, metric_name, metric_value, recorded_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(run_id, step, split, metric_name) DO UPDATE SET
-                    metric_value=excluded.metric_value,
-                    recorded_at=excluded.recorded_at;
-                """,
-                (run_id, int(step), split, metric_name, float(metric_value), utc_now_iso()),
-            )
-            conn.commit()
-
-    def list_portfolio_training_metrics(self, run_id: str) -> List[Dict[str, Any]]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT run_id, step, split, metric_name, metric_value, recorded_at
-                FROM portfolio_training_metrics
-                WHERE run_id = ?
-                ORDER BY step ASC, split ASC, metric_name ASC
-                """,
-                (run_id,),
-            ).fetchall()
-            return [
-                {
-                    "run_id": r["run_id"],
-                    "step": int(r["step"]),
-                    "split": r["split"],
-                    "metric_name": r["metric_name"],
-                    "metric_value": float(r["metric_value"]),
-                    "recorded_at": r["recorded_at"],
-                }
-                for r in rows
-            ]
-
-    def upsert_portfolio_model_info(
-        self,
-        *,
-        model_version: str,
-        mode: str,
-        checkpoint_path: str,
-        universe_size: int,
-        trained_at: str = "",
-        fine_tuned_at: str = "",
-        config: Dict[str, Any] | None = None,
-        metrics: Dict[str, Any] | None = None,
-    ) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO portfolio_model_registry
-                    (model_version, mode, checkpoint_path, universe_size, trained_at, fine_tuned_at, config_json, metrics_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(model_version) DO UPDATE SET
-                    mode=excluded.mode,
-                    checkpoint_path=excluded.checkpoint_path,
-                    universe_size=excluded.universe_size,
-                    trained_at=excluded.trained_at,
-                    fine_tuned_at=excluded.fine_tuned_at,
-                    config_json=excluded.config_json,
-                    metrics_json=excluded.metrics_json,
-                    updated_at=excluded.updated_at;
-                """,
-                (
-                    model_version,
-                    mode,
-                    checkpoint_path,
-                    int(universe_size),
-                    trained_at,
-                    fine_tuned_at,
-                    json.dumps(config or {}, ensure_ascii=True),
-                    json.dumps(metrics or {}, ensure_ascii=True),
-                    utc_now_iso(),
-                ),
-            )
-            conn.commit()
-
-    def get_latest_portfolio_model_info(self) -> Optional[Dict[str, Any]]:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT model_version, mode, checkpoint_path, universe_size, trained_at, fine_tuned_at,
-                       config_json, metrics_json, updated_at
-                FROM portfolio_model_registry
-                ORDER BY COALESCE(NULLIF(fine_tuned_at, ''), trained_at) DESC, updated_at DESC
-                LIMIT 1
-                """
-            ).fetchone()
-            if row is None:
-                return None
-            return {
-                "model_version": row["model_version"],
-                "mode": row["mode"],
-                "checkpoint_path": row["checkpoint_path"],
-                "universe_size": int(row["universe_size"]),
-                "trained_at": row["trained_at"],
-                "fine_tuned_at": row["fine_tuned_at"],
-                "config": json.loads(row["config_json"]),
-                "metrics": json.loads(row["metrics_json"]),
-                "updated_at": row["updated_at"],
-            }
-
     def upsert_portfolio_rebalance_snapshot(
         self,
         *,
         rebalance_id: str,
         rebalance_date: str,
-        model_version: str,
-        training_run_id: str = "",
-        fine_tune_run_id: str = "",
         active_traders: List[str] | None = None,
         selected_traders: List[str] | None = None,
         target_weights: Dict[str, float] | None = None,
@@ -1353,6 +1123,12 @@ class StateStore:
         forward_metrics: Dict[str, Any] | None = None,
         metadata: Dict[str, Any] | None = None,
     ) -> None:
+        """
+        Persiste el snapshot semanal del PortfolioManagerProcess. Las columnas
+        legacy `model_version`, `training_run_id` y `fine_tune_run_id` se
+        rellenan vacias por compatibilidad con BBDD antiguas; el codigo nuevo
+        no las consume.
+        """
         with self._connect() as conn:
             conn.execute(
                 """
@@ -1360,12 +1136,9 @@ class StateStore:
                     (rebalance_id, rebalance_date, model_version, training_run_id, fine_tune_run_id,
                      active_traders_json, selected_traders_json, target_weights_json, target_cash_weight,
                      diagnostics_json, forward_metrics_json, metadata_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, '', '', '', ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(rebalance_id) DO UPDATE SET
                     rebalance_date=excluded.rebalance_date,
-                    model_version=excluded.model_version,
-                    training_run_id=excluded.training_run_id,
-                    fine_tune_run_id=excluded.fine_tune_run_id,
                     active_traders_json=excluded.active_traders_json,
                     selected_traders_json=excluded.selected_traders_json,
                     target_weights_json=excluded.target_weights_json,
@@ -1378,9 +1151,6 @@ class StateStore:
                 (
                     rebalance_id,
                     rebalance_date,
-                    model_version,
-                    training_run_id,
-                    fine_tune_run_id,
                     json.dumps(active_traders or [], ensure_ascii=True),
                     json.dumps(selected_traders or [], ensure_ascii=True),
                     json.dumps(target_weights or {}, ensure_ascii=True),
@@ -1397,7 +1167,7 @@ class StateStore:
         with self._connect() as conn:
             rows = conn.execute(
                 """
-                SELECT rebalance_id, rebalance_date, model_version, training_run_id, fine_tune_run_id,
+                SELECT rebalance_id, rebalance_date,
                        active_traders_json, selected_traders_json, target_weights_json, target_cash_weight,
                        diagnostics_json, forward_metrics_json, metadata_json, updated_at
                 FROM portfolio_rebalance_snapshots
@@ -1410,9 +1180,6 @@ class StateStore:
                 {
                     "rebalance_id": r["rebalance_id"],
                     "rebalance_date": r["rebalance_date"],
-                    "model_version": r["model_version"],
-                    "training_run_id": r["training_run_id"],
-                    "fine_tune_run_id": r["fine_tune_run_id"],
                     "active_traders": json.loads(r["active_traders_json"]),
                     "selected_traders": json.loads(r["selected_traders_json"]),
                     "target_weights": json.loads(r["target_weights_json"]),
@@ -1428,98 +1195,6 @@ class StateStore:
     def get_latest_portfolio_rebalance_snapshot(self) -> Optional[Dict[str, Any]]:
         rows = self.list_portfolio_rebalance_snapshots(limit=1)
         return rows[0] if rows else None
-
-    def upsert_portfolio_forward_evaluation(
-        self,
-        *,
-        evaluation_id: str,
-        rebalance_id: str,
-        benchmark_name: str,
-        as_of: str,
-        cumulative_return_1y: float,
-        sharpe_1y: float,
-        max_drawdown_1y: float,
-        curve_points: List[Dict[str, Any]] | None = None,
-        metadata: Dict[str, Any] | None = None,
-    ) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO portfolio_forward_evaluations
-                    (evaluation_id, rebalance_id, benchmark_name, as_of, cumulative_return_1y,
-                     sharpe_1y, max_drawdown_1y, curve_points_json, metadata_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(evaluation_id) DO UPDATE SET
-                    rebalance_id=excluded.rebalance_id,
-                    benchmark_name=excluded.benchmark_name,
-                    as_of=excluded.as_of,
-                    cumulative_return_1y=excluded.cumulative_return_1y,
-                    sharpe_1y=excluded.sharpe_1y,
-                    max_drawdown_1y=excluded.max_drawdown_1y,
-                    curve_points_json=excluded.curve_points_json,
-                    metadata_json=excluded.metadata_json,
-                    updated_at=excluded.updated_at;
-                """,
-                (
-                    evaluation_id,
-                    rebalance_id,
-                    benchmark_name,
-                    as_of,
-                    float(cumulative_return_1y),
-                    float(sharpe_1y),
-                    float(max_drawdown_1y),
-                    json.dumps(curve_points or [], ensure_ascii=True),
-                    json.dumps(metadata or {}, ensure_ascii=True),
-                    utc_now_iso(),
-                ),
-            )
-            conn.commit()
-
-    def list_portfolio_forward_evaluations(
-        self,
-        *,
-        rebalance_id: str | None = None,
-        limit: int = 500,
-    ) -> List[Dict[str, Any]]:
-        with self._connect() as conn:
-            if rebalance_id:
-                rows = conn.execute(
-                    """
-                    SELECT evaluation_id, rebalance_id, benchmark_name, as_of, cumulative_return_1y,
-                           sharpe_1y, max_drawdown_1y, curve_points_json, metadata_json, updated_at
-                    FROM portfolio_forward_evaluations
-                    WHERE rebalance_id = ?
-                    ORDER BY as_of DESC
-                    LIMIT ?
-                    """,
-                    (rebalance_id, int(limit)),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT evaluation_id, rebalance_id, benchmark_name, as_of, cumulative_return_1y,
-                           sharpe_1y, max_drawdown_1y, curve_points_json, metadata_json, updated_at
-                    FROM portfolio_forward_evaluations
-                    ORDER BY as_of DESC
-                    LIMIT ?
-                    """,
-                    (int(limit),),
-                ).fetchall()
-            return [
-                {
-                    "evaluation_id": r["evaluation_id"],
-                    "rebalance_id": r["rebalance_id"],
-                    "benchmark_name": r["benchmark_name"],
-                    "as_of": r["as_of"],
-                    "cumulative_return_1y": float(r["cumulative_return_1y"]),
-                    "sharpe_1y": float(r["sharpe_1y"]),
-                    "max_drawdown_1y": float(r["max_drawdown_1y"]),
-                    "curve_points": json.loads(r["curve_points_json"]),
-                    "metadata": json.loads(r["metadata_json"]),
-                    "updated_at": r["updated_at"],
-                }
-                for r in rows
-            ]
 
     def upsert_trader_design_profile(
         self,
@@ -1594,7 +1269,7 @@ class StateStore:
                 for r in rows
             ]
 
-    def create_risk_evaluation_run(
+    def create_trader_review_run(
         self,
         *,
         run_id: str,
@@ -1606,25 +1281,22 @@ class StateStore:
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO risk_evaluation_runs
+                INSERT INTO trader_review_runs
                     (run_id, run_type, status, started_at, completed_at, evaluated_traders,
-                     degraded_count, suspended_count, retired_count, retrain_requests_count,
-                     notes, metadata_json)
-                VALUES (?, ?, ?, ?, '', 0, 0, 0, 0, 0, ?, ?)
+                     retraining_count, retrain_requests_count, notes, metadata_json)
+                VALUES (?, ?, ?, ?, '', 0, 0, 0, ?, ?)
                 """,
                 (run_id, run_type, status, utc_now_iso(), notes, json.dumps(metadata or {}, ensure_ascii=True)),
             )
             conn.commit()
 
-    def complete_risk_evaluation_run(
+    def complete_trader_review_run(
         self,
         *,
         run_id: str,
         status: str,
         evaluated_traders: int,
-        degraded_count: int,
-        suspended_count: int,
-        retired_count: int,
+        retraining_count: int,
         retrain_requests_count: int,
         notes: str = "",
         metadata: Dict[str, Any] | None = None,
@@ -1632,13 +1304,11 @@ class StateStore:
         with self._connect() as conn:
             conn.execute(
                 """
-                UPDATE risk_evaluation_runs
+                UPDATE trader_review_runs
                 SET status = ?,
                     completed_at = ?,
                     evaluated_traders = ?,
-                    degraded_count = ?,
-                    suspended_count = ?,
-                    retired_count = ?,
+                    retraining_count = ?,
                     retrain_requests_count = ?,
                     notes = ?,
                     metadata_json = ?
@@ -1648,9 +1318,7 @@ class StateStore:
                     status,
                     utc_now_iso(),
                     int(evaluated_traders),
-                    int(degraded_count),
-                    int(suspended_count),
-                    int(retired_count),
+                    int(retraining_count),
                     int(retrain_requests_count),
                     notes,
                     json.dumps(metadata or {}, ensure_ascii=True),
@@ -1659,14 +1327,13 @@ class StateStore:
             )
             conn.commit()
 
-    def list_risk_evaluation_runs(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def list_trader_review_runs(self, limit: int = 100) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
                 """
                 SELECT run_id, run_type, status, started_at, completed_at, evaluated_traders,
-                       degraded_count, suspended_count, retired_count, retrain_requests_count,
-                       notes, metadata_json
-                FROM risk_evaluation_runs
+                       retraining_count, retrain_requests_count, notes, metadata_json
+                FROM trader_review_runs
                 ORDER BY started_at DESC
                 LIMIT ?
                 """,
@@ -1680,9 +1347,7 @@ class StateStore:
                     "started_at": r["started_at"],
                     "completed_at": r["completed_at"],
                     "evaluated_traders": int(r["evaluated_traders"]),
-                    "degraded_count": int(r["degraded_count"]),
-                    "suspended_count": int(r["suspended_count"]),
-                    "retired_count": int(r["retired_count"]),
+                    "retraining_count": int(r["retraining_count"]),
                     "retrain_requests_count": int(r["retrain_requests_count"]),
                     "notes": r["notes"],
                     "metadata": json.loads(r["metadata_json"]),
@@ -1853,7 +1518,7 @@ class StateStore:
                 for r in rows
             ]
 
-    def save_risk_evaluation_detail(
+    def save_trader_review_detail(
         self,
         *,
         evaluation_run_id: str,
@@ -1871,7 +1536,7 @@ class StateStore:
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO risk_evaluation_details
+                INSERT INTO trader_review_details
                     (evaluation_run_id, trader_id, asset, timeframe, previous_state, new_state, action,
                      health_score, reasons_json, flags_json, retrain_request_json, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1893,7 +1558,7 @@ class StateStore:
             )
             conn.commit()
 
-    def list_risk_evaluation_details(
+    def list_trader_review_details(
         self,
         *,
         evaluation_run_id: str | None = None,
@@ -1911,7 +1576,7 @@ class StateStore:
         sql = """
             SELECT id, evaluation_run_id, trader_id, asset, timeframe, previous_state, new_state, action,
                    health_score, reasons_json, flags_json, retrain_request_json, created_at
-            FROM risk_evaluation_details
+            FROM trader_review_details
         """
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -2081,87 +1746,6 @@ class StateStore:
             )
             conn.commit()
 
-    def save_risk_portfolio_check(
-        self,
-        *,
-        check_id: str,
-        rebalance_id: str,
-        approved: bool,
-        action: str,
-        original_weights: Dict[str, float] | None = None,
-        adjusted_weights: Dict[str, float] | None = None,
-        blocked_traders: List[str] | None = None,
-        clipped_traders: List[str] | None = None,
-        reasons: List[str] | None = None,
-        diagnostics: Dict[str, Any] | None = None,
-        created_at: str | None = None,
-    ) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO risk_portfolio_checks
-                    (check_id, rebalance_id, created_at, approved, action, original_weights_json,
-                     adjusted_weights_json, blocked_traders_json, clipped_traders_json,
-                     reasons_json, diagnostics_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(check_id) DO UPDATE SET
-                    rebalance_id=excluded.rebalance_id,
-                    created_at=excluded.created_at,
-                    approved=excluded.approved,
-                    action=excluded.action,
-                    original_weights_json=excluded.original_weights_json,
-                    adjusted_weights_json=excluded.adjusted_weights_json,
-                    blocked_traders_json=excluded.blocked_traders_json,
-                    clipped_traders_json=excluded.clipped_traders_json,
-                    reasons_json=excluded.reasons_json,
-                    diagnostics_json=excluded.diagnostics_json;
-                """,
-                (
-                    check_id,
-                    rebalance_id,
-                    created_at or utc_now_iso(),
-                    int(bool(approved)),
-                    action,
-                    json.dumps(original_weights or {}, ensure_ascii=True),
-                    json.dumps(adjusted_weights or {}, ensure_ascii=True),
-                    json.dumps(blocked_traders or [], ensure_ascii=True),
-                    json.dumps(clipped_traders or [], ensure_ascii=True),
-                    json.dumps(reasons or [], ensure_ascii=True),
-                    json.dumps(diagnostics or {}, ensure_ascii=True),
-                ),
-            )
-            conn.commit()
-
-    def list_risk_portfolio_checks(self, limit: int = 200) -> List[Dict[str, Any]]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT check_id, rebalance_id, created_at, approved, action, original_weights_json,
-                       adjusted_weights_json, blocked_traders_json, clipped_traders_json,
-                       reasons_json, diagnostics_json
-                FROM risk_portfolio_checks
-                ORDER BY created_at DESC
-                LIMIT ?
-                """,
-                (int(limit),),
-            ).fetchall()
-            return [
-                {
-                    "check_id": r["check_id"],
-                    "rebalance_id": r["rebalance_id"],
-                    "created_at": r["created_at"],
-                    "approved": bool(r["approved"]),
-                    "action": r["action"],
-                    "original_weights": json.loads(r["original_weights_json"]),
-                    "adjusted_weights": json.loads(r["adjusted_weights_json"]),
-                    "blocked_traders": json.loads(r["blocked_traders_json"]),
-                    "clipped_traders": json.loads(r["clipped_traders_json"]),
-                    "reasons": json.loads(r["reasons_json"]),
-                    "diagnostics": json.loads(r["diagnostics_json"]),
-                }
-                for r in rows
-            ]
-
     def save_trader_signal_audit(
         self,
         *,
@@ -2171,23 +1755,28 @@ class StateStore:
         timeframe: str,
         signal_side: str,
         signal_active: bool,
-        ppo_selected: bool,
-        ppo_weight: float,
-        risk_approved: bool,
+        pm_selected: bool,
+        pm_weight: float,
         executed: bool,
         hypothetical_return: float = 0.0,
         executed_return: float = 0.0,
         reason_if_blocked: str = "",
         metadata: Dict[str, Any] | None = None,
     ) -> None:
+        """
+        Guarda una fila de auditoria por senal: si la selecciono el
+        PortfolioManagerProcess (`pm_selected`/`pm_weight`) y si finalmente la
+        ejecuto el broker. Las columnas legacy `ppo_*` y `risk_approved` se
+        rellenan con valores neutros para no romper esquemas antiguos.
+        """
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO trader_signal_audit
-                    (timestamp, trader_id, asset, timeframe, signal_side, signal_active, ppo_selected,
-                     ppo_weight, risk_approved, executed, hypothetical_return, executed_return,
-                     reason_if_blocked, metadata_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (timestamp, trader_id, asset, timeframe, signal_side, signal_active,
+                     pm_selected, pm_weight, ppo_selected, ppo_weight, risk_approved,
+                     executed, hypothetical_return, executed_return, reason_if_blocked, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     timestamp,
@@ -2196,9 +1785,11 @@ class StateStore:
                     timeframe,
                     signal_side,
                     int(bool(signal_active)),
-                    int(bool(ppo_selected)),
-                    float(ppo_weight),
-                    int(bool(risk_approved)),
+                    int(bool(pm_selected)),
+                    float(pm_weight),
+                    int(bool(pm_selected)),
+                    float(pm_weight),
+                    1,
                     int(bool(executed)),
                     float(hypothetical_return),
                     float(executed_return),
@@ -2215,8 +1806,9 @@ class StateStore:
         limit: int = 1000,
     ) -> List[Dict[str, Any]]:
         sql = """
-            SELECT id, timestamp, trader_id, asset, timeframe, signal_side, signal_active, ppo_selected,
-                   ppo_weight, risk_approved, executed, hypothetical_return, executed_return,
+            SELECT id, timestamp, trader_id, asset, timeframe, signal_side, signal_active,
+                   pm_selected, pm_weight, ppo_selected, ppo_weight,
+                   executed, hypothetical_return, executed_return,
                    reason_if_blocked, metadata_json
             FROM trader_signal_audit
         """
@@ -2237,9 +1829,8 @@ class StateStore:
                     "timeframe": r["timeframe"],
                     "signal_side": r["signal_side"],
                     "signal_active": bool(r["signal_active"]),
-                    "ppo_selected": bool(r["ppo_selected"]),
-                    "ppo_weight": float(r["ppo_weight"]),
-                    "risk_approved": bool(r["risk_approved"]),
+                    "pm_selected": bool(r["pm_selected"]) or bool(r["ppo_selected"]),
+                    "pm_weight": float(r["pm_weight"]) if r["pm_weight"] is not None else float(r["ppo_weight"] or 0.0),
                     "executed": bool(r["executed"]),
                     "hypothetical_return": float(r["hypothetical_return"]),
                     "executed_return": float(r["executed_return"]),

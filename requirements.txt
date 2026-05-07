@@ -1,8 +1,17 @@
 altair>=5.0,<6.0
 boto3>=1.34,<2.0
 matplotlib>=3.7,<4.0
+MetaTrader5>=5.0,<6.0
+numba>=0.62,<1.0
 numpy>=1.24,<3.0
 pandas>=2.1,<3.0
+polars>=1.35,<2.0
+pydantic>=2.12,<3.0
+# pyeventbt 0.0.9 fija numba<0.63 en Python 3.10-3.13. En Python 3.14 instalar con
+# `pip install --no-deps pyeventbt` (las demas dependencias ya estan listadas aqui).
+pyeventbt>=0.0.9,<1.0
+PyYAML>=6.0,<7.0
+quantdle>=1.0,<2.0
 python-dotenv>=1.0,<2.0
 scikit-learn>=1.3,<2.0
 scipy>=1.10,<2.0

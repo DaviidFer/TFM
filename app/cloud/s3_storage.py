@@ -79,10 +79,12 @@ class S3Storage:
         if not root.exists():
             return []
         uploaded: list[str] = []
+        normalized_prefix = s3_prefix.rstrip("/\\")
         for path in sorted(root.rglob("*")):
             if not path.is_file():
                 continue
             rel = path.relative_to(root).as_posix()
-            uploaded.append(self.upload_file(path, f"{s3_prefix.rstrip('/\\')}/{rel}"))
+            target_key = f"{normalized_prefix}/{rel}" if normalized_prefix else rel
+            uploaded.append(self.upload_file(path, target_key))
         return uploaded
 

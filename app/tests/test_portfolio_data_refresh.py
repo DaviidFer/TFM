@@ -6,7 +6,7 @@ import pandas as pd
 
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.services.portfolio_rl.data_refresh import PortfolioOHLCRefreshService
-from data_download import download as download_module
+from app.toolbox.data_download import download as download_module
 
 
 def test_discover_universe_from_local_data_prefers_existing_csvs(monkeypatch, tmp_path: Path) -> None:
