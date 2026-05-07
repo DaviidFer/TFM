@@ -2068,13 +2068,39 @@ def main() -> None:
         if st.button("Lanzar operativa MT5 con traders actuales", key="btn_start_ops_mt5"):
             out = supervisor.start_operational_runtime() if hasattr(supervisor, "start_operational_runtime") else {"started": False}
             if bool(out.get("started")):
-                st.success(
-                    f"Operativa iniciada con {int(out.get('n_traders', 0))} traders "
-                    f"en modo `{str(out.get('runtime_mode') or runtime_mode)}`."
-                )
+                st.session_state["ops_launch_feedback"] = {
+                    "level": "success",
+                    "text": (
+                        f"Operativa iniciada con {int(out.get('n_traders', 0))} traders "
+                        f"en modo `{str(out.get('runtime_mode') or runtime_mode)}`."
+                    ),
+                }
             else:
-                st.warning("No se pudo iniciar operativa MT5 en este momento.")
+                reason = str(out.get("reason") or "runtime_not_started")
+                if reason == "no_promoted_traders":
+                    msg = (
+                        "No se puede iniciar la operativa porque no hay traders promovidos activos. "
+                        "Desarrolla traders en la pestaña Desarrollo y vuelve a intentarlo."
+                    )
+                else:
+                    msg = f"No se pudo iniciar operativa MT5. Motivo: `{reason}`."
+                if str(out.get("mt5_reason") or "").strip():
+                    msg += f" Detalle MT5: `{str(out.get('mt5_reason'))}`."
+                st.session_state["ops_launch_feedback"] = {"level": "warning", "text": msg}
             st.rerun()
+        launch_feedback = st.session_state.get("ops_launch_feedback")
+        if isinstance(launch_feedback, dict) and str(launch_feedback.get("text") or "").strip():
+            level = str(launch_feedback.get("level") or "info")
+            text = str(launch_feedback.get("text"))
+            if level == "success":
+                st.success(text)
+            elif level == "error":
+                st.error(text)
+            else:
+                st.warning(text)
+            if st.button("Limpiar aviso operativa", key="btn_ops_clear_feedback"):
+                st.session_state.pop("ops_launch_feedback", None)
+                st.rerun()
         st.markdown("### Test manual API MT5 (AAPL)")
         c_m1, c_m2, c_m3 = st.columns(3)
         side_manual = c_m1.selectbox("Direccion", options=["buy", "sell"], key="ops_manual_side_aapl")

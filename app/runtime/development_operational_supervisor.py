@@ -1604,6 +1604,17 @@ class DevelopmentOperationalSupervisor:
             self._shutdown.clear()
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
+        operational_specs = self._build_operational_registry()
+        if len(operational_specs) == 0:
+            mt5_probe = self.ensure_mt5_execution_ready()
+            return {
+                "started": False,
+                "reason": "no_promoted_traders",
+                "n_traders": 0,
+                "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
+                "mt5_connected": bool(mt5_probe.get("connected")),
+                "mt5_reason": str(mt5_probe.get("reason") or ""),
+            }
         if self._runtime is not None:
             # Reinicio explícito para reconstruir símbolos/traders con el estado actual completo.
             self._runtime.stop()
@@ -1622,7 +1633,7 @@ class DevelopmentOperationalSupervisor:
             return {
                 "started": True,
                 "reason": "runtime_started",
-                "n_traders": len(self._build_operational_registry()),
+                "n_traders": len(operational_specs),
                 "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
             }
         return {"started": False, "reason": "runtime_not_started"}
