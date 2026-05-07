@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -38,6 +37,54 @@ OPS_EVENT_TYPES = {
 OPS_COMPONENTS = {"mt5_connector", "mt5_data_provider", "live_runtime", "execution_router", "trader_agent"}
 DEFAULT_EVENT_LIMIT = 300
 DEFAULT_AUTO_REFRESH_MS = 2500
+
+# Fragment en vivo: solo esta region se re-ejecuta periodicamente.
+LIVE_FRAGMENT_INTERVAL_DEV_OPS = "2s"
+EVENT_LIMIT_DESARROLLO_LIVE = 120
+EVENT_LIMIT_OPERATIVA_LIVE = 220
+
+
+def _event_limit_for_section(section: str) -> int:
+    if section == "Desarrollo":
+        return int(EVENT_LIMIT_DESARROLLO_LIVE)
+    if section == "Operativa":
+        return int(EVENT_LIMIT_OPERATIVA_LIVE)
+    return int(DEFAULT_EVENT_LIMIT)
+
+
+def _render_desarrollo_controls(supervisor: DevelopmentOperationalSupervisor) -> None:
+    """Botones/objetivo fuera del fragment para widgets estables."""
+    st.markdown("### Controles de desarrollo")
+    pre_status = supervisor.get_status()
+    c_ctl_1, c_ctl_2 = st.columns([1, 2])
+    with c_ctl_1:
+        target_traders = st.number_input(
+            "Objetivo de traders a desarrollar",
+            min_value=1,
+            max_value=200,
+            value=int(pre_status.get("target_traders", 8)),
+            step=1,
+            key="dev_target_traders",
+        )
+        if int(pre_status.get("target_traders", 8)) != int(target_traders):
+            supervisor.set_target_traders(int(target_traders))
+            st.rerun()
+    with c_ctl_2:
+        b1, b2, b3 = st.columns(3)
+        if b1.button("Iniciar desarrollo de agentes trader", key="btn_dev_start"):
+            supervisor.start()
+            st.success("Desarrollo iniciado.")
+            st.rerun()
+        if b2.button("Parar desarrollo de agentes trader", key="btn_dev_stop"):
+            supervisor.stop_development()
+            st.info("Desarrollo detenido.")
+            st.rerun()
+        if b3.button("Borrar todos los traders y reiniciar", key="btn_dev_reset"):
+            supervisor.reset_all()
+            st.warning("Sistema reiniciado.")
+            st.rerun()
+
+
 
 
 def _fmt_ts(ts: str | None) -> str:
@@ -791,6 +838,29 @@ def _load_trader_states(db_path: Path) -> List[Dict[str, Any]]:
     return list(snap.get("trader_states", []))
 
 
+@st.cache_data(ttl=2, show_spinner=False)
+def _load_trader_states_light(db_path_str: str) -> List[Dict[str, Any]]:
+    """Solo `trader_states`; no arrastra `list_events` del snapshot completo."""
+    p = Path(db_path_str)
+    if not p.exists():
+        return []
+    from app.storage import StateStore
+
+    out: List[Dict[str, Any]] = []
+    for r in StateStore(db_path=p).list_trader_states():
+        out.append(
+            {
+                "trader_id": r.trader_id,
+                "asset": r.asset,
+                "timeframe": r.timeframe,
+                "state": r.state.value,
+                "updated_at": r.updated_at,
+                "notes": r.notes,
+            }
+        )
+    return out
+
+
 def _filter_dev_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for e in events:
@@ -1067,92 +1137,6 @@ def _pm_style_cell(value: Any, *, column: str) -> str:
     return ""
 
 
-def _build_live_signature(
-    *,
-    status: Dict[str, Any],
-    all_events: List[Dict[str, Any]],
-    all_states: List[Dict[str, Any]],
-    backtests: Dict[str, Dict[str, Any]],
-    pm_snapshot: Dict[str, Any],
-    risk_snapshot: Dict[str, Any],
-    open_positions: List[Dict[str, Any]],
-    pending_orders: List[Dict[str, Any]],
-) -> str:
-    last_event_ts = str(all_events[-1].get("occurred_at")) if all_events else "-"
-    last_state_ts = str(all_states[0].get("updated_at")) if all_states else "-"
-    bt_last_update = "-"
-    if backtests:
-        bt_last_update = max(str((backtests.get(k, {}) or {}).get("updated_at") or "-") for k in backtests.keys())
-    signal_book = list(pm_snapshot.get("signal_book", []) or [])
-    last_output = dict(pm_snapshot.get("last_output", {}) or {})
-    rebalance_rows = list(pm_snapshot.get("rebalance_rows", []) or [])
-    monthly_refresh = dict(pm_snapshot.get("monthly_refresh", {}) or {})
-    hr_status = dict(risk_snapshot.get("status", {}) or {})
-    hr_runs = list(risk_snapshot.get("runs", []) or [])
-    pending_retrain = list(risk_snapshot.get("pending_retrain_requests", []) or [])
-    signal_last_ts = str(max((str(row.get("detected_at") or "") for row in signal_book), default=""))
-    position_last_ticket = str(max((str(row.get("ticket") or "") for row in open_positions), default=""))
-    pending_last_retry = str(max((str(row.get("next_retry_at") or "") for row in pending_orders), default=""))
-    return "|".join(
-        [
-            str(bool(status.get("running"))),
-            str(bool(status.get("develop_enabled"))),
-            str(status.get("developed_traders", 0)),
-            str(bool(status.get("mt5_connected"))),
-            str(bool(status.get("operational_runtime_started"))),
-            str(status.get("current_stage", "")),
-            str(status.get("current_asset", "")),
-            str(len(all_states)),
-            str(len(all_events)),
-            last_event_ts,
-            last_state_ts,
-            str(len(backtests)),
-            bt_last_update,
-            str(last_output.get("status", "")),
-            str(last_output.get("portfolio_phase", "")),
-            str(len(signal_book)),
-            signal_last_ts,
-            str(len(open_positions)),
-            position_last_ticket,
-            str(len(pending_orders)),
-            pending_last_retry,
-            str(len(rebalance_rows)),
-            str(monthly_refresh.get("cutoff_date", "")),
-            str(monthly_refresh.get("status", "")),
-            str(monthly_refresh.get("mask_source", "")),
-            str(monthly_refresh.get("last_manual_rebalance_at", "")),
-            str(hr_status.get("last_run_at", "")),
-            str(hr_status.get("last_status", "")),
-            str(hr_status.get("last_force_run_at", "")),
-            str(len(hr_runs)),
-            str(len(pending_retrain)),
-        ]
-    )
-
-
-def _mount_auto_refresh_watcher(*, enabled: bool, interval_ms: int, signature: str) -> None:
-    if not enabled:
-        st.session_state["_ui_last_signature"] = signature
-        return
-
-    run_every = f"{max(1, int(interval_ms) // 1000)}s"
-
-    @st.fragment(run_every=run_every)
-    def _watch_changes() -> None:
-        pause_until = float(st.session_state.get("_ui_pause_auto_refresh_until") or 0.0)
-        if pause_until > time.time():
-            return
-        last_sig = st.session_state.get("_ui_last_signature")
-        if last_sig is None:
-            st.session_state["_ui_last_signature"] = signature
-            return
-        if str(last_sig) != str(signature):
-            st.session_state["_ui_last_signature"] = signature
-            st.rerun()
-
-    _watch_changes()
-
-
 def _compute_backtest_metrics(bt: Dict[str, Any]) -> Dict[str, Any]:
     df = _prepare_backtest_chart_frame(bt.get("chart_rows", []) or [])
     if df.empty:
@@ -1284,37 +1268,10 @@ def _prepare_backtest_chart_frame(chart_rows: List[Dict[str, Any]]) -> pd.DataFr
     return df
 
 
-def main() -> None:
-    st.set_page_config(page_title="TFM Multiagent Dashboard", layout="wide")
-    st.markdown(
-        """
-        <style>
-        .main .block-container {
-            padding-top: 1.2rem;
-            padding-bottom: 2.0rem;
-            padding-left: 4.5rem;
-            padding-right: 4.5rem;
-            max-width: 1700px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.title("Dashboard Multiagente TFM")
-    st.write("Desarrollo y operativa en tiempo real (MT5 D1).")
 
-    supervisor = _get_supervisor()
-
+def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, selected_section: str) -> None:
+    """Contenido por pestaña; Desarrollo/Operativa desde fragment en vivo."""
     status = supervisor.get_status()
-    section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
-    selected_section = st.radio(
-        "Sección",
-        options=section_options,
-        horizontal=True,
-        label_visibility="collapsed",
-        key="dashboard_section",
-    )
-
     need_events = selected_section in {"Desarrollo", "Backtest", "Operativa"}
     need_states = True
     need_backtests = selected_section == "Backtest"
@@ -1324,8 +1281,9 @@ def main() -> None:
     need_hr_history = selected_section == "Recursos Humanos"
     need_open_positions = bool(status.get("mt5_connected")) and selected_section == "Operativa"
 
-    all_events = _load_events(Path(supervisor.db_path), int(DEFAULT_EVENT_LIMIT)) if need_events else []
-    all_states = _load_trader_states(Path(supervisor.db_path)) if need_states else []
+    ev_limit = _event_limit_for_section(selected_section)
+    all_events = _load_events(Path(supervisor.db_path), ev_limit) if need_events else []
+    all_states = _load_trader_states_light(str(supervisor.db_path)) if need_states else []
     backtests = supervisor.get_backtest_registry() if (need_backtests and hasattr(supervisor, "get_backtest_registry")) else {}
     pm_snapshot = {}
     if need_pm_snapshot and hasattr(supervisor, "get_portfolio_manager_snapshot"):
@@ -1343,19 +1301,6 @@ def main() -> None:
     backtest_runs = list(pm_snapshot.get("backtest_runs", []) or [])
     normalized_pm_signals = _normalize_pm_signal_rows(signal_book, signal_audit)
     live_rebalance_rows = [dict(row) for row in rebalance_rows if _is_live_portfolio_rebalance(dict(row))]
-    live_signature = _build_live_signature(
-        status=status,
-        all_events=all_events,
-        all_states=all_states,
-        backtests=backtests,
-        pm_snapshot=pm_snapshot,
-        risk_snapshot=hr_snapshot,
-        open_positions=open_positions,
-        pending_orders=pending_orders,
-    )
-    auto_refresh_enabled = True
-    refresh_ms = 2000 if selected_section == "Desarrollo" else (3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS))
-    _mount_auto_refresh_watcher(enabled=auto_refresh_enabled, interval_ms=refresh_ms, signature=live_signature)
     st.caption(f"DB: `{supervisor.db_path}`")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     c1.metric("Supervisor", "running" if bool(status.get("running")) else "stopped")
@@ -1375,39 +1320,6 @@ def main() -> None:
             st.rerun()
 
     if selected_section == "Desarrollo":
-        st.markdown("### Controles de desarrollo")
-        pre_status = supervisor.get_status()
-        c_ctl_1, c_ctl_2 = st.columns([1, 2])
-        with c_ctl_1:
-            target_traders = st.number_input(
-                "Objetivo de traders a desarrollar",
-                min_value=1,
-                max_value=200,
-                value=int(pre_status.get("target_traders", 8)),
-                step=1,
-                key="dev_target_traders",
-            )
-            if int(pre_status.get("target_traders", 8)) != int(target_traders):
-                supervisor.set_target_traders(int(target_traders))
-                st.rerun()
-        with c_ctl_2:
-            b1, b2, b3 = st.columns(3)
-            if b1.button("Iniciar desarrollo de agentes trader", key="btn_dev_start"):
-                supervisor.start()
-                st.session_state["_ui_pause_auto_refresh_until"] = time.time() + 2.5
-                st.success("Desarrollo iniciado.")
-                st.rerun()
-            if b2.button("Parar desarrollo de agentes trader", key="btn_dev_stop"):
-                supervisor.stop_development()
-                st.session_state["_ui_pause_auto_refresh_until"] = time.time() + 2.5
-                st.info("Desarrollo detenido.")
-                st.rerun()
-            if b3.button("Borrar todos los traders y reiniciar", key="btn_dev_reset"):
-                supervisor.reset_all()
-                st.session_state["_ui_pause_auto_refresh_until"] = time.time() + 2.5
-                st.warning("Sistema reiniciado.")
-                st.rerun()
-
         st.markdown("### Estado actual de desarrollo")
         current_asset = status.get("current_asset")
         current_stage = status.get("current_stage")
@@ -1462,7 +1374,7 @@ def main() -> None:
         _render_pretty_dev_events(
             visible_dev_events,
             title="Eventos de desarrollo (Data -> Developer -> Validation -> Trader)",
-            max_items=int(DEFAULT_EVENT_LIMIT),
+            max_items=min(80, ev_limit),
             source_events=dev_source_events,
         )
         states = list(all_states)
@@ -2253,6 +2165,56 @@ def main() -> None:
                                 st.caption(f"MT5 retcode_external: {broker_payload.get('retcode_external')}")
                             if broker_payload.get("last_error"):
                                 st.caption(f"MT5 last_error: {broker_payload.get('last_error')}")
+
+
+
+
+def main() -> None:
+    st.set_page_config(page_title="TFM Multiagent Dashboard", layout="wide")
+    st.markdown(
+        """
+        <style>
+        .main .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 2.0rem;
+            padding-left: 4.5rem;
+            padding-right: 4.5rem;
+            max-width: 1700px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.title("Dashboard Multiagente TFM")
+    st.write("Desarrollo y operativa en tiempo real (MT5 D1).")
+
+    supervisor = _get_supervisor()
+
+    section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
+    selected_section = st.radio(
+        "Sección",
+        options=section_options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="dashboard_section",
+    )
+
+    if selected_section == "Desarrollo":
+        _render_desarrollo_controls(supervisor)
+
+    if selected_section in {"Desarrollo", "Operativa"}:
+        _live_dashboard_fragment()
+    else:
+        _render_dashboard_content(supervisor, selected_section)
+
+
+@st.fragment(run_every=LIVE_FRAGMENT_INTERVAL_DEV_OPS)
+def _live_dashboard_fragment() -> None:
+    """Solo esta region hace polling; el script completo ya no usa st.rerun() por firma."""
+    tab = str(st.session_state.get("dashboard_section") or "Desarrollo")
+    if tab not in {"Desarrollo", "Operativa"}:
+        return
+    _render_dashboard_content(_get_supervisor(), tab)
 
 
 if __name__ == "__main__":
