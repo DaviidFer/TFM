@@ -122,6 +122,26 @@ class DevelopmentOperationalSupervisor:
         self._backtest_registry: Dict[str, Dict[str, object]] = {}
         self._runtime: LiveTradingRuntime | None = None
         self._setup_context()
+        self._load_persistent_supervisor_prefs()
+
+    def _load_persistent_supervisor_prefs(self) -> None:
+        """Restaura preferencias del supervisor desde SQLite (y opcionalmente env)."""
+        target: int | None = None
+        env_val = os.getenv("TFM_TARGET_TRADERS")
+        if env_val is not None and str(env_val).strip():
+            try:
+                target = max(1, int(env_val))
+            except ValueError:
+                target = None
+        if target is None:
+            try:
+                stored = self.ctx.store.get_supervisor_pref_int("target_traders")
+                if stored is not None:
+                    target = max(1, int(stored))
+            except Exception:
+                pass
+        if target is not None:
+            self._set_status(target_traders=target)
 
     def _setup_context(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1468,9 +1488,13 @@ class DevelopmentOperationalSupervisor:
 
     def ensure_mt5_execution_ready(self, *, symbols: list[str] | None = None) -> Dict[str, object]:
         try:
-            if not self.mt5.connected and not self.mt5.connect(quick=True):
-                self._set_status(mt5_connected=False)
-                return {"connected": False, "reason": "mt5_connect_failed", "mode": self.execution_router.mode.value}
+            if not self.mt5.connected:
+                ok = self.mt5.connect(quick=True)
+                if not ok:
+                    ok = self.mt5.connect(quick=False)
+                if not ok:
+                    self._set_status(mt5_connected=False)
+                    return {"connected": False, "reason": "mt5_connect_failed", "mode": self.execution_router.mode.value}
             self.execution_router.mode = ExecutionMode.LIVE_MT5
             self._set_status(mt5_connected=True)
             if symbols:

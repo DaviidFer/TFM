@@ -368,6 +368,43 @@ class StateStore:
                     conn.execute(ddl)
                 except sqlite3.OperationalError:
                     pass
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS supervisor_prefs (
+                    key TEXT PRIMARY KEY,
+                    value_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """
+            )
+            conn.commit()
+
+    def get_supervisor_pref_int(self, key: str) -> Optional[int]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT value_json FROM supervisor_prefs WHERE key=?",
+                (key,),
+            ).fetchone()
+            if row is None:
+                return None
+            try:
+                return int(json.loads(row["value_json"]))
+            except Exception:
+                return None
+
+    def set_supervisor_pref_int(self, key: str, value: int) -> None:
+        now = utc_now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO supervisor_prefs (key, value_json, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value_json=excluded.value_json,
+                    updated_at=excluded.updated_at;
+                """,
+                (key, json.dumps(int(value), ensure_ascii=True), now),
+            )
             conn.commit()
 
     def upsert_trader_state(
@@ -735,6 +772,10 @@ class StateStore:
             conn.execute("DELETE FROM trader_review_details;")
             conn.execute("DELETE FROM retrain_requests;")
             conn.execute("DELETE FROM trader_signal_audit;")
+            try:
+                conn.execute("DELETE FROM supervisor_prefs;")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
     def upsert_trader_backtest_run(

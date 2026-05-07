@@ -757,10 +757,6 @@ def _get_supervisor() -> DevelopmentOperationalSupervisor:
             pass
         rebuilt = DevelopmentOperationalSupervisor(db_path=db_path)
         try:
-            rebuilt.set_target_traders(int(prev_status.get("target_traders", 8)))
-        except Exception:
-            pass
-        try:
             if resume_development:
                 rebuilt.start()
             elif resume_runtime:

@@ -67,3 +67,15 @@ def test_state_store_roundtrip_for_state_metrics_events() -> None:
     events = store.list_events(limit=20)
     assert any(e["event_type"] == EventType.TRADER_METRICS_UPDATED.value for e in events)
 
+
+def test_state_store_supervisor_prefs_roundtrip() -> None:
+    db_path = _tmp_db_path()
+    if db_path.exists():
+        db_path.unlink()
+    store = StateStore(db_path=db_path)
+    assert store.get_supervisor_pref_int("target_traders") is None
+    store.set_supervisor_pref_int("target_traders", 25)
+    assert store.get_supervisor_pref_int("target_traders") == 25
+    store.set_supervisor_pref_int("target_traders", 8)
+    assert store.get_supervisor_pref_int("target_traders") == 8
+
