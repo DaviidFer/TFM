@@ -16,6 +16,25 @@ EVENT_BACKTEST_PROBE_MODULES: tuple[str, ...] = (
 )
 
 
+def _numpy_compatible_with_numba_stack(result: dict[str, object]) -> None:
+    """Numba en PyEventBT no admite NumPy 2.4+ en la matriz probada; requirements.txt pinna numpy<2.4."""
+    try:
+        import numpy as np
+
+        parts = np.__version__.split(".")
+        maj, minor = int(parts[0]), int(parts[1])
+        if maj > 2 or (maj == 2 and minor >= 4):
+            result["imports"]["numpy_numba_abi"] = (
+                f"error: numpy {np.__version__} — usar numpy<2.4 con numba/pyeventbt"
+            )
+            result["status"] = "error"
+        else:
+            result["imports"]["numpy_numba_abi"] = f"ok ({np.__version__})"
+    except Exception as exc:
+        result["imports"]["numpy_numba_abi"] = f"error: {exc}"
+        result["status"] = "error"
+
+
 def main() -> int:
     config = load_cloud_config()
     result: dict[str, object] = {
@@ -49,6 +68,8 @@ def main() -> int:
         except Exception as exc:
             result["imports"][module_name] = f"error: {exc}"
             result["status"] = "error"
+
+    _numpy_compatible_with_numba_stack(result)
 
     mt5_expected = bool(config.mt5_path or config.mt5_login or config.mt5_server)
     if mt5_expected:
