@@ -681,7 +681,7 @@ def _render_pretty_dev_events(
 ) -> None:
     st.markdown(f"### {title}")
     if not events:
-        st.info("Sin eventos de desarrollo todavÃ­a.")
+        st.info("Sin eventos de desarrollo todavía.")
         return
     shown = events[:max_items]
     lookup_events = list(source_events or events)
@@ -871,7 +871,7 @@ def _filter_ops_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def _render_flow_table(events: List[Dict[str, Any]], *, title: str) -> None:
     st.markdown(f"### {title}")
     if not events:
-        st.info("Sin eventos todavÃ­a.")
+        st.info("Sin eventos todavía.")
         return
     rows = [_event_to_row(e) for e in events]
     st.table(pd.DataFrame(rows)[["fecha_hora", "agente", "paso", "detalle", "parametros_clave"]])
