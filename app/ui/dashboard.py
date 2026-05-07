@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -1153,6 +1154,9 @@ def _mount_auto_refresh_watcher(*, enabled: bool, interval_ms: int, signature: s
 
     @st.fragment(run_every=run_every)
     def _watch_changes() -> None:
+        pause_until = float(st.session_state.get("_ui_pause_auto_refresh_until") or 0.0)
+        if pause_until > time.time():
+            return
         last_sig = st.session_state.get("_ui_last_signature")
         if last_sig is None:
             st.session_state["_ui_last_signature"] = signature
@@ -1366,8 +1370,8 @@ def main() -> None:
         open_positions=open_positions,
         pending_orders=pending_orders,
     )
-    auto_refresh_enabled = selected_section != "Desarrollo"
-    refresh_ms = 3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS)
+    auto_refresh_enabled = True
+    refresh_ms = 5000 if selected_section == "Desarrollo" else (3000 if selected_section == "Operativa" else int(DEFAULT_AUTO_REFRESH_MS))
     _mount_auto_refresh_watcher(enabled=auto_refresh_enabled, interval_ms=refresh_ms, signature=live_signature)
     st.caption(f"DB: `{supervisor.db_path}`")
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
@@ -1407,14 +1411,17 @@ def main() -> None:
             b1, b2, b3 = st.columns(3)
             if b1.button("Iniciar desarrollo de agentes trader", key="btn_dev_start"):
                 supervisor.start()
+                st.session_state["_ui_pause_auto_refresh_until"] = time.time() + 2.5
                 st.success("Desarrollo iniciado.")
                 st.rerun()
             if b2.button("Parar desarrollo de agentes trader", key="btn_dev_stop"):
                 supervisor.stop_development()
+                st.session_state["_ui_pause_auto_refresh_until"] = time.time() + 2.5
                 st.info("Desarrollo detenido.")
                 st.rerun()
             if b3.button("Borrar todos los traders y reiniciar", key="btn_dev_reset"):
                 supervisor.reset_all()
+                st.session_state["_ui_pause_auto_refresh_until"] = time.time() + 2.5
                 st.warning("Sistema reiniciado.")
                 st.rerun()
 
