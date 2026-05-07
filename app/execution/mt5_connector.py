@@ -403,11 +403,15 @@ class MT5Connector:
         quick_timeout_ms = max(1000, min(int(self._config["timeout"]), 5000))
         full_timeout_ms = int(self._config["timeout"])
         timeout_ms = quick_timeout_ms if quick else full_timeout_ms
-        candidate_paths_to_try = candidate_paths[:1] if quick and candidate_paths else candidate_paths
+        if quick and candidate_paths:
+            # Si hay sospecha de mismatch broker/path, probamos mas rutas incluso en modo quick.
+            candidate_paths_to_try = candidate_paths[:3] if mismatch_hint else candidate_paths[:1]
+        else:
+            candidate_paths_to_try = candidate_paths
         if has_credentials:
             for path in candidate_paths_to_try:
                 plans.append((path, True, False))
-                if not quick:
+                if (not quick) or mismatch_hint:
                     plans.append((path, True, True))
             plans.append((None, True, False))
         for path in candidate_paths_to_try:

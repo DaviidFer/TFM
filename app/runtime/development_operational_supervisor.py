@@ -123,6 +123,16 @@ class DevelopmentOperationalSupervisor:
         self._runtime: LiveTradingRuntime | None = None
         self._setup_context()
         self._load_persistent_supervisor_prefs()
+        self._sync_developed_traders_from_history()
+
+    def _sync_developed_traders_from_history(self) -> None:
+        """Sincroniza el contador con traders ya promovidos en DB + sesión."""
+        total = 0
+        try:
+            total = len(self.get_all_promoted_specs())
+        except Exception:
+            total = len(self._promoted_registry)
+        self._set_status(developed_traders=int(total))
 
     def _load_persistent_supervisor_prefs(self) -> None:
         """Restaura preferencias del supervisor desde SQLite (y opcionalmente env)."""
@@ -813,6 +823,14 @@ class DevelopmentOperationalSupervisor:
     def set_target_traders(self, target_traders: int) -> None:
         target = max(1, int(target_traders))
         self._set_status(target_traders=target)
+        try:
+            self.ctx.store.set_supervisor_pref_int("target_traders", target)
+        except Exception:
+            pass
+        current = int(self.get_status().get("developed_traders") or 0)
+        if current >= target:
+            self._develop_enabled.clear()
+            self._set_status(develop_enabled=False, current_stage="idle")
         emit_log("supervisor", "target_traders_updated", console=False, target_traders=target)
 
     @staticmethod
@@ -1122,14 +1140,14 @@ class DevelopmentOperationalSupervisor:
         self._set_status(
             current_stage="idle",
             current_cycle_steps=[],
-            developed_traders=len(self._promoted_registry),
+            developed_traders=len(self.get_all_promoted_specs()),
             last_cycle_completed_at=_utc_now_iso(),
             last_cycle_asset=asset,
             last_cycle_trader_id=trader_id,
         )
 
         # Si el objetivo se ha alcanzado en este mismo ciclo, desactiva desarrollo de inmediato.
-        current = len(self._promoted_registry)
+        current = len(self.get_all_promoted_specs())
         target = int(self.get_status().get("target_traders", 8))
         if current >= target:
             self._develop_enabled.clear()
@@ -1357,6 +1375,7 @@ class DevelopmentOperationalSupervisor:
                 failed.append({"request_id": request_id, "error": str(exc)})
         if requests:
             self._set_status(trader_review_last_retrain_processed_at=_utc_now_iso())
+        self._set_status(developed_traders=len(self.get_all_promoted_specs()))
         return {"processed": processed, "failed": failed, "pending_before": len(requests)}
 
     def _should_run_portfolio_monthly_refresh(self, *, as_of: str | None = None, force: bool = False) -> bool:
