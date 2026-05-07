@@ -3,14 +3,9 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-function Get-ProjectDir {
-    if ($env:TFM_PROJECT_DIR) {
-        return $env:TFM_PROJECT_DIR
-    }
-    return (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-}
+. "$PSScriptRoot\Resolve-TfmProjectDir.ps1"
 
-$projectDir = Get-ProjectDir
+$projectDir = Get-TfmProjectDir
 $logDir = Join-Path $projectDir "app\.tmp\logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "install_cloudwatch_agent.log"

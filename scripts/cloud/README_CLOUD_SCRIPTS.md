@@ -2,6 +2,16 @@
 
 Los scripts de `scripts/cloud` estan pensados para ejecutarse manualmente por RDP o de forma remota por SSM Run Command.
 
+## Resolucion de la ruta del proyecto
+
+Los scripts cargan `Resolve-TfmProjectDir.ps1` y usan `Get-TfmProjectDir`. Buscan el repo validando `requirements.txt` y `.git`, en este orden:
+
+1. Variable de entorno `TFM_PROJECT_DIR` (si apunta a un directorio valido).
+2. **`C:\tfm\tfm-project`** (valor por defecto del bootstrap en EC2).
+3. Variantes conocidas (`C:\tfm-trading`, etc.) y subcarpetas directas bajo `C:\tfm`.
+
+Por tanto en EC2 puedes ejecutar los `.ps1` **desde cualquier directorio**, siempre que el repo exista en una de esas rutas.
+
 ## Scripts principales
 
 - `bootstrap_windows_ec2.ps1`
@@ -23,7 +33,7 @@ Los scripts de `scripts/cloud` estan pensados para ejecutarse manualmente por RD
 - `sync_from_s3.ps1`
   Descarga datos y artefactos principales desde S3, util al recrear la EC2.
 - `sync_to_s3.ps1`
-  Sincroniza datos, artefactos, modelos PPO, reportes y logs hacia S3.
+  Sincroniza datos, artefactos y logs hacia S3.
 - `healthcheck.ps1`
   Ejecuta `python -m app.cloud.heartbeat`.
 - `install_cloudwatch_agent.ps1`

@@ -3,12 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-function Get-ProjectDir {
-    if ($env:TFM_PROJECT_DIR) {
-        return $env:TFM_PROJECT_DIR
-    }
-    return (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-}
+. "$PSScriptRoot\Resolve-TfmProjectDir.ps1"
 
 function Get-PythonExe([string]$ProjectDir) {
     $venvPython = Join-Path $ProjectDir ".venv\Scripts\python.exe"
@@ -43,7 +38,7 @@ function Install-ProjectRequirements([string]$PythonExe, [string]$ProjectDir) {
     }
 }
 
-$projectDir = Get-ProjectDir
+$projectDir = Get-TfmProjectDir
 $logDir = Join-Path $projectDir "app\.tmp\logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "deploy_update.log"

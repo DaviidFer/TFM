@@ -3,12 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-function Get-ProjectDir {
-    if ($env:TFM_PROJECT_DIR) {
-        return $env:TFM_PROJECT_DIR
-    }
-    return (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-}
+. "$PSScriptRoot\Resolve-TfmProjectDir.ps1"
 
 function Get-S3Uri([string]$Bucket, [string]$Prefix, [string]$Suffix) {
     $cleanPrefix = $Prefix.Trim("/\")
@@ -19,7 +14,7 @@ function Get-S3Uri([string]$Bucket, [string]$Prefix, [string]$Suffix) {
     return "s3://$Bucket/$cleanPrefix/$cleanSuffix"
 }
 
-$projectDir = Get-ProjectDir
+$projectDir = Get-TfmProjectDir
 $logDir = Join-Path $projectDir "app\.tmp\logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "backup_to_s3.log"
