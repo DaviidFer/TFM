@@ -1,23 +1,30 @@
+"""
+Smoke check histórico de la Fase 4 del TFM.
+
+Cierra el pipeline `Data → Developer → Validation → Trader` sobre un activo de
+muestra (AAPL D1). **No participa en el flujo productivo**: se conserva como
+narrativa académica del cierre de la Fase 4. Se invoca manualmente con
+`python -m app.phase4_check`.
+"""
 from __future__ import annotations
 
-from pathlib import Path
-
 from app.agents import AgentContext, DeveloperAgent, TraderAgent, ValidationAgent
-from app.services import DataProcess
+from app.cloud import LOCAL_PATHS
 from app.contracts import TraderLifecycleState
+from app.services import DataProcess
 from app.storage import StateStore
 
 
 def main() -> int:
     print("=== Phase 4 Check ===")
-    db_path = Path("app/.tmp/phase4/phase4.sqlite")
+    db_path = LOCAL_PATHS.phase_db(4)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
 
     ctx = AgentContext(
         store=StateStore(db_path=db_path),
-        artifacts_root=Path("app/.tmp/phase4"),
+        artifacts_root=LOCAL_PATHS.phase_dir(4),
     )
 
     data_process = DataProcess(ctx)

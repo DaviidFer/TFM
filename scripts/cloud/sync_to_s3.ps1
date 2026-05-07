@@ -42,19 +42,9 @@ try {
         aws s3 sync "$tmpDir" (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "artifacts")
     }
 
-    $portfolioDir = Join-Path $tmpDir "portfolio_rl"
-    if (Test-Path $portfolioDir) {
-        aws s3 sync "$portfolioDir" (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "ppo_models")
-    }
-
     $backtestsCsvDir = Join-Path $tmpDir "backtests_csv"
     if (Test-Path $backtestsCsvDir) {
         aws s3 sync "$backtestsCsvDir" (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "backtests")
-    }
-
-    $riskDir = Join-Path $tmpDir "risk_reports"
-    if (Test-Path $riskDir) {
-        aws s3 sync "$riskDir" (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "risk_reports")
     }
 
     if (Test-Path $logDir) {

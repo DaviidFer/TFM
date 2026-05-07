@@ -97,7 +97,7 @@ def load_cloud_config() -> CloudConfig:
         s3_prefix=str(os.getenv("TFM_S3_PREFIX", "tfm-trading")).strip() or "tfm-trading",
         enable_s3=_to_bool(os.getenv("TFM_ENABLE_S3"), default=False),
         enable_cloudwatch=_to_bool(os.getenv("TFM_ENABLE_CLOUDWATCH"), default=False),
-        portfolio_manager_mode=str(os.getenv("PORTFOLIO_MANAGER_MODE", "ppo")).strip() or "ppo",
+        portfolio_manager_mode=str(os.getenv("PORTFOLIO_MANAGER_MODE", "ga_pso")).strip() or "ga_pso",
         trading_mode=str(os.getenv("TRADING_MODE", "paper")).strip() or "paper",
         streamlit_port=_to_int(os.getenv("STREAMLIT_PORT"), default=8501),
         mt5_login=str(os.getenv("MT5_LOGIN", "")).strip(),

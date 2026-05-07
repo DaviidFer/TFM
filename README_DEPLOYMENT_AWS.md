@@ -125,13 +125,17 @@ Advertencias de coste:
 - no subas `.env`, `tfstate`, `tfvars`, SQLite, datos ni artefactos a GitHub;
 - revisa periodicamente el bucket S3 y las reglas programadas.
 
-## Futuro: AWS Batch
+## Trabajo futuro: AWS Batch (no implementado)
 
-AWS Batch no forma parte de esta iteracion, pero la estructura se deja preparada para que en el futuro las tareas pesadas sigan un patron como:
+AWS Batch no forma parte de esta iteracion. El modulo `app.cloud_tasks.develop_asset`
+**no existe** todavia y no debe invocarse: queda mencionado aqui solo como
+direccion futura. Si en una iteracion posterior se quisiera lanzar tareas
+pesadas en paralelo, el patron seria del estilo:
 
 ```powershell
-python -m app.cloud_tasks.develop_asset --asset AAPL --family quantile --output-mode s3
-python -m app.cloud_tasks.develop_asset --asset MSFT --family genetic --output-mode s3
+# (NO disponible hoy; ejemplo de patron futuro)
+# python -m app.cloud_tasks.develop_asset --asset AAPL --family quantile --output-mode s3
+# python -m app.cloud_tasks.develop_asset --asset MSFT --family genetic --output-mode s3
 ```
 
 Ese patron seria util para:

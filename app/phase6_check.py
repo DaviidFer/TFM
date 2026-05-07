@@ -1,14 +1,21 @@
+"""
+Smoke check histórico de la Fase 6 del TFM.
+
+Es un envoltorio sobre `phase5_check` que valida la carga del snapshot del
+dashboard. **No participa en el flujo productivo** (el dashboard real consume
+directamente `load_dashboard_snapshot`). Se conserva como narrativa académica
+del cierre de la Fase 6.
+"""
 from __future__ import annotations
 
-from pathlib import Path
-
+from app.cloud import LOCAL_PATHS
 from app.phase5_check import main as run_phase5_check
 from app.ui.dashboard_data import load_dashboard_snapshot
 
 
 def main() -> int:
     print("=== Phase 6 Check ===")
-    db_path = Path("app/.tmp/phase5/phase5.sqlite")
+    db_path = LOCAL_PATHS.phase_db(5)
     if not db_path.exists():
         print("No phase5 sqlite found. Running phase5_check first...")
         rc = int(run_phase5_check())

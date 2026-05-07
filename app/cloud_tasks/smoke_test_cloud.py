@@ -28,10 +28,9 @@ def main() -> int:
         "app",
         "app.cloud",
         "app.runtime",
-        "pydantic",
-        "polars",
-        "numba",
-        "yaml",
+        "pandas",
+        "numpy",
+        "boto3",
     )
     for module_name in required_modules:
         try:

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pandas as pd
 
+from app.cloud import LOCAL_PATHS
 from app.toolbox.backtest_eventos.runner import run_event_backtest
 from app.contracts import PromotedTraderSpec, TraderDesignProfile, TraderForwardMetrics
 from app.core.structured_logging import emit_log
@@ -317,7 +318,7 @@ class ForwardBacktestService:
             return metrics
 
         bt = run_event_backtest(
-            csv_dir="app/.tmp/backtests_csv",
+            csv_dir=str(LOCAL_PATHS.backtests_csv_dir),
             asset_csv_path=csv_path,
             winners_long_stable=list(promoted_spec.long_rules),
             winners_short_stable=list(promoted_spec.short_rules),
@@ -325,7 +326,7 @@ class ForwardBacktestService:
             start_date=forward_start.to_pydatetime(),
             end_date=last_date.to_pydatetime(),
             initial_capital=float(10000.0),
-            systems_root_dir="app/.tmp/backtests_systems",
+            systems_root_dir=str(LOCAL_PATHS.backtests_systems_dir),
             save_system_artifacts=False,
             export_backtest_csv=False,
             export_backtest_parquet=False,

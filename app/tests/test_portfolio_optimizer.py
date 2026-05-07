@@ -344,9 +344,9 @@ def test_portfolio_decision_dataclass_has_no_ppo_fields() -> None:
         assert forbidden not in payload, f"PortfolioDecision sigue exponiendo {forbidden}"
 
 
-def test_portfolio_rl_module_no_longer_exports_ppo_components() -> None:
-    """El paquete portfolio_rl ya no debe exportar componentes PPO."""
-    import app.services.portfolio_rl as pkg
+def test_portfolio_support_module_no_longer_exports_ppo_components() -> None:
+    """El paquete `portfolio_support` (antes `portfolio_rl`) no debe exportar PPO."""
+    import app.services.portfolio_support as pkg
 
     forbidden_attrs = {
         "PPOTrainer",
@@ -362,13 +362,14 @@ def test_portfolio_rl_module_no_longer_exports_ppo_components() -> None:
     }
     exposed = set(getattr(pkg, "__all__", []))
     leaked = exposed & forbidden_attrs
-    assert not leaked, f"portfolio_rl sigue exportando componentes PPO: {leaked}"
+    assert not leaked, f"portfolio_support sigue exportando componentes PPO: {leaked}"
 
 
 def test_portfolio_optimizer_files_present_and_no_ppo_files() -> None:
     """Verifica el plan de archivos: portfolio_optimizer existe; los PPO no."""
     repo = Path(__file__).resolve().parents[2]
     assert (repo / "app" / "services" / "portfolio_optimizer.py").exists()
+    services_dir = repo / "app" / "services"
     for ppo_name in (
         "ppo_trainer.py",
         "policy.py",
@@ -379,6 +380,12 @@ def test_portfolio_optimizer_files_present_and_no_ppo_files() -> None:
         "dataset_builder.py",
         "artifacts.py",
     ):
-        assert not (repo / "app" / "services" / "portfolio_rl" / ppo_name).exists(), (
-            f"Sigue existiendo el archivo PPO {ppo_name}"
+        assert not (services_dir / "portfolio_support" / ppo_name).exists(), (
+            f"Sigue existiendo el archivo PPO {ppo_name} en portfolio_support/"
         )
+        assert not (services_dir / "portfolio_rl" / ppo_name).exists(), (
+            f"Sigue existiendo el archivo PPO {ppo_name} en portfolio_rl/ legacy"
+        )
+    assert not (services_dir / "portfolio_rl").exists(), (
+        "El paquete legacy `portfolio_rl/` no debe seguir presente"
+    )

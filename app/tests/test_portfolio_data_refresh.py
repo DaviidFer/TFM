@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from app.execution.local_data_provider import LocalMarketDataProvider
-from app.services.portfolio_rl.data_refresh import PortfolioOHLCRefreshService
+from app.services.portfolio_support.data_refresh import PortfolioOHLCRefreshService
 from app.toolbox.data_download import download as download_module
 
 
@@ -48,7 +48,7 @@ def test_portfolio_refresh_uses_only_requested_symbols(monkeypatch, tmp_path: Pa
         failed = pd.DataFrame(columns=["symbol", "status"])
         return universe_df, all_results, failed
 
-    monkeypatch.setattr("app.services.portfolio_rl.data_refresh.run_data_download", _fake_run_data_download)
+    monkeypatch.setattr("app.services.portfolio_support.data_refresh.run_data_download", _fake_run_data_download)
 
     service = PortfolioOHLCRefreshService(provider)
     result = service.refresh(["AAPL"])

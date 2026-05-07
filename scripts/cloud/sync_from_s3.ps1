@@ -43,14 +43,6 @@ try {
     $sqliteBackupDir = Join-Path $tmpDir "sqlite_backups"
     New-Item -ItemType Directory -Force -Path $sqliteBackupDir | Out-Null
     aws s3 sync (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "sqlite_backups") "$sqliteBackupDir"
-
-    $riskDir = Join-Path $tmpDir "risk_reports"
-    New-Item -ItemType Directory -Force -Path $riskDir | Out-Null
-    aws s3 sync (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "risk_reports") "$riskDir"
-
-    $portfolioDir = Join-Path $tmpDir "portfolio_rl"
-    New-Item -ItemType Directory -Force -Path $portfolioDir | Out-Null
-    aws s3 sync (Get-S3Uri -Bucket $bucket -Prefix $prefix -Suffix "ppo_models") "$portfolioDir"
 }
 finally {
     Stop-Transcript | Out-Null

@@ -1,3 +1,11 @@
+"""
+Smoke check histórico de la Fase 1 del TFM.
+
+Comprueba que el `PHASE1_SCOPE` está congelado y que los archivos del toolbox
+existen en disco. **No participa en el flujo productivo** (supervisor, runtime,
+dashboard, cloud_tasks): se conserva como narrativa académica del cierre de la
+Fase 1. Se invoca manualmente con `python -m app.phase1_check`.
+"""
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,3 +1,11 @@
+"""
+Smoke check histórico de la Fase 9 del TFM.
+
+Valida el bridge a MetaTrader 5 sobre `SimulationRuntime` (`app/orchestrator/`).
+**No participa en el flujo productivo**: el runtime real es
+`DevelopmentOperationalSupervisor` con `LiveTradingRuntime`. Se conserva como
+narrativa académica del cierre de la Fase 9.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,6 +17,7 @@ from app.agents import (
     TraderAgent,
     ValidationAgent,
 )
+from app.cloud import LOCAL_PATHS
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.execution.access import ensure_execution_access
 from app.execution.local_data_provider import LocalMarketDataProvider
@@ -22,7 +31,7 @@ from app.storage import StateStore
 
 def main(*, db_path: Path | None = None) -> int:
     print("=== Phase 9 Check ===")
-    db_path = db_path or Path("app/.tmp/phase9/phase9.sqlite")
+    db_path = db_path or LOCAL_PATHS.phase_db(9)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -41,7 +50,7 @@ def main(*, db_path: Path | None = None) -> int:
     )
     ctx = AgentContext(
         store=StateStore(db_path=db_path),
-        artifacts_root=Path("app/.tmp/phase9"),
+        artifacts_root=LOCAL_PATHS.phase_dir(9),
         execution_router=execution_router,
     )
     data_process = DataProcess(ctx)

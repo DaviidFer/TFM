@@ -1,11 +1,18 @@
+"""
+Smoke check histórico de la Fase 7 del TFM.
+
+Bateria informativa de unitarios + integración + benchmark sobre `phase5_check`.
+**No es la batería oficial de tests** (esa es `pytest -q app/tests`); se
+conserva como narrativa académica del cierre de la Fase 7.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from time import perf_counter
 from typing import Callable, List
 from uuid import uuid4
 
+from app.cloud import LOCAL_PATHS
 from app.phase5_check import main as run_phase5_check
 from app.tests.test_contracts_state_store import (
     test_promoted_spec_serialization_contains_lifecycle_value,
@@ -34,7 +41,7 @@ def _run_test(name: str, fn: Callable[[], None]) -> CheckResult:
 
 def _benchmark_phase5() -> CheckResult:
     t0 = perf_counter()
-    bench_db = Path("app/.tmp/tests") / f"phase5_bench_{uuid4().hex[:8]}.sqlite"
+    bench_db = LOCAL_PATHS.tests_dir / f"phase5_bench_{uuid4().hex[:8]}.sqlite"
     bench_db.parent.mkdir(parents=True, exist_ok=True)
     rc = int(run_phase5_check(db_path=bench_db))
     elapsed = perf_counter() - t0

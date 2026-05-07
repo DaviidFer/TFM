@@ -1,3 +1,10 @@
+"""
+Simulación end-to-end para smoke checks (`phase8_check`, `phase9_check`,
+`phase10_live_mvp`).
+
+El runtime operativo real está en `app/runtime/development_operational_supervisor.py`
+y `app/runtime/live_trading_runtime.py`.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -262,4 +269,3 @@ class SimulationRuntime:
             activated=activated,
         )
         return activated
-

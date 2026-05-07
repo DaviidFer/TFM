@@ -1,8 +1,15 @@
+"""
+Orquestador para smoke checks (`app/phase5_check.py`).
+
+El flujo operativo real usa `DevelopmentOperationalSupervisor`
+(`app/runtime/development_operational_supervisor.py`). Este módulo conserva el
+ciclo DataProcess → Developer → Validation → Trader ante eventos de retraining.
+"""
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, Mapping, Optional
+from typing import Dict, Mapping
 
 from app.agents import DeveloperAgent, TraderAgent, ValidationAgent
 from app.contracts import EventType
@@ -139,4 +146,3 @@ class RuntimeOrchestrator:
             processed_trigger_event_ids=[r["trigger_event_id"] for r in results],
         )
         return results
-

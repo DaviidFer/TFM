@@ -1,3 +1,11 @@
+"""
+Smoke check histórico de la Fase 8 del TFM.
+
+Ejecuta una simulación end-to-end con `SimulationRuntime` de `app/orchestrator/`.
+**No participa en el flujo productivo** (el runtime real es
+`DevelopmentOperationalSupervisor`). Se conserva como narrativa académica del
+cierre de la Fase 8.
+"""
 from __future__ import annotations
 
 from collections import Counter
@@ -10,6 +18,7 @@ from app.agents import (
     TraderAgent,
     ValidationAgent,
 )
+from app.cloud import LOCAL_PATHS
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.execution.models import ExecutionMode
@@ -22,7 +31,7 @@ from app.storage import StateStore
 
 def main(*, db_path: Path | None = None) -> int:
     print("=== Phase 8 Check ===")
-    db_path = db_path or Path("app/.tmp/phase8/phase8.sqlite")
+    db_path = db_path or LOCAL_PATHS.phase_db(8)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -41,7 +50,7 @@ def main(*, db_path: Path | None = None) -> int:
     )
     ctx = AgentContext(
         store=StateStore(db_path=db_path),
-        artifacts_root=Path("app/.tmp/phase8"),
+        artifacts_root=LOCAL_PATHS.phase_dir(8),
         execution_router=execution_router,
     )
     data_process = DataProcess(ctx)

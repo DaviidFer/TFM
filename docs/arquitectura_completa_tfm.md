@@ -104,7 +104,7 @@ La carpeta `app/` concentra prácticamente toda la lógica de dominio:
 | `app/toolbox/ML_tools/` | Generadores de reglas (decision tree, rulefit, genético, quantile). |
 | `app/validation/` | Implementación cuantitativa de la validación multicapa (`monos.py`, `correlation.py`, `forward.py`, `stability.py`). |
 | `infra/terraform/` | Despliegue cloud (EC2 Windows, S3, parámetros SSM). |
-| `docs/` | Documentación por fases y memorias técnicas. |
+| `docs/` | Documentación de referencia (`arquitectura_completa_tfm.md`, cloud AWS, informe de refactor HR). |
 
 ## 4. Capa de datos
 
@@ -299,7 +299,7 @@ Aunque su lógica es sencilla, formaliza la entrada al pipeline, desacopla la in
 
 `develop(...)`:
 
-1. recibe un `DatasetContract` y las familias de modelos a probar;
+1. recibe un `DatasetContract` y las **familias de generación de reglas** a ejecutar (no son «modelos» predictivos autónomos ni capas por subgrupos: cada nombre es un pipeline distinto que, a partir del bloque IS, produce tablas de reglas long/short);
 2. fija una configuración de split (`is_pct`, `oos_pct`, `holdout_year`, `lookback_years`);
 3. persiste `DEVELOPMENT_STARTED`;
 4. relee el CSV fuente y vuelve a normalizar columnas;
@@ -326,14 +326,22 @@ La política declarada es `is_oos_holdout_2025`:
 
 Esta segmentación es metodológicamente relevante porque la validación posterior trabaja sobre cortes temporales explícitos y persistidos.
 
-#### 6.4.4. Familias de generación
+#### 6.4.4. Familias de generación de reglas
 
-- `decision_tree`;
-- `rulefit`;
-- `genetico` (alias `genetic`);
-- `quantile`.
+Implementación central: `generate_candidate_rules(...)` en `app/services/rule_generation_service.py`. Cuatro familias activas:
 
-No todas tienen por qué ejecutarse en cada ciclo. El supervisor puede escoger solo una familia por iteración, mientras que un pipeline offline puede orquestar varias.
+| Familia | Mecanismo (resumen) |
+|---|---|
+| `decision_tree` | Árboles de decisión multi-seed → reglas long/short. |
+| `rulefit` | RuleFit multi-seed → reglas long/short. |
+| `genetico` | Algoritmo genético sobre átomos de regla (`genetic` es alias del mismo generador). |
+| `quantile` | Combinaciones de bins cuantílicos (`build_quantile_bin_combinations`). |
+
+El bucle iterativo interno del `DeveloperAgent` (`_collect_rules`) reparte cupos de reglas con `target_n_rules` solo para las familias declaradas en `FAMILIES_WITH_RULE_TARGET`: `decision_tree`, `rulefit`, `genetico`, `genetic`. La familia `quantile` puede pasarse en `families=...` y genera candidatos en la misma llamada, pero **no** participa en ese reparto iterativo de cupos (usa otro perfil de parámetros).
+
+En el **supervisor operativo** (`DevelopmentOperationalSupervisor`), cada ciclo de desarrollo elige **una sola familia al azar** entre `decision_tree`, `rulefit`, `genetico` y `quantile`. No existe un modo «subgrupo» ni una selección paralela de varios modelos de reglas por iteración: se rota el generador para diversificar el experimento.
+
+En **tests y smoke checks** (`phase4_check`, `phase5_check`, etc.) a menudo se pasan **varias familias en una sola** llamada a `develop(...)` para ejercitar el encadenamiento completo.
 
 ### 6.5. `ValidationAgent`
 
@@ -386,10 +394,10 @@ Si la selección de estabilidad devuelve cero reglas, el agente activa un fallba
 | Archivo | Finalidad |
 |---|---|
 | `app/services/portfolio_optimizer.py` | Optimizador híbrido GA + PSO: configuración (`PortfolioOptimizerConfig`), métricas, fitness única, GA binario, PSO de pesos y orquestador `optimize_portfolio_ga_pso`. |
-| `app/services/portfolio_rl/data_refresh.py` | `PortfolioOHLCRefreshService` para refrescar OHLC de los activos del universo promovido (servicio auxiliar usado por el supervisor). |
-| `app/services/portfolio_rl/universe_registry.py` | `UniverseRegistry` para persistir el universo elegible. |
+| `app/services/portfolio_support/data_refresh.py` | `PortfolioOHLCRefreshService` para refrescar OHLC de los activos del universo promovido (servicio auxiliar usado por el supervisor). |
+| `app/services/portfolio_support/universe_registry.py` | `UniverseRegistry` para persistir el universo elegible. |
 
-> Nota histórica: el paquete `portfolio_rl` conserva el nombre por motivos de compatibilidad pero **ya no contiene PPO ni ningún código de RL**. Solo retiene los dos servicios auxiliares anteriores.
+> Nota histórica: este paquete se llamaba `portfolio_rl` cuando la cartera se optimizaba con PPO. Tras la refactorización a GA + PSO se eliminó todo el código RL/PPO y el paquete pasó a denominarse `portfolio_support` para reflejar su función real (servicios de soporte del optimizador, no RL).
 
 ### 7.3. Servicios de salud de traders (`trader_health`)
 

@@ -20,6 +20,7 @@ from contextlib import redirect_stderr
 from app.contracts import EventType
 
 import pandas as pd
+from app.cloud import LOCAL_PATHS
 from app.toolbox.backtest_eventos.runner import run_event_backtest
 from app.agents import AgentContext, DeveloperAgent, HumanResourcesProcess, PortfolioManagerProcess, TraderAgent, ValidationAgent
 from app.contracts import PromotedTraderSpec
@@ -32,7 +33,7 @@ from app.execution.mt5_data_provider import MT5DataProvider
 from app.execution.router import ExecutionRouter
 from app.runtime.live_trading_runtime import LiveTradingRuntime
 from app.services import DataProcess
-from app.services.portfolio_rl import PortfolioOHLCRefreshService
+from app.services.portfolio_support import PortfolioOHLCRefreshService
 from app.services.trader_health import build_trader_design_profile
 from app.storage import StateStore
 
@@ -61,7 +62,10 @@ def _utc_now_iso() -> str:
 
 class DevelopmentOperationalSupervisor:
     _LOG_SEPARATOR = "═" * 54
-    _REPORT_FORMAT_VERSION = 9
+    # Versión del esquema del snapshot que el supervisor expone al dashboard.
+    # Subir este número fuerza al dashboard a recrear la instancia tras un
+    # hot-reload cuando cambia el contrato de los reportes.
+    _DASHBOARD_SNAPSHOT_SCHEMA_VERSION = 10
 
     """
     Supervisor no bloqueante para Streamlit:
@@ -71,7 +75,7 @@ class DevelopmentOperationalSupervisor:
 
     def __init__(self, *, db_path: Path) -> None:
         self.db_path = Path(db_path)
-        self.report_format_version = self._REPORT_FORMAT_VERSION
+        self.dashboard_snapshot_schema_version = self._DASHBOARD_SNAPSHOT_SCHEMA_VERSION
         self.local_market_data = LocalMarketDataProvider()
         self.execution_mode = _read_exec_mode()
         self.mt5 = MT5Connector(env_path=".env")
@@ -601,7 +605,7 @@ class DevelopmentOperationalSupervisor:
                     pyeventbt_logger.setLevel(logging.ERROR)
                     backtest_info_logger.setLevel(logging.ERROR)
                     bt = run_event_backtest(
-                        csv_dir="app/.tmp/backtests_csv",
+                        csv_dir=str(LOCAL_PATHS.backtests_csv_dir),
                         asset_csv_path=csv_path,
                         winners_long_stable=list(promoted_spec.long_rules),
                         winners_short_stable=list(promoted_spec.short_rules),
@@ -609,7 +613,7 @@ class DevelopmentOperationalSupervisor:
                         start_date=start_date,
                         end_date=end_date,
                         initial_capital=initial_capital,
-                        systems_root_dir="app/.tmp/backtests_systems",
+                        systems_root_dir=str(LOCAL_PATHS.backtests_systems_dir),
                         save_system_artifacts=False,
                         export_backtest_csv=False,
                         export_backtest_parquet=False,

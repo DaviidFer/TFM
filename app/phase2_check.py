@@ -1,8 +1,16 @@
+"""
+Smoke check histórico de la Fase 2 del TFM.
+
+Valida los contratos (`app/contracts/*`) y el `StateStore` con un escenario
+sintético. **No participa en el flujo productivo**: se conserva como narrativa
+académica del cierre de la Fase 2. Se invoca manualmente con
+`python -m app.phase2_check`.
+"""
 from __future__ import annotations
 
-from pathlib import Path
 from uuid import uuid4
 
+from app.cloud import LOCAL_PATHS
 from app.contracts import (
     AgentKind,
     CandidateRules,
@@ -112,7 +120,7 @@ def main() -> int:
     _ = promoted.to_dict()
     print("Contract serialization: OK")
 
-    tmp_dir = Path("app/.tmp")
+    tmp_dir = LOCAL_PATHS.artifacts_root
     tmp_dir.mkdir(parents=True, exist_ok=True)
     db_path = tmp_dir / "phase2_check.sqlite"
     if db_path.exists():

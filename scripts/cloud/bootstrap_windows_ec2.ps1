@@ -31,6 +31,31 @@ function Install-ChocoPackageIfNeeded([string]$CommandName, [string]$PackageName
     }
 }
 
+function Install-ProjectRequirements([string]$PythonExe, [string]$ProjectDir) {
+    $requirementsFile = Join-Path $ProjectDir "requirements.txt"
+    if (-not (Test-Path $requirementsFile)) {
+        throw "No existe requirements.txt en $ProjectDir"
+    }
+
+    & $PythonExe -m pip install -r $requirementsFile
+    if ($LASTEXITCODE -ne 0) {
+        throw "Fallo instalando requirements.txt"
+    }
+
+    $pyVersion = & $PythonExe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+    if ($LASTEXITCODE -ne 0) {
+        throw "No se pudo leer la version de Python"
+    }
+    $pyVersion = ($pyVersion | Select-Object -First 1).Trim()
+
+    if ($pyVersion -eq "3.11") {
+        & $PythonExe -m pip install --no-deps --ignore-requires-python "pyeventbt==0.0.9"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Fallo instalando pyeventbt==0.0.9 para Python 3.11"
+        }
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $bootstrapRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $bootstrapLogDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $bootstrapRoot "bootstrap") | Out-Null
@@ -77,7 +102,7 @@ try {
     }
 
     & $venvPython -m pip install --upgrade pip
-    & $venvPython -m pip install -r "requirements.txt"
+    Install-ProjectRequirements -PythonExe $venvPython -ProjectDir $ProjectDir
 }
 finally {
     Stop-Transcript | Out-Null

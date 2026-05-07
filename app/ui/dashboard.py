@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
+from app.cloud import LOCAL_PATHS
 from app.runtime import DevelopmentOperationalSupervisor
 from app.services.trader_health import align_development_and_forward_curves, build_metric_comparison_table
 from app.ui.dashboard_data import load_dashboard_snapshot
@@ -100,11 +101,11 @@ def _human_pm_signal_columns(df: pd.DataFrame) -> pd.DataFrame:
         return df
     rename_map = {
         "trader": "Trader",
-        "symbol": "Símbolo",
+        "symbol": "SÃ­mbolo",
         "side": "Lado",
-        "fecha_señal": "Fecha señal",
+        "fecha_seÃ±al": "Fecha seÃ±al",
         "fase_pm": "Fase PM",
-        "decision_pm": "Decisión PM",
+        "decision_pm": "DecisiÃ³n PM",
         "estado_orden": "Estado orden",
         "peso_pct": "Peso (%)",
         "euros_asignados": "Euros asignados",
@@ -247,7 +248,7 @@ def _pm_signal_row_from_live(row: Dict[str, Any]) -> Dict[str, Any]:
         "trader": _pretty_trader_name(row.get("trader_id"), asset=row.get("symbol"), timeframe="D1"),
         "symbol": row.get("symbol"),
         "side": _human_side_label(row.get("side")),
-        "fecha_señal": _fmt_ts(str(row.get("detected_at", ""))),
+        "fecha_seÃ±al": _fmt_ts(str(row.get("detected_at", ""))),
         "fase_pm": _interpret_pm_phase(row.get("portfolio_phase")),
         "decision_pm": "seleccionado" if bool(row.get("selected")) else "descartado",
         "estado_orden": row.get("status"),
@@ -269,7 +270,7 @@ def _pm_signal_row_from_audit(row: Dict[str, Any]) -> Dict[str, Any]:
         "trader": _pretty_trader_name(row.get("trader_id"), asset=row.get("asset"), timeframe=row.get("timeframe") or "D1"),
         "symbol": row.get("asset"),
         "side": _human_side_label(row.get("signal_side")),
-        "fecha_señal": _fmt_ts(str(metadata.get("detected_at") or row.get("timestamp") or "")),
+        "fecha_seÃ±al": _fmt_ts(str(metadata.get("detected_at") or row.get("timestamp") or "")),
         "fase_pm": _interpret_pm_phase(metadata.get("portfolio_phase")),
         "decision_pm": "seleccionado" if selected else "descartado",
         "estado_orden": status,
@@ -312,14 +313,14 @@ def _normalize_pm_signal_rows(signal_book: List[Dict[str, Any]], signal_audit: L
 
 def _render_pm_signal_tables(signal_rows: List[Dict[str, Any]], *, key_prefix: str) -> None:
     if not signal_rows:
-        st.info("No hay señales auditadas para este entrenamiento/rebalanceo.")
+        st.info("No hay seÃ±ales auditadas para este entrenamiento/rebalanceo.")
         return
     df_signals = pd.DataFrame(signal_rows)
     pm_cols = [
         "trader",
         "symbol",
         "side",
-        "fecha_señal",
+        "fecha_seÃ±al",
         "fase_pm",
         "decision_pm",
         "estado_orden",
@@ -334,40 +335,40 @@ def _render_pm_signal_tables(signal_rows: List[Dict[str, Any]], *, key_prefix: s
     df_selected_show = _human_pm_signal_columns(df_selected[pm_cols].copy()) if not df_selected.empty else pd.DataFrame()
     df_discarded_show = _human_pm_signal_columns(df_discarded[pm_cols].copy()) if not df_discarded.empty else pd.DataFrame()
     df_exec_show = (
-        _human_pm_signal_columns(df_exec[["trader", "symbol", "side", "fecha_señal", "fase_pm", "peso_pct", "euros_asignados", "acciones_estimadas"]].copy())
+        _human_pm_signal_columns(df_exec[["trader", "symbol", "side", "fecha_seÃ±al", "fase_pm", "peso_pct", "euros_asignados", "acciones_estimadas"]].copy())
         if not df_exec.empty
         else pd.DataFrame()
     )
 
-    st.markdown("**Señales seleccionadas por el portfolio manager**")
+    st.markdown("**SeÃ±ales seleccionadas por el portfolio manager**")
     if df_selected.empty:
-        st.info("No hay señales seleccionadas en este entrenamiento.")
+        st.info("No hay seÃ±ales seleccionadas en este entrenamiento.")
     else:
         st.dataframe(
             df_selected_show.style
             .map(lambda v: _pm_style_cell(v, column="fase_pm"), subset=["Fase PM"])
-            .map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["Decisión PM"])
+            .map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["DecisiÃ³n PM"])
             .map(lambda v: _pm_style_cell(v, column="estado_orden"), subset=["Estado orden"]),
             width="stretch",
             hide_index=True,
         )
 
-    st.markdown("**Señales descartadas por el portfolio manager**")
+    st.markdown("**SeÃ±ales descartadas por el portfolio manager**")
     if df_discarded.empty:
-        st.info("No hay señales descartadas en este entrenamiento.")
+        st.info("No hay seÃ±ales descartadas en este entrenamiento.")
     else:
         st.dataframe(
             df_discarded_show.style
             .map(lambda v: _pm_style_cell(v, column="fase_pm"), subset=["Fase PM"])
-            .map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["Decisión PM"])
+            .map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["DecisiÃ³n PM"])
             .map(lambda v: _pm_style_cell(v, column="estado_orden"), subset=["Estado orden"]),
             width="stretch",
             hide_index=True,
         )
 
-    st.markdown("**Señales transformadas en operación ejecutada**")
+    st.markdown("**SeÃ±ales transformadas en operaciÃ³n ejecutada**")
     if df_exec.empty:
-        st.info("Ninguna señal seleccionada se ha ejecutado todavía.")
+        st.info("Ninguna seÃ±al seleccionada se ha ejecutado todavÃ­a.")
     else:
         st.dataframe(
             df_exec_show.style.map(lambda v: _pm_style_cell(v, column="fase_pm"), subset=["Fase PM"]),
@@ -380,7 +381,8 @@ def _is_live_portfolio_rebalance(row: Dict[str, Any]) -> bool:
     """
     Determina si un snapshot persistido corresponde a un rebalanceo real
     del runtime live (modo GA+PSO). Se ignoran los registros marcados como
-    `offline_test_eval` (rebalanceos sinteticos heredados del antiguo PPO).
+    `offline_test_eval`, que corresponden a rebalanceos sinteticos generados
+    fuera del runtime operativo (smoke tests y evaluaciones offline).
     """
     metadata = dict(row.get("metadata") or {})
     if str(metadata.get("source") or "").strip().lower() == "offline_test_eval":
@@ -388,7 +390,7 @@ def _is_live_portfolio_rebalance(row: Dict[str, Any]) -> bool:
     return bool(row.get("rebalance_date"))
 
 
-def _human_risk_action(action: Any) -> str:
+def _human_review_action(action: Any) -> str:
     """Etiqueta humana para `TraderReviewAction` (KEEP / RETRAINING)."""
     mapping = {
         "keep": "Mantener",
@@ -417,7 +419,7 @@ def _model_name(raw: Any) -> str:
     mapping = {
         "quantile": "Quantiles",
         "rulefit": "RuleFit",
-        "genetic": "Genético",
+        "genetic": "GenÃ©tico",
     }
     return mapping.get(txt, txt.capitalize() if txt else "-")
 
@@ -430,24 +432,24 @@ def _human_param_name(name: Any) -> str:
         "holdout_year": "Holdout year",
         "lookback_years": "Lookback years",
         "n_bins": "N bins",
-        "combo_size": "Tamaño combinación",
-        "min_coverage": "Cobertura mínima",
+        "combo_size": "TamaÃ±o combinaciÃ³n",
+        "min_coverage": "Cobertura mÃ­nima",
         "target_n_rules": "Objetivo N reglas",
         "n_estimators": "N estimators",
-        "max_candidate_rules": "Máx reglas candidatas",
+        "max_candidate_rules": "MÃ¡x reglas candidatas",
         "progress_every": "Progreso cada",
         "n_monkeys": "N monkeys",
         "is_pass_pct": "IS pass %",
         "oos_pass_pct": "OOS pass %",
-        "min_coverage_is": "Cobertura mínima IS",
-        "min_coverage_oos": "Cobertura mínima OOS",
+        "min_coverage_is": "Cobertura mÃ­nima IS",
+        "min_coverage_oos": "Cobertura mÃ­nima OOS",
         "n_jobs": "N jobs",
-        "corr_threshold": "Umbral correlación",
-        "min_ops": "Mín operaciones",
-        "target_year": "Año objetivo",
+        "corr_threshold": "Umbral correlaciÃ³n",
+        "min_ops": "MÃ­n operaciones",
+        "target_year": "AÃ±o objetivo",
         "top_n_long": "Top N LONG",
         "top_n_short": "Top N SHORT",
-        "diagnose": "Diagnóstico",
+        "diagnose": "DiagnÃ³stico",
         "verbose": "Verbose",
     }
     if txt in mapping:
@@ -461,6 +463,8 @@ def _format_params_inline(data: Any) -> str:
         return "-"
     parts: List[str] = []
     for key, value in data.items():
+        if str(key) == "progress_every" and str(value).strip() in {"", "0", "0.0", "None", "none", "False", "false"}:
+            continue
         parts.append(f"{_human_param_name(key)}: {value}")
     return " | ".join(parts)
 
@@ -483,10 +487,10 @@ def _pretty_dev_event_title(e: Dict[str, Any]) -> str:
     mapping = {
         ("data_process", "dataset_ready"): "DataProcess -> Dataset preparado",
         ("data_agent", "dataset_ready"): "DataProcess -> Dataset preparado",
-        ("developer_agent", "development_started"): "Developer Agent -> Configuración del desarrollo",
+        ("developer_agent", "development_started"): "Developer Agent -> ConfiguraciÃ³n del desarrollo",
         ("developer_agent", "split_and_target_ready"): "Developer Agent -> Split preparado",
-        ("developer_agent", "candidate_rules_ready"): "Developer Agent -> Generación de reglas completada",
-        ("validation_agent", "validation_completed"): "Validation Agent -> Validación completada",
+        ("developer_agent", "candidate_rules_ready"): "Developer Agent -> GeneraciÃ³n de reglas completada",
+        ("validation_agent", "validation_completed"): "Validation Agent -> ValidaciÃ³n completada",
         ("validation_agent", "trader_promoted"): "Validation Agent -> Trader promovido",
         ("validation_agent", "trader_promoted_with_rules"): "Validation Agent -> Trader promovido",
         ("trader_agent", "trader_state_changed"): "Trader Agent -> Estado del trader actualizado",
@@ -571,8 +575,8 @@ def _pretty_dev_event_lines(e: Dict[str, Any], group_ctx: Dict[str, Any]) -> Lis
         split_config = dict(payload.get("split_config", {}) or {})
         return [
             f"Activo: {payload.get('asset')}",
-            f"Modelo de Generación de reglas: {_model_name(chosen_family)}",
-            f"Parámetros: {_format_params_inline(family_params.get(chosen_family, family_params))}",
+            f"Modelo de GeneraciÃ³n de reglas: {_model_name(chosen_family)}",
+            f"ParÃ¡metros: {_format_params_inline(family_params.get(chosen_family, family_params))}",
             f"Split: IS {split_config.get('is_pct')} | OOS {split_config.get('oos_pct')} | Holdout year {split_config.get('holdout_year')}",
         ]
     if event_type == "split_and_target_ready":
@@ -599,8 +603,8 @@ def _pretty_dev_event_lines(e: Dict[str, Any], group_ctx: Dict[str, Any]) -> Lis
         data_oos = block_date_ranges.get("data_oos", {}) or {}
         return [
             f"Activo: {payload.get('asset') or dev_started.get('asset') or group_ctx.get('asset')}",
-            f"Modelo de Generación de reglas: {_model_name(chosen_family)}",
-            f"Parámetros: {_format_params_inline(family_params.get(chosen_family, family_params))}",
+            f"Modelo de GeneraciÃ³n de reglas: {_model_name(chosen_family)}",
+            f"ParÃ¡metros: {_format_params_inline(family_params.get(chosen_family, family_params))}",
             f"Split IS: {split_config.get('is_pct')} | {_fmt_short_date(data_is.get('start'))} -> {_fmt_short_date(data_is.get('end'))}",
             f"Split OOS: {split_config.get('oos_pct')} | {_fmt_short_date(data_oos.get('start'))} -> {_fmt_short_date(data_oos.get('end'))}",
             f"Reglas Generadas LONG={summary.get('n_long')} SHORT={summary.get('n_short')}",
@@ -631,17 +635,17 @@ def _pretty_dev_event_lines(e: Dict[str, Any], group_ctx: Dict[str, Any]) -> Lis
             )
             if profile.get("correlation_pruning"):
                 lines.append(
-                    f"Poda por correlación: "
+                    f"Poda por correlaciÃ³n: "
                     f"{_format_validation_params_inline(profile.get('correlation_pruning'), drop_keys=['min_ops', 'diagnose'])}"
                 )
             if profile.get("forward_validation"):
                 lines.append(
-                    f"Validación forward: "
+                    f"ValidaciÃ³n forward: "
                     f"{_format_validation_params_inline(profile.get('forward_validation'), drop_keys=['min_ops', 'verbose'])}"
                 )
             if profile.get("stability_selection"):
                 lines.append(
-                    f"Selección por estabilidad: "
+                    f"SelecciÃ³n por estabilidad: "
                     f"{_format_validation_params_inline(profile.get('stability_selection'), drop_keys=['min_ops', 'verbose'])}"
                 )
         return lines
@@ -677,7 +681,7 @@ def _render_pretty_dev_events(
 ) -> None:
     st.markdown(f"### {title}")
     if not events:
-        st.info("Sin eventos de desarrollo todavía.")
+        st.info("Sin eventos de desarrollo todavÃ­a.")
         return
     shown = events[:max_items]
     lookup_events = list(source_events or events)
@@ -722,7 +726,7 @@ def _render_pretty_dev_events(
 
 
 def _get_supervisor() -> DevelopmentOperationalSupervisor:
-    default_db_path = Path(os.getenv("TFM_DB_PATH", "app/.tmp/supervisor/supervisor.sqlite"))
+    default_db_path = Path(os.getenv("TFM_DB_PATH", str(LOCAL_PATHS.supervisor_db)))
     if "tfm_supervisor" not in st.session_state:
         st.session_state["tfm_supervisor"] = DevelopmentOperationalSupervisor(db_path=default_db_path)
         return st.session_state["tfm_supervisor"]
@@ -732,7 +736,7 @@ def _get_supervisor() -> DevelopmentOperationalSupervisor:
     # la reemplazamos por una nueva con la version actual de la clase.
     needs_rebuild = (
         (not hasattr(sup, "get_backtest_registry"))
-        or int(getattr(sup, "report_format_version", 0)) < 8
+        or int(getattr(sup, "dashboard_snapshot_schema_version", 0)) < 10
     )
     if needs_rebuild:
         db_path = Path(getattr(sup, "db_path", default_db_path))
@@ -871,7 +875,7 @@ def _filter_ops_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def _render_flow_table(events: List[Dict[str, Any]], *, title: str) -> None:
     st.markdown(f"### {title}")
     if not events:
-        st.info("Sin eventos todavía.")
+        st.info("Sin eventos todavÃ­a.")
         return
     rows = [_event_to_row(e) for e in events]
     st.table(pd.DataFrame(rows)[["fecha_hora", "agente", "paso", "detalle", "parametros_clave"]])
@@ -925,23 +929,23 @@ def _interpret_pm_reason(reason: Any) -> str:
     if txt == "executed":
         return "Orden ejecutada correctamente."
     if txt == "selected":
-        return "Seleccionada por el portfolio manager y pendiente de ejecución."
+        return "Seleccionada por el portfolio manager y pendiente de ejecuciÃ³n."
     if txt == "discarded":
         return "Descartada por el portfolio manager en este rebalanceo."
     if txt == "waiting_full_universe" or txt == "portfolio_manager_waiting_full_universe":
-        return "La señal queda en espera hasta terminar de generar todo el universo de traders."
+        return "La seÃ±al queda en espera hasta terminar de generar todo el universo de traders."
     if txt == "waiting_next_monday" or txt == "portfolio_manager_weekly_rebalance_only":
-        return "La señal se revisará en el próximo rebalanceo semanal del lunes."
+        return "La seÃ±al se revisarÃ¡ en el prÃ³ximo rebalanceo semanal del lunes."
     if txt == "already_open" or txt == "position_already_open":
-        return "Ese trader ya tiene una posición abierta en la misma dirección."
+        return "Ese trader ya tiene una posiciÃ³n abierta en la misma direcciÃ³n."
     if txt == "closed":
-        return "La posición se ha cerrado porque la señal ya no sigue activa."
+        return "La posiciÃ³n se ha cerrado porque la seÃ±al ya no sigue activa."
     if txt == "close_rejected":
-        return "Se intentó cerrar la posición pero MT5 la rechazó; se reintentará."
+        return "Se intentÃ³ cerrar la posiciÃ³n pero MT5 la rechazÃ³; se reintentarÃ¡."
     if txt == "signal_inactive":
-        return "La posición se cierra porque la señal ha desaparecido."
+        return "La posiciÃ³n se cierra porque la seÃ±al ha desaparecido."
     if txt == "signal_side_changed":
-        return "La posición actual se cierra porque la nueva señal cambió de dirección."
+        return "La posiciÃ³n actual se cierra porque la nueva seÃ±al cambiÃ³ de direcciÃ³n."
     return txt
 
 
@@ -958,11 +962,11 @@ def _human_signal_label(signal: Any) -> str:
     txt = str(signal or "").strip()
     upper = txt.upper()
     mapping = {
-        "SIGNALTYPE.BUY": "Señal de compra",
-        "SIGNALTYPE.SELL": "Señal de venta",
+        "SIGNALTYPE.BUY": "SeÃ±al de compra",
+        "SIGNALTYPE.SELL": "SeÃ±al de venta",
         "CLOSE_BUY": "Cerrar compra",
         "CLOSE_SELL": "Cerrar venta",
-        "CLOSE_POSITION": "Cerrar posición",
+        "CLOSE_POSITION": "Cerrar posiciÃ³n",
     }
     return mapping.get(upper, txt or "-")
 
@@ -1005,7 +1009,7 @@ def _pm_status_badge_html(status: Any) -> str:
     txt = str(status or "").strip().lower()
     mapping = {
         "executed": ("Ejecutada", "#15803d"),
-        "selected": ("Pendiente envío", "#2563eb"),
+        "selected": ("Pendiente envÃ­o", "#2563eb"),
         "rejected": ("Rechazada", "#dc2626"),
         "waiting_next_monday": ("Espera lunes", "#d97706"),
         "waiting_full_universe": ("Espera universo", "#d97706"),
@@ -1021,7 +1025,7 @@ def _pm_status_badge_html(status: Any) -> str:
 def _ops_status_badge_html(is_operating: bool) -> str:
     if is_operating:
         return _badge_html("Operando", bg="#15803d")
-    return _badge_html("Sin operación abierta", bg="#6b7280")
+    return _badge_html("Sin operaciÃ³n abierta", bg="#6b7280")
 
 
 def _latest_order_badge_html(event: Dict[str, Any] | None) -> str:
@@ -1032,10 +1036,10 @@ def _latest_order_badge_html(event: Dict[str, Any] | None) -> str:
     accepted = bool(result.get("accepted"))
     event_type = str(event.get("event_type") or "")
     if accepted:
-        return _badge_html("Última orden aceptada", bg="#15803d")
+        return _badge_html("Ãšltima orden aceptada", bg="#15803d")
     if event_type == "broker_order_rejected":
-        return _badge_html("Última orden rechazada", bg="#dc2626")
-    return _badge_html("Última orden registrada", bg="#2563eb")
+        return _badge_html("Ãšltima orden rechazada", bg="#dc2626")
+    return _badge_html("Ãšltima orden registrada", bg="#2563eb")
 
 
 def _pm_style_cell(value: Any, *, column: str) -> str:
@@ -1206,7 +1210,7 @@ def _compute_backtest_metrics(bt: Dict[str, Any]) -> Dict[str, Any]:
     calmar = ((cagr_pct / 100.0) / abs(max_dd_pct / 100.0)) if max_dd_pct < 0 else 0.0
     ulcer_index = float((((dd * 100.0) ** 2).mean() ** 0.5)) if not dd.empty else 0.0
     recovery_factor = (net_profit / abs(max_dd_abs)) if max_dd_abs < 0 else 0.0
-    # Duración de drawdowns en días naturales.
+    # DuraciÃ³n de drawdowns en dÃ­as naturales.
     dd_durations: List[int] = []
     in_dd = False
     dd_start = None
@@ -1225,7 +1229,7 @@ def _compute_backtest_metrics(bt: Dict[str, Any]) -> Dict[str, Any]:
     max_dd_duration_days = max(dd_durations) if dd_durations else 0
     avg_dd_duration_days = (sum(dd_durations) / len(dd_durations)) if dd_durations else 0.0
 
-    # Años positivos/negativos/planos.
+    # AÃ±os positivos/negativos/planos.
     yearly_equity = equity.resample("YE").last()
     yearly_ret = yearly_equity.pct_change().dropna()
     positive_years = int((yearly_ret > 0).sum()) if not yearly_ret.empty else 0
@@ -1319,7 +1323,7 @@ def main() -> None:
     status = supervisor.get_status()
     section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
     selected_section = st.radio(
-        "Sección",
+        "SecciÃ³n",
         options=section_options,
         horizontal=True,
         label_visibility="collapsed",
@@ -1377,7 +1381,7 @@ def main() -> None:
     runtime_mode = str(status.get("operational_runtime_mode") or "-")
     mt5_label = "conectado" if bool(status.get("mt5_connected")) else f"desconectado ({runtime_mode})"
     c4.metric("MT5", mt5_label)
-    c5.metric("Señales PM", int(len(signal_book)))
+    c5.metric("SeÃ±ales PM", int(len(signal_book)))
     c6.metric("Posiciones abiertas", int(len(open_positions)))
     c7.metric("Retries pendientes", int(len(pending_orders)))
     st.caption(f"Objetivo traders: {int(status.get('target_traders', 8))}")
@@ -1460,11 +1464,11 @@ def main() -> None:
         # 1) preferimos ciclos completados (con trader_promoted)
         visible_dev_events = _filter_completed_dev_cycles(_filter_dev_events(session_events))
         dev_source_events = _filter_dev_events(session_events)
-        # 2) fallback: si todavía no hay promoción, mostrar eventos de sesión en curso
+        # 2) fallback: si todavÃ­a no hay promociÃ³n, mostrar eventos de sesiÃ³n en curso
         if not visible_dev_events:
             visible_dev_events = _filter_dev_events(session_events)
             dev_source_events = visible_dev_events
-        # 3) fallback extra: si la sesión quedó desincronizada, mostrar últimos eventos globales
+        # 3) fallback extra: si la sesiÃ³n quedÃ³ desincronizada, mostrar Ãºltimos eventos globales
         if not visible_dev_events:
             visible_dev_events = _filter_dev_events(all_events)
             dev_source_events = visible_dev_events
@@ -1527,8 +1531,8 @@ def main() -> None:
                             chart_df = _prepare_backtest_chart_frame(chart_rows)
                             y_cols = [c for c in ["equity", "balance"] if c in chart_df.columns]
                             if y_cols and not chart_df.empty:
-                                # Visualización relativa (%), para ver mejor fluctuaciones
-                                # incluso cuando el capital absoluto varía poco.
+                                # VisualizaciÃ³n relativa (%), para ver mejor fluctuaciones
+                                # incluso cuando el capital absoluto varÃ­a poco.
                                 base_capital = float(bt.get("initial_capital") or chart_df[y_cols[0]].iloc[0] or 1.0)
                                 if base_capital == 0:
                                     base_capital = 1.0
@@ -1556,12 +1560,12 @@ def main() -> None:
                                     .mark_line()
                                     .encode(
                                         x=alt.X("date:T", title="Fecha"),
-                                        y=alt.Y("pct:Q", title="Variación sobre capital inicial (%)", scale=alt.Scale(domain=y_domain)),
+                                        y=alt.Y("pct:Q", title="VariaciÃ³n sobre capital inicial (%)", scale=alt.Scale(domain=y_domain)),
                                         color=alt.Color("serie:N", title="Serie"),
                                         tooltip=[
                                             alt.Tooltip("date:T", title="Fecha"),
                                             alt.Tooltip("serie:N", title="Serie"),
-                                            alt.Tooltip("pct:Q", title="% variación", format=".4f"),
+                                            alt.Tooltip("pct:Q", title="% variaciÃ³n", format=".4f"),
                                         ],
                                     )
                                     .properties(height=320)
@@ -1576,23 +1580,23 @@ def main() -> None:
                                     m3.metric("Max Drawdown", f"{metrics['max_dd_pct']:.2f}%")
                                     m4.metric("Sharpe", f"{metrics['sharpe']:.3f}")
 
-                                    with st.expander("Ver métricas en profundidad", expanded=False):
+                                    with st.expander("Ver mÃ©tricas en profundidad", expanded=False):
                                         c1, c2, c3, c4 = st.columns(4)
                                         with c1:
                                             st.caption("Rendimiento")
                                             st.caption(f"CAGR: {metrics['cagr_pct']:.3f}%")
                                             st.caption(f"Initial capital: {metrics['initial_capital']:.2f}")
                                             st.caption(f"Final equity: {metrics['final_equity']:.2f}")
-                                            st.caption(f"Años positivos: {metrics['positive_years']}")
-                                            st.caption(f"Años negativos: {metrics['negative_years']}")
-                                            st.caption(f"Años planos: {metrics['flat_years']}")
+                                            st.caption(f"AÃ±os positivos: {metrics['positive_years']}")
+                                            st.caption(f"AÃ±os negativos: {metrics['negative_years']}")
+                                            st.caption(f"AÃ±os planos: {metrics['flat_years']}")
                                         with c2:
                                             st.caption("Riesgo")
                                             st.caption(f"Max DD %: {metrics['max_dd_pct']:.3f}%")
                                             st.caption(f"Max DD abs: {metrics['max_dd_abs']:.2f}")
-                                            st.caption(f"Duración DD max (días): {metrics['max_dd_duration_days']}")
-                                            st.caption(f"Duración DD media (días): {metrics['avg_dd_duration_days']:.2f}")
-                                            st.caption(f"Duración DD actual (días): {metrics['current_dd_duration_days']}")
+                                            st.caption(f"DuraciÃ³n DD max (dÃ­as): {metrics['max_dd_duration_days']}")
+                                            st.caption(f"DuraciÃ³n DD media (dÃ­as): {metrics['avg_dd_duration_days']:.2f}")
+                                            st.caption(f"DuraciÃ³n DD actual (dÃ­as): {metrics['current_dd_duration_days']}")
                                             st.caption(f"Vol anual: {metrics['vol_ann_pct']:.3f}%")
                                             st.caption(f"Ulcer index: {metrics['ulcer_index']:.3f}")
                                             st.caption(f"Recovery factor: {metrics['recovery_factor']:.3f}")
@@ -1614,32 +1618,32 @@ def main() -> None:
                                                 st.caption(f"Losers: {metrics['losing_trades']}")
                                             if metrics.get("win_rate_pct") is not None:
                                                 st.caption(f"Win rate: {float(metrics['win_rate_pct']):.2f}%")
-                                            st.caption(f"Trades/año: {metrics['trades_per_year']:.2f}")
+                                            st.caption(f"Trades/aÃ±o: {metrics['trades_per_year']:.2f}")
                                             st.caption(f"Expectancy: {metrics['expectancy']:.3f}")
                                             if metrics.get("avg_win") is not None:
                                                 st.caption(f"Avg win: {float(metrics['avg_win']):.3f}")
                                             if metrics.get("avg_loss") is not None:
                                                 st.caption(f"Avg loss: {float(metrics['avg_loss']):.3f}")
                                             if metrics.get("avg_trade_duration_days") is not None:
-                                                st.caption(f"Duración media trade (días): {float(metrics['avg_trade_duration_days']):.2f}")
+                                                st.caption(f"DuraciÃ³n media trade (dÃ­as): {float(metrics['avg_trade_duration_days']):.2f}")
                                             if metrics.get("min_trade_duration_days") is not None:
-                                                st.caption(f"Duración mínima trade (días): {float(metrics['min_trade_duration_days']):.2f}")
+                                                st.caption(f"DuraciÃ³n mÃ­nima trade (dÃ­as): {float(metrics['min_trade_duration_days']):.2f}")
                                             if metrics.get("max_trade_duration_days") is not None:
-                                                st.caption(f"Duración máxima trade (días): {float(metrics['max_trade_duration_days']):.2f}")
+                                                st.caption(f"DuraciÃ³n mÃ¡xima trade (dÃ­as): {float(metrics['max_trade_duration_days']):.2f}")
                                             if metrics.get("max_winning_streak") is not None:
-                                                st.caption(f"Racha máxima ganadora: {int(metrics['max_winning_streak'])}")
+                                                st.caption(f"Racha mÃ¡xima ganadora: {int(metrics['max_winning_streak'])}")
                                             if metrics.get("max_losing_streak") is not None:
-                                                st.caption(f"Racha máxima perdedora: {int(metrics['max_losing_streak'])}")
+                                                st.caption(f"Racha mÃ¡xima perdedora: {int(metrics['max_losing_streak'])}")
                                             if metrics.get("max_win_trade") is not None:
                                                 st.caption(f"Mayor ganancia trade: {float(metrics['max_win_trade']):.3f}")
                                             if metrics.get("max_loss_trade") is not None:
-                                                st.caption(f"Mayor pérdida trade: {float(metrics['max_loss_trade']):.3f}")
+                                                st.caption(f"Mayor pÃ©rdida trade: {float(metrics['max_loss_trade']):.3f}")
                             else:
                                 st.info("No hay columnas de equity/balance para graficar.")
                         else:
                             st.info("Backtest completado sin serie de resultados.")
                     elif status_bt == "running":
-                        st.info("Backtest en ejecucion. Esta pestaña se actualizara automaticamente.")
+                        st.info("Backtest en ejecucion. Esta pestaÃ±a se actualizara automaticamente.")
                     elif status_bt == "error":
                         st.error(f"Backtest con error: {bt.get('error', 'desconocido')}")
                     else:
@@ -1922,7 +1926,7 @@ def main() -> None:
                         "Promoted at": _fmt_ts(str(row.get("promoted_at") or "")),
                         "Estado actual": _human_trader_state(row.get("current_state")),
                         "Health score": round(float(row.get("health_score") or 0.0), 2),
-                        "Ultima accion": _human_risk_action(row.get("action")),
+                        "Ultima accion": _human_review_action(row.get("action")),
                         "Shadow trades": int(metrics.get("shadow_trades") or 0),
                         "Executed trades": int(metrics.get("executed_trades") or 0),
                         "Signal count": int(metrics.get("signal_count") or 0),
@@ -1956,7 +1960,7 @@ def main() -> None:
                 with st.expander(title, expanded=False):
                     i1, i2, i3, i4 = st.columns(4)
                     i1.metric("Estado", _human_trader_state(row.get("current_state")))
-                    i2.metric("Ultima accion", _human_risk_action(row.get("action")))
+                    i2.metric("Ultima accion", _human_review_action(row.get("action")))
                     i3.metric("Health score", f"{float(row.get('health_score') or 0.0):.2f}")
                     i4.metric("Promocion", _fmt_short_date(row.get("promoted_at")))
                     st.caption(f"Ultima revision: {_fmt_ts(str(row.get('latest_evaluation') or ''))}")
@@ -2034,7 +2038,7 @@ def main() -> None:
                     detail_rows = [
                         {
                             "Fecha": _fmt_ts(str(item.get("created_at") or "")),
-                            "Accion": _human_risk_action(item.get("action")),
+                            "Accion": _human_review_action(item.get("action")),
                             "Estado anterior": _human_trader_state(item.get("previous_state")),
                             "Estado nuevo": _human_trader_state(item.get("new_state")),
                             "Health score": float(item.get("health_score") or 0.0),
@@ -2054,8 +2058,8 @@ def main() -> None:
         runtime_mode = str(status.get("operational_runtime_mode") or "paper")
         if runtime_mode != "live_mt5":
             st.warning(
-                "La operativa está corriendo en modo degradado `paper` porque MT5 no está listo. "
-                "Aun así, el runtime puede generar señales y auditoría de portfolio/risk."
+                "La operativa estÃ¡ corriendo en modo degradado `paper` porque MT5 no estÃ¡ listo. "
+                "Aun asÃ­, el runtime puede generar seÃ±ales y auditorÃ­a de portfolio/risk."
             )
         if st.button("Lanzar operativa MT5 con traders actuales", key="btn_start_ops_mt5"):
             out = supervisor.start_operational_runtime() if hasattr(supervisor, "start_operational_runtime") else {"started": False}
@@ -2075,7 +2079,7 @@ def main() -> None:
             try:
                 prep = supervisor.ensure_mt5_execution_ready(symbols=["AAPL"]) if hasattr(supervisor, "ensure_mt5_execution_ready") else {"connected": False}
                 if not bool(prep.get("connected")) or str(prep.get("mode")) != "live_mt5":
-                    st.error(f"MT5 no está listo para ejecución LIVE. Estado={prep}")
+                    st.error(f"MT5 no estÃ¡ listo para ejecuciÃ³n LIVE. Estado={prep}")
                 else:
                     res_manual = supervisor.trader_agent.route_order(
                         trader_id="manual_aapl",
@@ -2090,7 +2094,7 @@ def main() -> None:
                     if accepted and "live_mt5" in mode_manual.lower():
                         st.success(f"Orden manual AAPL enviada correctamente. Ticket={res_manual.get('ticket')}")
                     elif accepted:
-                        st.error(f"La orden no salió por LIVE_MT5. mode={mode_manual} reason={res_manual.get('reason')}")
+                        st.error(f"La orden no saliÃ³ por LIVE_MT5. mode={mode_manual} reason={res_manual.get('reason')}")
                     else:
                         st.error(f"Orden manual AAPL rechazada. Motivo={res_manual.get('reason')}")
                     st.caption(f"Execution mode: {mode_manual}")
@@ -2117,26 +2121,26 @@ def main() -> None:
                 rows_retry.append(
                     {
                         "Trader": _pretty_trader_name(row.get("trader_id"), asset=row.get("symbol"), timeframe="D1"),
-                        "Símbolo": row.get("symbol"),
+                        "SÃ­mbolo": row.get("symbol"),
                         "Lado": _human_side_label(row.get("side")),
-                        "Señal": _human_signal_label(row.get("signal_label")),
+                        "SeÃ±al": _human_signal_label(row.get("signal_label")),
                         "Volumen": row.get("volume"),
-                        "Próximo intento": _fmt_ts(str(row.get("next_retry_at", ""))),
+                        "PrÃ³ximo intento": _fmt_ts(str(row.get("next_retry_at", ""))),
                         "Intentos acumulados": row.get("attempts"),
-                        "Último motivo de rechazo": _interpret_pm_reason(row.get("last_reason")),
+                        "Ãšltimo motivo de rechazo": _interpret_pm_reason(row.get("last_reason")),
                     }
                 )
             st.table(
                 pd.DataFrame(rows_retry)[
                     [
                         "Trader",
-                        "Símbolo",
+                        "SÃ­mbolo",
                         "Lado",
-                        "Señal",
+                        "SeÃ±al",
                         "Volumen",
-                        "Próximo intento",
+                        "PrÃ³ximo intento",
                         "Intentos acumulados",
-                        "Último motivo de rechazo",
+                        "Ãšltimo motivo de rechazo",
                     ]
                 ]
             )
@@ -2162,8 +2166,8 @@ def main() -> None:
                         )
                     )
                 ]
-                # Fallback pragmático: si no hay comentario/magic por trader,
-                # al menos mostramos posición abierta por activo.
+                # Fallback pragmÃ¡tico: si no hay comentario/magic por trader,
+                # al menos mostramos posiciÃ³n abierta por activo.
                 is_operating = len(trader_positions) > 0
                 status_label = "OPERANDO" if is_operating else "SIN OPERACION ABIERTA"
                 last_evt = latest_orders.get(trader_id)
@@ -2233,4 +2237,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 

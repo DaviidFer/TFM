@@ -1,3 +1,13 @@
+"""
+Smoke check end-to-end **activo** de la Fase 5 del TFM.
+
+Es el único `phase{N}_check` que sigue siendo entry-point real: lo usan los
+tests `test_runtime_logs.py` y `test_dashboard_snapshot.py` para validar el
+flujo completo de retraining sin necesidad de levantar el supervisor real ni
+MT5. Si se borra o se mueve, esos tests deben actualizarse en consecuencia.
+
+Se invoca manualmente con `python -m app.phase5_check` o desde tests.
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -11,6 +21,7 @@ from app.agents import (
     TraderAgent,
     ValidationAgent,
 )
+from app.cloud import LOCAL_PATHS
 from app.contracts import (
     AgentKind,
     EventType,
@@ -36,7 +47,7 @@ def main(*, db_path: Path | None = None) -> int:
     para crear un trader sustituto.
     """
     print("=== Phase 5 Check ===")
-    db_path = db_path or Path("app/.tmp/phase5/phase5.sqlite")
+    db_path = db_path or LOCAL_PATHS.phase_db(5)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -45,7 +56,7 @@ def main(*, db_path: Path | None = None) -> int:
 
     ctx = AgentContext(
         store=StateStore(db_path=db_path),
-        artifacts_root=Path("app/.tmp/phase5"),
+        artifacts_root=LOCAL_PATHS.phase_dir(5),
     )
     emit_log("phase5_check", "run_started", run_id=uuid4().hex[:8], db_path=str(db_path), log_file=str(LOG_FILE_PATH))
 

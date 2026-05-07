@@ -33,7 +33,7 @@ from app.services.portfolio_optimizer import (
     equal_weight_fitness,
     optimize_portfolio_ga_pso,
 )
-from app.services.portfolio_rl import UniverseRegistry
+from app.services.portfolio_support import UniverseRegistry
 
 from .base import AgentContext
 

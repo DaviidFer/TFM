@@ -1,3 +1,11 @@
+"""
+MVP histórico de la Fase 10 del TFM (live D1 con MT5).
+
+Combina `SimulationRuntime` (`app/orchestrator/`) con `LiveTradingRuntime` para
+validar el ciclo live mínimo. **No participa en el flujo productivo**: el runtime real
+es `DevelopmentOperationalSupervisor`. Se conserva como narrativa académica
+del cierre de la Fase 10.
+"""
 from __future__ import annotations
 
 import os
@@ -5,6 +13,7 @@ from pathlib import Path
 from queue import Queue
 
 from app.agents import AgentContext, DeveloperAgent, PortfolioManagerProcess, TraderAgent, ValidationAgent
+from app.cloud import LOCAL_PATHS
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.execution.models import ExecutionMode
@@ -24,7 +33,7 @@ def _read_mode() -> ExecutionMode:
 
 def main(*, db_path: Path | None = None) -> int:
     print("=== Phase 10 Live MVP ===")
-    db_path = db_path or Path("app/.tmp/phase10/phase10.sqlite")
+    db_path = db_path or LOCAL_PATHS.phase_db(10)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -49,7 +58,7 @@ def main(*, db_path: Path | None = None) -> int:
     )
     ctx = AgentContext(
         store=StateStore(db_path=db_path),
-        artifacts_root=Path("app/.tmp/phase10"),
+        artifacts_root=LOCAL_PATHS.phase_dir(10),
         execution_router=execution_router,
     )
     data_process = DataProcess(ctx)

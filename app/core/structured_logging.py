@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
+from app.cloud.cloud_paths import LOCAL_PATHS
 
-LOG_FILE_PATH = Path("app/.tmp/logs/runtime_flow.log")
+
+LOG_FILE_PATH: Path = LOCAL_PATHS.runtime_log
 
 
 def utc_now_iso() -> str:
