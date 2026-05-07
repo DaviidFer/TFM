@@ -171,6 +171,11 @@ def build_metric_comparison_table(
     forward_metrics: Dict[str, Any] | None,
     executed_metrics: Dict[str, Any] | None = None,
 ) -> pd.DataFrame:
+    """
+    Tabla legible para el dashboard que confronta tres columnas:
+    diseno historico vs. comportamiento forward shadow vs. comportamiento
+    realmente ejecutado por la operativa live.
+    """
     design = dict(design_profile or {})
     forward = dict(forward_metrics or {})
     executed = dict(executed_metrics or {})
@@ -186,8 +191,6 @@ def build_metric_comparison_table(
         ("Avg loss", design.get("avg_loss_design"), forward.get("shadow_avg_loss"), executed.get("executed_avg_loss")),
         ("Losing streak", design.get("max_losing_streak_design"), forward.get("shadow_losing_streak"), executed.get("executed_losing_streak")),
         ("Signal count", None, forward.get("signal_count"), None),
-        ("PPO selected count", None, forward.get("ppo_selected_count"), None),
-        ("PPO blocked count", None, forward.get("ppo_blocked_count"), None),
-        ("Risk blocked count", None, forward.get("risk_blocked_count"), None),
+        ("PM selected count", None, forward.get("pm_selected_count"), None),
     ]
-    return pd.DataFrame(rows, columns=["Métrica", "Diseño / OOS / Holdout", "Forward post-promoción", "Ejecutado real"])
+    return pd.DataFrame(rows, columns=["Metrica", "Diseno / OOS / Holdout", "Forward post-promocion", "Ejecutado real"])

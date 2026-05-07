@@ -13,12 +13,15 @@ from pathlib import Path
 from queue import Queue
 from time import sleep
 from typing import Dict
+from uuid import uuid4
 from contextlib import redirect_stdout
 from contextlib import redirect_stderr
 
+from app.contracts import EventType
+
 import pandas as pd
 from app.toolbox.backtest_eventos.runner import run_event_backtest
-from app.agents import AgentContext, DeveloperAgent, PortfolioManagerAgent, RiskAgent, TraderAgent, ValidationAgent
+from app.agents import AgentContext, DeveloperAgent, HumanResourcesProcess, PortfolioManagerProcess, TraderAgent, ValidationAgent
 from app.contracts import PromotedTraderSpec
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.execution.local_d1_data_provider import LocalD1DataProvider
@@ -30,7 +33,7 @@ from app.execution.router import ExecutionRouter
 from app.runtime.live_trading_runtime import LiveTradingRuntime
 from app.services import DataProcess
 from app.services.portfolio_rl import PortfolioOHLCRefreshService
-from app.services.risk import build_design_risk_profile
+from app.services.trader_health import build_trader_design_profile
 from app.storage import StateStore
 
 # Silencia warnings conocidos de sklearn que saturan la consola durante
@@ -103,16 +106,13 @@ class DevelopmentOperationalSupervisor:
             "portfolio_last_refresh_traders": 0,
             "portfolio_last_refresh_mask_source": None,
             "portfolio_last_refresh_backtests_status": None,
-            "portfolio_last_manual_retrain_at": None,
             "portfolio_last_manual_rebalance_at": None,
-            "portfolio_last_manual_retrain_only_at": None,
-            "portfolio_last_manual_retrain_and_rebalance_at": None,
-            "risk_last_evaluation_at": None,
-            "risk_last_evaluation_status": None,
-            "risk_last_evaluation_run_id": None,
-            "risk_last_evaluation_traders": 0,
-            "risk_last_force_evaluation_at": None,
-            "risk_last_retrain_processed_at": None,
+            "trader_review_last_run_at": None,
+            "trader_review_last_status": None,
+            "trader_review_last_run_id": None,
+            "trader_review_last_traders": 0,
+            "trader_review_last_force_run_at": None,
+            "trader_review_last_retrain_processed_at": None,
         }
         self._promoted_registry: Dict[str, object] = {}
         self._backtest_registry: Dict[str, Dict[str, object]] = {}
@@ -130,8 +130,8 @@ class DevelopmentOperationalSupervisor:
         self.developer_agent = DeveloperAgent(self.ctx)
         self.validation_agent = ValidationAgent(self.ctx)
         self.trader_agent = TraderAgent(self.ctx)
-        self.portfolio_manager_agent = PortfolioManagerAgent(self.ctx)
-        self.risk_agent = RiskAgent(self.ctx, data_source=self.local_market_data)
+        self.portfolio_manager_process = PortfolioManagerProcess(self.ctx)
+        self.human_resources_process = HumanResourcesProcess(self.ctx, data_source=self.local_market_data)
         self.portfolio_refresh_service = PortfolioOHLCRefreshService(self.local_market_data)
 
     def get_status(self) -> Dict[str, object]:
@@ -167,21 +167,12 @@ class DevelopmentOperationalSupervisor:
                     last_output = self._runtime.get_last_portfolio_output()
                 except Exception:
                     last_output = None
-        latest_model = None
-        training_runs: list[Dict[str, object]] = []
-        training_metrics: list[Dict[str, object]] = []
         rebalance_rows: list[Dict[str, object]] = []
-        forward_rows: list[Dict[str, object]] = []
         backtest_runs: list[Dict[str, object]] = []
         signal_audit_rows: list[Dict[str, object]] = []
         try:
-            latest_model = self.ctx.store.get_latest_portfolio_model_info()
             if include_history:
-                training_runs = self.ctx.store.list_portfolio_training_runs(limit=20)
-                if training_runs:
-                    training_metrics = self.ctx.store.list_portfolio_training_metrics(str(training_runs[0].get("run_id")))
                 rebalance_rows = self.ctx.store.list_portfolio_rebalance_snapshots(limit=100)
-                forward_rows = self.ctx.store.list_portfolio_forward_evaluations(limit=500)
                 backtest_runs = self.ctx.store.list_trader_backtest_runs(limit=200)
                 signal_audit_rows = self.ctx.store.list_trader_signal_audit(limit=5000)
         except Exception:
@@ -191,11 +182,7 @@ class DevelopmentOperationalSupervisor:
             "signal_audit": signal_audit_rows,
             "last_output": last_output or {},
             "pending_orders": self.get_pending_orders(),
-            "latest_model": latest_model or {},
-            "training_runs": training_runs,
-            "training_metrics": training_metrics,
             "rebalance_rows": rebalance_rows,
-            "forward_rows": forward_rows,
             "backtest_runs": backtest_runs,
             "monthly_refresh": {
                 "last_refresh_at": self.get_status().get("portfolio_last_refresh_at"),
@@ -204,10 +191,7 @@ class DevelopmentOperationalSupervisor:
                 "n_traders": self.get_status().get("portfolio_last_refresh_traders"),
                 "mask_source": self.get_status().get("portfolio_last_refresh_mask_source"),
                 "backtests_status": self.get_status().get("portfolio_last_refresh_backtests_status"),
-                "last_manual_retrain_at": self.get_status().get("portfolio_last_manual_retrain_at"),
                 "last_manual_rebalance_at": self.get_status().get("portfolio_last_manual_rebalance_at"),
-                "last_manual_retrain_only_at": self.get_status().get("portfolio_last_manual_retrain_only_at"),
-                "last_manual_retrain_and_rebalance_at": self.get_status().get("portfolio_last_manual_retrain_and_rebalance_at"),
             },
         }
 
@@ -219,26 +203,30 @@ class DevelopmentOperationalSupervisor:
         pending = [row for row in all_requests if str(row.get("status")) == "pending"]
         return {"all_requests": all_requests, "pending_requests": pending}
 
-    def get_risk_agent_snapshot(self, *, include_history: bool = True) -> Dict[str, object]:
+    def get_human_resources_snapshot(self, *, include_history: bool = True) -> Dict[str, object]:
+        """
+        Snapshot del estado del `HumanResourcesProcess` para el dashboard:
+        runs de revision de traders, detalles por trader, perfiles de diseno,
+        metricas forward y solicitudes de reentrenamiento. Ya no incluye
+        ningun chequeo previo de cartera: ese gate ha sido eliminado.
+        """
         runs: list[Dict[str, object]] = []
         latest_run: Dict[str, object] = {}
         details: list[Dict[str, object]] = []
         profiles: list[Dict[str, object]] = []
         forward_metrics: list[Dict[str, object]] = []
         forward_runs: list[Dict[str, object]] = []
-        portfolio_checks: list[Dict[str, object]] = []
         retrain_requests: list[Dict[str, object]] = []
         try:
             retrain_requests = list(self.ctx.store.list_retrain_requests(limit=500))
             if include_history:
-                runs = list(self.ctx.store.list_risk_evaluation_runs(limit=50))
+                runs = list(self.ctx.store.list_trader_review_runs(limit=50))
                 latest_run = runs[0] if runs else {}
                 if latest_run:
-                    details = list(self.ctx.store.list_risk_evaluation_details(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
+                    details = list(self.ctx.store.list_trader_review_details(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
                     forward_metrics = list(self.ctx.store.list_trader_forward_metrics(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
                     forward_runs = list(self.ctx.store.list_trader_forward_backtest_runs(evaluation_run_id=str(latest_run.get("run_id")), limit=2000))
                 profiles = list(self.ctx.store.list_trader_design_profiles(limit=2000))
-                portfolio_checks = list(self.ctx.store.list_risk_portfolio_checks(limit=200))
         except Exception:
             pass
         details_by_trader = {str(row.get("trader_id")): row for row in details}
@@ -264,9 +252,7 @@ class DevelopmentOperationalSupervisor:
                     "shadow_trades": int(metrics.get("shadow_trades") or 0),
                     "executed_trades": int(metrics.get("executed_trades") or 0),
                     "signal_count": int(metrics.get("signal_count") or 0),
-                    "ppo_selected_count": int(metrics.get("ppo_selected_count") or 0),
-                    "ppo_blocked_count": int(metrics.get("ppo_blocked_count") or 0),
-                    "risk_blocked_count": int(metrics.get("risk_blocked_count") or 0),
+                    "pm_selected_count": int(metrics.get("pm_selected_count") or 0),
                     "sharpe_design": profile.get("sharpe_design"),
                     "sharpe_forward": metrics.get("shadow_sharpe"),
                     "profit_factor_design": profile.get("profit_factor_design"),
@@ -282,7 +268,7 @@ class DevelopmentOperationalSupervisor:
                     "design_profile": profile,
                     "forward_metrics": metrics,
                     "forward_run": run_by_trader.get(trader_id, {}),
-                    "risk_detail": detail,
+                    "review_detail": detail,
                 }
             )
         pending_retrain = [row for row in retrain_requests if str(row.get("status")) == "pending"]
@@ -293,17 +279,16 @@ class DevelopmentOperationalSupervisor:
             "profiles": profiles,
             "forward_metrics": forward_metrics,
             "forward_runs": forward_runs,
-            "portfolio_checks": portfolio_checks,
             "retrain_requests": retrain_requests,
             "pending_retrain_requests": pending_retrain,
             "trader_rows": trader_rows,
             "status": {
-                "last_evaluation_at": self.get_status().get("risk_last_evaluation_at"),
-                "last_evaluation_status": self.get_status().get("risk_last_evaluation_status"),
-                "last_evaluation_run_id": self.get_status().get("risk_last_evaluation_run_id"),
-                "last_evaluation_traders": self.get_status().get("risk_last_evaluation_traders"),
-                "last_force_evaluation_at": self.get_status().get("risk_last_force_evaluation_at"),
-                "last_retrain_processed_at": self.get_status().get("risk_last_retrain_processed_at"),
+                "last_run_at": self.get_status().get("trader_review_last_run_at"),
+                "last_status": self.get_status().get("trader_review_last_status"),
+                "last_run_id": self.get_status().get("trader_review_last_run_id"),
+                "last_traders": self.get_status().get("trader_review_last_traders"),
+                "last_force_run_at": self.get_status().get("trader_review_last_force_run_at"),
+                "last_retrain_processed_at": self.get_status().get("trader_review_last_retrain_processed_at"),
             },
         }
 
@@ -741,7 +726,7 @@ class DevelopmentOperationalSupervisor:
                 refresh_reason=refresh_reason,
             )
             try:
-                design_profile = build_design_risk_profile(
+                design_profile = build_trader_design_profile(
                     promoted_spec=promoted_spec,
                     validation_report=None,
                     backtest_summary={
@@ -1255,27 +1240,39 @@ class DevelopmentOperationalSupervisor:
         ts = pd.Timestamp(as_of or pd.Timestamp.utcnow().isoformat())
         return f"{ts.year:04d}-{ts.month:02d}"
 
-    def run_risk_monthly_evaluation(self, *, force: bool = False, as_of: str | None = None, force_backtest: bool = False) -> Dict[str, object]:
-        if not self.risk_agent.should_run_monthly_evaluation(as_of=pd.Timestamp(as_of).to_pydatetime() if as_of else None, force=force):
+    def run_trader_health_monthly_evaluation(self, *, force: bool = False, as_of: str | None = None, force_backtest: bool = False) -> Dict[str, object]:
+        """
+        Lanza la revision mensual de salud de los traders (HumanResourcesProcess).
+        Devuelve `skipped` si todavia no toca segun la politica del proceso.
+        """
+        if not self.human_resources_process.should_run_monthly_evaluation(
+            as_of=pd.Timestamp(as_of).to_pydatetime() if as_of else None,
+            force=force,
+        ):
             return {"status": "skipped", "reason": "not_due"}
-        snapshots = self.risk_agent.evaluate_trader_universe(
+        snapshots = self.human_resources_process.evaluate_trader_universe(
             evaluation_date=pd.Timestamp(as_of).to_pydatetime() if as_of else None,
             run_type="forced" if force else "scheduled_monthly",
             force_backtest=force_backtest,
         )
-        latest_run = self.ctx.store.list_risk_evaluation_runs(limit=1)
-        latest = latest_run[0] if latest_run else {}
+        latest_runs = self.ctx.store.list_trader_review_runs(limit=1)
+        latest = latest_runs[0] if latest_runs else {}
         self._set_status(
-            risk_last_evaluation_at=_utc_now_iso(),
-            risk_last_evaluation_status=str(latest.get("status") or "completed"),
-            risk_last_evaluation_run_id=str(latest.get("run_id") or ""),
-            risk_last_evaluation_traders=len(snapshots),
+            trader_review_last_run_at=_utc_now_iso(),
+            trader_review_last_status=str(latest.get("status") or "completed"),
+            trader_review_last_run_id=str(latest.get("run_id") or ""),
+            trader_review_last_traders=len(snapshots),
         )
         return {"status": str(latest.get("status") or "completed"), "run": latest, "snapshots": [snap.to_dict() for snap in snapshots]}
 
-    def force_risk_evaluation(self, *, force_backtest: bool = True) -> Dict[str, object]:
-        out = self.run_risk_monthly_evaluation(force=True, as_of=pd.Timestamp.utcnow().isoformat(), force_backtest=force_backtest)
-        self._set_status(risk_last_force_evaluation_at=_utc_now_iso())
+    def force_trader_health_evaluation(self, *, force_backtest: bool = True) -> Dict[str, object]:
+        """Atajo de UI para lanzar inmediatamente una revision de salud de traders."""
+        out = self.run_trader_health_monthly_evaluation(
+            force=True,
+            as_of=pd.Timestamp.utcnow().isoformat(),
+            force_backtest=force_backtest,
+        )
+        self._set_status(trader_review_last_force_run_at=_utc_now_iso())
         return out
 
     def process_pending_retrain_requests(self) -> Dict[str, object]:
@@ -1309,7 +1306,7 @@ class DevelopmentOperationalSupervisor:
                     raise RuntimeError("No se pudo promover un nuevo trader durante el retraining")
                 self.trader_agent.activate(val.promoted_spec)
                 self._promoted_registry[val.promoted_spec.trader_id] = val.promoted_spec
-                self._run_backtest_for_promoted(val.promoted_spec, refresh_reason="risk_retrain_request")
+                self._run_backtest_for_promoted(val.promoted_spec, refresh_reason="hr_retrain_request")
                 if self._runtime is not None:
                     self._runtime.upsert_trader(val.promoted_spec)
                 self.ctx.store.mark_retrain_request_completed(
@@ -1335,7 +1332,7 @@ class DevelopmentOperationalSupervisor:
                 )
                 failed.append({"request_id": request_id, "error": str(exc)})
         if requests:
-            self._set_status(risk_last_retrain_processed_at=_utc_now_iso())
+            self._set_status(trader_review_last_retrain_processed_at=_utc_now_iso())
         return {"processed": processed, "failed": failed, "pending_before": len(requests)}
 
     def _should_run_portfolio_monthly_refresh(self, *, as_of: str | None = None, force: bool = False) -> bool:
@@ -1380,17 +1377,15 @@ class DevelopmentOperationalSupervisor:
                 except Exception as exc:
                     failures.append({"trader_id": str(spec.trader_id), "error": str(exc)})
 
-            risk_out = self.run_risk_monthly_evaluation(force=force, as_of=str(as_of or refresh_result.cutoff_date), force_backtest=True)
-            retrain_out = self.process_pending_retrain_requests()
-            self.portfolio_manager_agent.sync_universe(promoted_specs)
-            model_info = self.portfolio_manager_agent.run_monthly_refresh_and_fine_tune(
-                history_loader=self.get_trader_history_frame,
-                as_of=str(as_of or refresh_result.cutoff_date),
+            trader_health_out = self.run_trader_health_monthly_evaluation(
                 force=force,
+                as_of=str(as_of or refresh_result.cutoff_date),
+                force_backtest=True,
             )
-            dataset_refresh = {}
-            if getattr(self.portfolio_manager_agent, "_latest_dataset", None) is not None:
-                dataset_refresh = dict((self.portfolio_manager_agent._latest_dataset.trade_metadata.get("dataset_refresh") or {}))
+            retrain_out = self.process_pending_retrain_requests()
+            # El PortfolioManagerProcess en modo GA+PSO no requiere entrenamiento mensual.
+            # Se sincroniza el universo y se ejecuta el rebalanceo en el runtime live (semanal).
+            self.portfolio_manager_process.sync_universe(promoted_specs)
             overall_status = "completed" if not failures else "completed_with_errors"
             self._set_status(
                 portfolio_last_refresh_month=month_token,
@@ -1398,7 +1393,7 @@ class DevelopmentOperationalSupervisor:
                 portfolio_last_refresh_cutoff_date=str(refresh_result.cutoff_date),
                 portfolio_last_refresh_status=overall_status,
                 portfolio_last_refresh_traders=len(refreshed_rows),
-                portfolio_last_refresh_mask_source=str(dataset_refresh.get("mask_source") or "unknown"),
+                portfolio_last_refresh_mask_source="real_backtest",
                 portfolio_last_refresh_backtests_status="ok" if not failures else "partial_error",
             )
             emit_log(
@@ -1409,8 +1404,7 @@ class DevelopmentOperationalSupervisor:
                 cutoff_date=str(refresh_result.cutoff_date),
                 n_traders=len(refreshed_rows),
                 failures=failures,
-                mask_source=str(dataset_refresh.get("mask_source") or "unknown"),
-                model_version=str((model_info or {}).get("model_version") or ""),
+                optimizer_mode="ga_pso",
             )
             return {
                 "status": overall_status,
@@ -1424,11 +1418,9 @@ class DevelopmentOperationalSupervisor:
                     "n_refreshed_symbols": refresh_result.n_refreshed_symbols,
                     "refreshed_symbols": refresh_result.refreshed_symbols,
                 },
-                "risk_evaluation": risk_out,
+                "trader_health_evaluation": trader_health_out,
                 "retrain_processing": retrain_out,
-                "mask_source": str(dataset_refresh.get("mask_source") or "unknown"),
-                "dataset_refresh": dataset_refresh,
-                "model_info": model_info or {},
+                "optimizer_mode": "ga_pso",
             }
         except Exception as exc:
             self._set_status(
@@ -1440,46 +1432,30 @@ class DevelopmentOperationalSupervisor:
             emit_log("supervisor", "portfolio_monthly_refresh_error", console=False, month_token=month_token, error=str(exc))
             raise
 
-    def force_portfolio_retraining_only(self) -> Dict[str, object]:
+    def force_portfolio_rebalance(self) -> Dict[str, object]:
+        """
+        Lanza un rebalanceo GA+PSO inmediato. Refresca primero los datos OHLC
+        y backtests para que el optimizador trabaje con la informacion mas
+        reciente y a continuacion solicita al runtime live ejecutar el
+        rebalanceo y actuar sobre el broker. No realiza ningun reentrenamiento
+        de modelos: la version anterior basada en PPO ha sido eliminada.
+        """
         now_iso = pd.Timestamp.utcnow().isoformat()
         refresh_out = self.run_portfolio_monthly_refresh(force=True, as_of=now_iso)
-        self._set_status(
-            portfolio_last_manual_retrain_at=_utc_now_iso(),
-            portfolio_last_manual_retrain_only_at=_utc_now_iso(),
-        )
-        emit_log(
-            "supervisor",
-            "portfolio_manual_retrain_only",
-            console=False,
-            refresh_status=str(refresh_out.get("status") or ""),
-            model_version=str((refresh_out.get("model_info") or {}).get("model_version") or ""),
-        )
-        return {
-            "refresh": refresh_out,
-            "rebalance": {"status": "not_requested", "reason": "manual_retrain_only"},
-        }
-
-    def force_portfolio_retraining_and_rebalance(self) -> Dict[str, object]:
-        now_iso = pd.Timestamp.utcnow().isoformat()
-        refresh_out = self.run_portfolio_monthly_refresh(force=True, as_of=now_iso)
-        self._set_status(
-            portfolio_last_manual_retrain_at=_utc_now_iso(),
-            portfolio_last_manual_retrain_and_rebalance_at=_utc_now_iso(),
-        )
         rebalance_out: Dict[str, object] = {}
         runtime_ready = self._runtime is not None or self._ensure_operational_runtime(force_start=True)
         if runtime_ready and self._runtime is not None and hasattr(self._runtime, "force_rebalance_now"):
-            rebalance_out = dict(self._runtime.force_rebalance_now(reason="manual_ui_retrain") or {})
+            rebalance_out = dict(self._runtime.force_rebalance_now(reason="manual_ui_rebalance") or {})
             self._set_status(portfolio_last_manual_rebalance_at=_utc_now_iso())
         else:
             rebalance_out = {"status": "runtime_not_started", "reason": "operational_runtime_required"}
         emit_log(
             "supervisor",
-            "portfolio_manual_retrain_and_rebalance",
+            "portfolio_manual_rebalance",
             console=False,
             refresh_status=str(refresh_out.get("status") or ""),
             rebalance_status=str(rebalance_out.get("status") or ""),
-            model_version=str((refresh_out.get("model_info") or {}).get("model_version") or ""),
+            optimizer_mode="ga_pso",
         )
         return {
             "refresh": refresh_out,
@@ -1542,8 +1518,7 @@ class DevelopmentOperationalSupervisor:
             )
         self._runtime = LiveTradingRuntime(
             trader_agent=self.trader_agent,
-            portfolio_manager=self.portfolio_manager_agent,
-            risk_agent=self.risk_agent,
+            portfolio_manager=self.portfolio_manager_process,
             promoted_specs=operational_specs,
             data_provider=provider,
             history_loader=self.get_trader_history_frame,
@@ -1724,16 +1699,13 @@ class DevelopmentOperationalSupervisor:
             portfolio_last_refresh_traders=0,
             portfolio_last_refresh_mask_source=None,
             portfolio_last_refresh_backtests_status=None,
-            portfolio_last_manual_retrain_at=None,
             portfolio_last_manual_rebalance_at=None,
-            portfolio_last_manual_retrain_only_at=None,
-            portfolio_last_manual_retrain_and_rebalance_at=None,
-            risk_last_evaluation_at=None,
-            risk_last_evaluation_status=None,
-            risk_last_evaluation_run_id=None,
-            risk_last_evaluation_traders=0,
-            risk_last_force_evaluation_at=None,
-            risk_last_retrain_processed_at=None,
+            trader_review_last_run_at=None,
+            trader_review_last_status=None,
+            trader_review_last_run_id=None,
+            trader_review_last_traders=0,
+            trader_review_last_force_run_at=None,
+            trader_review_last_retrain_processed_at=None,
         )
         with self._status_lock:
             self._backtest_registry = {}

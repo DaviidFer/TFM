@@ -1,21 +1,19 @@
-"""Agentes base de la Fase 4."""
+"""Agentes y procesos del sistema multiagente."""
 
 from .base import AgentContext
 from .developer_agent import DeveloperAgent, DevelopmentOutput
-from .portfolio_agent import PortfolioManagerAgent
-from .risk_agent import RiskAgent, RiskThresholds
-from .validation_agent import ValidationAgent, ValidationOutput
+from .human_resources_process import HumanResourcesProcess
+from .portfolio_manager_process import PortfolioManagerProcess
 from .trader_agent import TraderAgent
+from .validation_agent import ValidationAgent, ValidationOutput
 
 __all__ = [
     "AgentContext",
     "DeveloperAgent",
     "DevelopmentOutput",
-    "PortfolioManagerAgent",
-    "RiskAgent",
-    "RiskThresholds",
+    "HumanResourcesProcess",
+    "PortfolioManagerProcess",
+    "TraderAgent",
     "ValidationAgent",
     "ValidationOutput",
-    "TraderAgent",
 ]
-

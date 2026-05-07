@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from uuid import uuid4
 
-from app.agents import AgentContext, RiskAgent
-from app.contracts import DesignRiskProfile, PromotedTraderSpec, RiskLimitsConfig, TraderForwardMetrics, TraderLifecycleState
+from app.agents import AgentContext, HumanResourcesProcess
+from app.contracts import (
+    PromotedTraderSpec,
+    TraderDesignProfile,
+    TraderForwardMetrics,
+    TraderLifecycleState,
+)
 from app.runtime.development_operational_supervisor import DevelopmentOperationalSupervisor
 from app.storage import StateStore
 
@@ -13,21 +17,26 @@ from app.storage import StateStore
 def _tmp_db_path() -> Path:
     base = Path("app/.tmp/tests")
     base.mkdir(parents=True, exist_ok=True)
-    return base / f"risk_force_{uuid4().hex[:8]}.sqlite"
+    return base / f"hr_force_{uuid4().hex[:8]}.sqlite"
 
 
-def test_risk_agent_force_evaluation_persists_snapshots(monkeypatch) -> None:
+def test_human_resources_force_evaluation_persists_snapshots(monkeypatch) -> None:
+    """
+    `HumanResourcesProcess.force_evaluation` debe ejecutar la revision de
+    salud sobre todos los traders promovidos, persistir un `trader_review_run`
+    con su detalle por trader y marcar a los enfermos como RETRAINING.
+    """
     store = StateStore(db_path=_tmp_db_path())
     ctx = AgentContext(store=store, artifacts_root=Path("app/.tmp/tests"))
-    agent = RiskAgent(ctx)
+    process = HumanResourcesProcess(ctx)
     spec_a = PromotedTraderSpec(trader_id="tr_A", asset="AAPL", timeframe="D1", long_rules=["r1"], short_rules=[], origin_experiment_id="exp1")
     spec_b = PromotedTraderSpec(trader_id="tr_B", asset="MSFT", timeframe="D1", long_rules=["r2"], short_rules=[], origin_experiment_id="exp2")
     store.upsert_trader_state(trader_id="tr_A", asset="AAPL", timeframe="D1", state=TraderLifecycleState.LIVE)
     store.upsert_trader_state(trader_id="tr_B", asset="MSFT", timeframe="D1", state=TraderLifecycleState.LIVE)
-    monkeypatch.setattr(agent, "_load_promoted_specs", lambda: {"tr_A": spec_a, "tr_B": spec_b})
+    monkeypatch.setattr(process, "_load_promoted_specs", lambda: {"tr_A": spec_a, "tr_B": spec_b})
 
     def _profile(spec):
-        return DesignRiskProfile(
+        return TraderDesignProfile(
             trader_id=spec.trader_id,
             asset=spec.asset,
             timeframe=spec.timeframe,
@@ -42,7 +51,7 @@ def test_risk_agent_force_evaluation_persists_snapshots(monkeypatch) -> None:
             trades_design=50,
         )
 
-    monkeypatch.setattr(agent, "_build_design_profile", _profile)
+    monkeypatch.setattr(process, "_build_design_profile", _profile)
 
     def _forward(**kwargs):
         trader_id = kwargs["trader_id"]
@@ -65,7 +74,7 @@ def test_risk_agent_force_evaluation_persists_snapshots(monkeypatch) -> None:
                 shadow_expectancy=1.5,
                 shadow_losing_streak=3,
                 signal_count=18,
-                ppo_selected_count=10,
+                pm_selected_count=10,
             )
         return TraderForwardMetrics(
             trader_id=trader_id,
@@ -85,34 +94,33 @@ def test_risk_agent_force_evaluation_persists_snapshots(monkeypatch) -> None:
             shadow_expectancy=-5.0,
             shadow_losing_streak=8,
             signal_count=30,
-            ppo_selected_count=0,
-            ppo_blocked_count=6,
+            pm_selected_count=0,
         )
 
-    monkeypatch.setattr(agent.forward_service, "run_forward_backtest_for_trader", _forward)
-    snapshots = agent.force_risk_evaluation()
+    monkeypatch.setattr(process.forward_service, "run_forward_backtest_for_trader", _forward)
+    snapshots = process.force_evaluation()
     assert len(snapshots) == 2
-    runs = store.list_risk_evaluation_runs()
-    details = store.list_risk_evaluation_details()
+    runs = store.list_trader_review_runs()
+    details = store.list_trader_review_details()
     assert runs[0]["evaluated_traders"] == 2
     assert len(details) == 2
     assert any(row["action"] == "retraining" for row in details)
 
 
-def test_supervisor_force_risk_evaluation_updates_status(monkeypatch) -> None:
+def test_supervisor_force_trader_health_evaluation_updates_status(monkeypatch) -> None:
     supervisor = DevelopmentOperationalSupervisor(db_path=_tmp_db_path())
     monkeypatch.setattr(
-        supervisor.risk_agent,
+        supervisor.human_resources_process,
         "evaluate_trader_universe",
         lambda **kwargs: [],
     )
     monkeypatch.setattr(
         supervisor.ctx.store,
-        "list_risk_evaluation_runs",
-        lambda limit=1: [{"run_id": "risk_test", "status": "completed", "evaluated_traders": 0, "started_at": "2026-04-01T00:00:00+00:00"}],
+        "list_trader_review_runs",
+        lambda limit=1: [{"run_id": "hr_test", "status": "completed", "evaluated_traders": 0, "started_at": "2026-04-01T00:00:00+00:00"}],
     )
-    out = supervisor.force_risk_evaluation(force_backtest=False)
+    out = supervisor.force_trader_health_evaluation(force_backtest=False)
     status = supervisor.get_status()
     assert out["status"] == "completed"
-    assert status["risk_last_force_evaluation_at"] is not None
-    assert status["risk_last_evaluation_run_id"] == "risk_test"
+    assert status["trader_review_last_force_run_at"] is not None
+    assert status["trader_review_last_run_id"] == "hr_test"

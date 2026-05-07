@@ -1,6 +1,12 @@
-from .forward_backtest_service import ForwardBacktestService, build_design_risk_profile
+"""
+Servicios cuantitativos que utiliza HumanResourcesProcess para evaluar la
+salud de los traders promovidos. Aqui solo viven funciones puras de calculo
+de metricas y un servicio que ejecuta el backtest forward post-promocion.
+"""
+
+from .forward_backtest_service import ForwardBacktestService, build_trader_design_profile
 from .health_scoring import evaluate_trader_health
-from .risk_metrics import (
+from .metrics import (
     align_development_and_forward_curves,
     build_metric_comparison_table,
     compute_avg_loss,
@@ -16,7 +22,7 @@ from .risk_metrics import (
 
 __all__ = [
     "ForwardBacktestService",
-    "build_design_risk_profile",
+    "build_trader_design_profile",
     "evaluate_trader_health",
     "compute_sharpe",
     "compute_profit_factor",

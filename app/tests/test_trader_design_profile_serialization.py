@@ -3,19 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from app.contracts import DesignRiskProfile
+from app.contracts import TraderDesignProfile
 from app.storage import StateStore
 
 
 def _tmp_db_path() -> Path:
     base = Path("app/.tmp/tests")
     base.mkdir(parents=True, exist_ok=True)
-    return base / f"risk_profile_{uuid4().hex[:8]}.sqlite"
+    return base / f"design_profile_{uuid4().hex[:8]}.sqlite"
 
 
-def test_design_risk_profile_serialization_roundtrip() -> None:
+def test_trader_design_profile_serialization_roundtrip() -> None:
     store = StateStore(db_path=_tmp_db_path())
-    profile = DesignRiskProfile(
+    profile = TraderDesignProfile(
         trader_id="tr_A",
         asset="AAPL",
         timeframe="D1",
@@ -42,7 +42,7 @@ def test_design_risk_profile_serialization_roundtrip() -> None:
     )
     loaded = store.get_trader_design_profile("tr_A")
     assert loaded is not None
-    restored = DesignRiskProfile(**dict(loaded["profile"]))
+    restored = TraderDesignProfile(**dict(loaded["profile"]))
     assert restored.trader_id == profile.trader_id
     assert restored.asset == profile.asset
     assert restored.sharpe_design == profile.sharpe_design

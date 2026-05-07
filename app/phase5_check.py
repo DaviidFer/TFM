@@ -7,13 +7,17 @@ from uuid import uuid4
 from app.agents import (
     AgentContext,
     DeveloperAgent,
-    PortfolioManagerAgent,
-    RiskAgent,
-    RiskThresholds,
+    PortfolioManagerProcess,
     TraderAgent,
     ValidationAgent,
 )
-from app.contracts import TraderLiveMetrics, TraderLifecycleState
+from app.contracts import (
+    AgentKind,
+    EventType,
+    RetrainRequest,
+    TraderLifecycleState,
+    TraderLiveMetrics,
+)
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.orchestrator import RuntimeOrchestrator
 from app.services import DataProcess
@@ -25,6 +29,12 @@ def utc_now_iso() -> str:
 
 
 def main(*, db_path: Path | None = None) -> int:
+    """
+    Phase 5 check: valida el flujo end-to-end de retraining sin depender del
+    antiguo `RiskAgent`. Se simula la decision del HumanResourcesProcess
+    emitiendo directamente un `RetrainRequest`, que el orquestador consume
+    para crear un trader sustituto.
+    """
     print("=== Phase 5 Check ===")
     db_path = db_path or Path("app/.tmp/phase5/phase5.sqlite")
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,8 +53,7 @@ def main(*, db_path: Path | None = None) -> int:
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
-    risk_agent = RiskAgent(ctx, thresholds=RiskThresholds(max_drawdown=0.20, min_sharpe=-0.8, min_trades=5))
-    portfolio_agent = PortfolioManagerAgent(ctx)
+    portfolio_manager_process = PortfolioManagerProcess(ctx)
     orchestrator = RuntimeOrchestrator(
         data_process=data_process,
         developer_agent=developer_agent,
@@ -74,7 +83,6 @@ def main(*, db_path: Path | None = None) -> int:
         trader_id=live.trader_id,
     )
 
-    # Publicar métricas degradadas para forzar acción de riesgo.
     degraded = TraderLiveMetrics(
         trader_id=live.trader_id,
         as_of=utc_now_iso(),
@@ -85,18 +93,33 @@ def main(*, db_path: Path | None = None) -> int:
         extra_metrics={"corr_penalty": 0.15},
     )
     trader_agent.publish_metrics(degraded, correlation_id=val.promoted_spec.origin_experiment_id)
-    decision = risk_agent.assess_trader(
+
+    # Simulamos la decision del HumanResourcesProcess: el trader ya no esta sano,
+    # se manda a reentrenamiento. Emitimos directamente el RetrainRequest.
+    retrain = RetrainRequest(
+        request_id=f"rr_{uuid4().hex[:10]}",
         trader_id=live.trader_id,
         asset=val.promoted_spec.asset,
         timeframe=val.promoted_spec.timeframe,
+        reason="phase5_simulated_health_breach",
+        requested_by=AgentKind.HUMAN_RESOURCES,
+        context={"phase": "phase5_check"},
     )
-    if decision is None:
-        raise RuntimeError("RiskAgent did not produce a decision.")
-    print(f"risk_decision: action={decision.action} reason={decision.reason}")
-    if decision.action != "retraining":
-        raise RuntimeError("Expected retraining action in phase5 scenario.")
+    ctx.store.upsert_trader_state(
+        trader_id=live.trader_id,
+        asset=val.promoted_spec.asset,
+        timeframe=val.promoted_spec.timeframe,
+        state=TraderLifecycleState.RETRAINING,
+        notes="phase5: simulated retraining trigger",
+    )
+    ctx.store.append_event(
+        event_id=f"evt_{uuid4().hex[:10]}",
+        event_type=EventType.RETRAIN_REQUESTED,
+        producer="phase5_check",
+        payload=retrain.to_dict(),
+        correlation_id=retrain.request_id,
+    )
 
-    # El orquestador consume retrain_requested y crea nuevo ciclo.
     processed = orchestrator.process_pending_retrain_events(
         asset_csv_by_asset={"AAPL": "datos/Stocks/AAPL.csv"},
         families=("decision_tree", "rulefit", "genetico", "quantile"),
@@ -112,8 +135,7 @@ def main(*, db_path: Path | None = None) -> int:
     print(f"retrain_processed: count={len(processed)} new_trader={processed[0]['trader_id']}")
     emit_log("phase5_check", "retrain_processed", processed=processed)
 
-    # Portfolio v1 sobre métricas live actuales
-    pm = portfolio_agent.rebalance(as_of=utc_now_iso(), max_weight=0.7, min_score=-0.5)
+    pm = portfolio_manager_process.rebalance(as_of=utc_now_iso(), max_weight=0.7, min_score=-0.5)
     print(f"portfolio_decision: selected={len(pm.selected_traders)} weights={pm.weights}")
     emit_log(
         "phase5_check",
@@ -122,7 +144,6 @@ def main(*, db_path: Path | None = None) -> int:
         weights=pm.weights,
     )
 
-    # Validaciones finales de estado/eventos
     old_state = ctx.store.get_trader_state(live.trader_id)
     if old_state is None or old_state.state != TraderLifecycleState.RETRAINING:
         raise RuntimeError("Original trader should be in RETRAINING state.")
@@ -144,4 +165,3 @@ def main(*, db_path: Path | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -15,7 +15,7 @@ class DashboardSnapshot:
     trader_metrics: List[Dict[str, object]]
     events: List[Dict[str, object]]
     summary: Dict[str, object]
-    risk_summary: Dict[str, object]
+    human_resources_summary: Dict[str, object]
 
 
 def load_dashboard_snapshot(db_path: str | Path, *, event_limit: int = 200) -> DashboardSnapshot:
@@ -59,10 +59,10 @@ def load_dashboard_snapshot(db_path: str | Path, *, event_limit: int = 200) -> D
         "traders_by_state": by_state,
         "events_by_type": by_event_type,
     }
-    latest_risk_runs = store.list_risk_evaluation_runs(limit=1)
-    latest_risk = latest_risk_runs[0] if latest_risk_runs else {}
-    risk_summary = {
-        "latest_run": latest_risk,
+    latest_review_runs = store.list_trader_review_runs(limit=1)
+    latest_review = latest_review_runs[0] if latest_review_runs else {}
+    human_resources_summary = {
+        "latest_run": latest_review,
         "pending_retrain_requests": len(store.list_pending_retrain_requests(limit=1000)),
     }
 
@@ -73,6 +73,5 @@ def load_dashboard_snapshot(db_path: str | Path, *, event_limit: int = 200) -> D
         trader_metrics=trader_metrics,
         events=events,
         summary=summary,
-        risk_summary=risk_summary,
+        human_resources_summary=human_resources_summary,
     )
-

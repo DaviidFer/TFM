@@ -1,23 +1,24 @@
-"""Contratos compartidos entre agentes."""
+"""Contratos compartidos entre agentes y procesos del sistema."""
 
-from .enums import AgentKind, AgentStatus, EventType, RiskAction, TraderLifecycleState
+from .enums import (
+    AgentKind,
+    AgentStatus,
+    EventType,
+    TraderLifecycleState,
+    TraderReviewAction,
+)
 from .models import (
     CandidateRules,
-    DesignRiskProfile,
     DatasetContract,
     EventRecord,
     ExperimentConfig,
     PortfolioDecision,
-    PortfolioForwardEvaluation,
-    PortfolioModelInfo,
     PortfolioRebalanceSnapshot,
-    PortfolioTrainingRun,
     PromotedTraderSpec,
     RetrainRequest,
-    RiskAdjustedPortfolioDecision,
-    RiskDecision,
-    RiskLimitsConfig,
+    TraderDesignProfile,
     TraderForwardMetrics,
+    TraderHealthConfig,
     TraderHealthSnapshot,
     TraderLiveMetrics,
     ValidationReport,
@@ -27,8 +28,8 @@ __all__ = [
     "AgentKind",
     "AgentStatus",
     "EventType",
-    "RiskAction",
     "TraderLifecycleState",
+    "TraderReviewAction",
     "DatasetContract",
     "ExperimentConfig",
     "CandidateRules",
@@ -36,17 +37,11 @@ __all__ = [
     "PromotedTraderSpec",
     "TraderLiveMetrics",
     "PortfolioDecision",
-    "PortfolioModelInfo",
-    "PortfolioTrainingRun",
-    "PortfolioForwardEvaluation",
     "PortfolioRebalanceSnapshot",
-    "DesignRiskProfile",
+    "TraderDesignProfile",
     "TraderForwardMetrics",
+    "TraderHealthConfig",
     "TraderHealthSnapshot",
-    "RiskLimitsConfig",
-    "RiskDecision",
-    "RiskAdjustedPortfolioDecision",
     "RetrainRequest",
     "EventRecord",
 ]
-

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from app.contracts import DesignRiskProfile, RiskAction, RiskLimitsConfig, TraderForwardMetrics
-from app.services.risk import evaluate_trader_health
+from app.contracts import (
+    TraderDesignProfile,
+    TraderForwardMetrics,
+    TraderHealthConfig,
+    TraderReviewAction,
+)
+from app.services.trader_health import evaluate_trader_health
 
 
-def _design_profile() -> DesignRiskProfile:
-    return DesignRiskProfile(
+def _design_profile() -> TraderDesignProfile:
+    return TraderDesignProfile(
         trader_id="tr_A",
         asset="AAPL",
         timeframe="D1",
@@ -29,7 +34,7 @@ def test_trader_sano_returns_keep() -> None:
             trader_id="tr_A",
             asset="AAPL",
             timeframe="D1",
-            evaluation_run_id="risk_1",
+            evaluation_run_id="hr_1",
             promoted_at="2026-01-01T00:00:00+00:00",
             evaluation_date="2026-03-01T00:00:00+00:00",
             forward_start="2026-01-01",
@@ -44,12 +49,12 @@ def test_trader_sano_returns_keep() -> None:
             shadow_expectancy=2.5,
             shadow_losing_streak=3,
             signal_count=18,
-            ppo_selected_count=12,
+            pm_selected_count=12,
         ),
         current_state="live",
-        limits=RiskLimitsConfig(),
+        config=TraderHealthConfig(),
     )
-    assert snapshot.action == RiskAction.KEEP.value
+    assert snapshot.action == TraderReviewAction.KEEP.value
     assert snapshot.health_score >= 60.0
 
 
@@ -61,7 +66,7 @@ def test_pocos_trades_no_retraining() -> None:
             trader_id="tr_A",
             asset="AAPL",
             timeframe="D1",
-            evaluation_run_id="risk_2",
+            evaluation_run_id="hr_2",
             promoted_at="2026-01-01T00:00:00+00:00",
             evaluation_date="2026-01-20T00:00:00+00:00",
             forward_start="2026-01-01",
@@ -73,9 +78,9 @@ def test_pocos_trades_no_retraining() -> None:
             insufficient_evidence=True,
         ),
         current_state="live",
-        limits=RiskLimitsConfig(),
+        config=TraderHealthConfig(),
     )
-    assert snapshot.action == RiskAction.KEEP.value
+    assert snapshot.action == TraderReviewAction.KEEP.value
     assert snapshot.retrain_request is None
 
 
@@ -87,7 +92,7 @@ def test_profit_factor_deteriorado_returns_retraining() -> None:
             trader_id="tr_A",
             asset="AAPL",
             timeframe="D1",
-            evaluation_run_id="risk_3",
+            evaluation_run_id="hr_3",
             promoted_at="2026-01-01T00:00:00+00:00",
             evaluation_date="2026-03-01T00:00:00+00:00",
             forward_start="2026-01-01",
@@ -101,9 +106,9 @@ def test_profit_factor_deteriorado_returns_retraining() -> None:
             shadow_expectancy=0.5,
         ),
         current_state="live",
-        limits=RiskLimitsConfig(),
+        config=TraderHealthConfig(),
     )
-    assert snapshot.action == RiskAction.RETRAINING.value
+    assert snapshot.action == TraderReviewAction.RETRAINING.value
     assert snapshot.retrain_request is not None
 
 
@@ -114,7 +119,7 @@ def test_drawdown_severo_returns_retraining() -> None:
             trader_id="tr_A",
             asset="AAPL",
             timeframe="D1",
-            evaluation_run_id="risk_4",
+            evaluation_run_id="hr_4",
             promoted_at="2026-01-01T00:00:00+00:00",
             evaluation_date="2026-04-01T00:00:00+00:00",
             forward_start="2026-01-01",
@@ -127,13 +132,12 @@ def test_drawdown_severo_returns_retraining() -> None:
             shadow_losing_streak=6,
             shadow_expectancy=-2.0,
             signal_count=30,
-            ppo_selected_count=5,
-            ppo_blocked_count=4,
+            pm_selected_count=5,
         ),
         current_state="live",
-        limits=RiskLimitsConfig(),
+        config=TraderHealthConfig(),
     )
-    assert snapshot.action == RiskAction.RETRAINING.value
+    assert snapshot.action == TraderReviewAction.RETRAINING.value
     assert snapshot.retrain_request is not None
 
 
@@ -144,7 +148,7 @@ def test_many_trades_and_low_health_returns_retraining() -> None:
             trader_id="tr_A",
             asset="AAPL",
             timeframe="D1",
-            evaluation_run_id="risk_5",
+            evaluation_run_id="hr_5",
             promoted_at="2026-01-01T00:00:00+00:00",
             evaluation_date="2026-05-01T00:00:00+00:00",
             forward_start="2026-01-01",
@@ -158,11 +162,10 @@ def test_many_trades_and_low_health_returns_retraining() -> None:
             shadow_expectancy=-8.0,
             shadow_losing_streak=10,
             signal_count=40,
-            ppo_selected_count=0,
-            ppo_blocked_count=12,
+            pm_selected_count=0,
         ),
         current_state="live",
-        limits=RiskLimitsConfig(),
+        config=TraderHealthConfig(),
     )
-    assert snapshot.action == RiskAction.RETRAINING.value
+    assert snapshot.action == TraderReviewAction.RETRAINING.value
     assert snapshot.retrain_request is not None

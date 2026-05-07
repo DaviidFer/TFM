@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Mapping
 
-from app.agents import DeveloperAgent, PortfolioManagerAgent, TraderAgent, ValidationAgent
+from app.agents import DeveloperAgent, PortfolioManagerProcess, TraderAgent, ValidationAgent
 from app.contracts import PromotedTraderSpec, TraderLiveMetrics
 from app.core.structured_logging import emit_log
 from app.services import DataProcess
@@ -40,13 +40,13 @@ class SimulationRuntime:
         developer_agent: DeveloperAgent,
         validation_agent: ValidationAgent,
         trader_agent: TraderAgent,
-        portfolio_agent: PortfolioManagerAgent,
+        portfolio_manager_process: PortfolioManagerProcess,
     ) -> None:
         self.data_process = data_process
         self.developer_agent = developer_agent
         self.validation_agent = validation_agent
         self.trader_agent = trader_agent
-        self.portfolio_agent = portfolio_agent
+        self.portfolio_manager_process = portfolio_manager_process
         self._promoted_registry: Dict[str, PromotedTraderSpec] = {}
 
     def get_promoted_registry(self) -> Dict[str, PromotedTraderSpec]:
@@ -233,7 +233,7 @@ class SimulationRuntime:
         max_weight: float = 0.7,
         min_score: float = -0.25,
     ) -> list[str]:
-        decision = self.portfolio_agent.rebalance(
+        decision = self.portfolio_manager_process.rebalance(
             as_of=as_of or utc_now_iso(),
             max_weight=max_weight,
             min_score=min_score,

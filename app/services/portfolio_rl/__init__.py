@@ -1,29 +1,22 @@
-from .artifacts import PortfolioArtifactsManager
-from .config import PPOPortfolioConfig
+"""
+Servicios de portfolio compartidos (no PPO).
+
+Originalmente este paquete contenia el stack PPO (PPOTrainer, MaskedPortfolioPolicy,
+PPOInferenceService, WeeklyPortfolioEnv, PortfolioDatasetBuilder, etc.). Tras la
+refactorizacion a un optimizador hibrido GA + PSO, se ha eliminado todo el codigo
+de RL/PPO del proyecto. El paquete se mantiene unicamente para los servicios
+auxiliares que NO son PPO y que aun siguen en uso desde el supervisor:
+
+- `PortfolioOHLCRefreshService`: refresco mensual de datos OHLC de los activos
+  necesarios para los traders promovidos.
+- `UniverseRegistry`: persistencia del universo de traders promovidos.
+"""
+
 from .data_refresh import OHLCRefreshResult, PortfolioOHLCRefreshService
-from .dataset_builder import PortfolioDatasetBuilder, PortfolioUniverseMember
-from .env import WeeklyPortfolioEnv
-from .evaluator import PortfolioPolicyEvaluator
-from .feature_builder import PortfolioDataset, build_weekly_feature_dataset
-from .inference import PPOInferenceService
-from .policy import MaskedPortfolioPolicy
-from .ppo_trainer import PPOTrainer
 from .universe_registry import UniverseRegistry
 
 __all__ = [
-    "PPOPortfolioConfig",
     "OHLCRefreshResult",
     "PortfolioOHLCRefreshService",
-    "PortfolioArtifactsManager",
-    "PortfolioDatasetBuilder",
-    "PortfolioUniverseMember",
-    "PortfolioDataset",
-    "build_weekly_feature_dataset",
-    "WeeklyPortfolioEnv",
-    "MaskedPortfolioPolicy",
-    "PPOTrainer",
-    "PortfolioPolicyEvaluator",
-    "PPOInferenceService",
     "UniverseRegistry",
 ]
- 

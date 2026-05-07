@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Dict, Mapping
 from uuid import uuid4
@@ -8,9 +7,9 @@ from uuid import uuid4
 import pandas as pd
 
 from app.toolbox.backtest_eventos.runner import run_event_backtest
-from app.contracts import DesignRiskProfile, PromotedTraderSpec, TraderForwardMetrics
+from app.contracts import PromotedTraderSpec, TraderDesignProfile, TraderForwardMetrics
 from app.core.structured_logging import emit_log
-from app.services.risk.risk_metrics import (
+from app.services.trader_health.metrics import (
     compute_avg_loss,
     compute_avg_win,
     compute_expectancy,
@@ -145,12 +144,16 @@ def _compute_profile_metrics(
     }
 
 
-def build_design_risk_profile(
+def build_trader_design_profile(
     promoted_spec: PromotedTraderSpec,
     validation_report: Mapping[str, Any] | None,
     backtest_summary: Mapping[str, Any] | None,
     backtest_artifacts: Mapping[str, Any] | None,
-) -> DesignRiskProfile:
+) -> TraderDesignProfile:
+    """
+    Construye el perfil de diseno del trader a partir de su backtest historico.
+    Es el "DNI" contra el que se comparara su comportamiento forward post-promocion.
+    """
     summary = dict(backtest_summary or {})
     artifacts = dict(backtest_artifacts or {})
     metadata = {
@@ -177,7 +180,7 @@ def build_design_risk_profile(
     metrics = _compute_profile_metrics(pnl_df=pnl_df, trades_df=trades_df, initial_capital=initial_capital)
     trade_stats = dict(summary.get("trade_stats") or {})
 
-    return DesignRiskProfile(
+    return TraderDesignProfile(
         trader_id=str(promoted_spec.trader_id),
         asset=str(promoted_spec.asset).upper(),
         timeframe=str(promoted_spec.timeframe).upper(),
@@ -201,6 +204,13 @@ def build_design_risk_profile(
 
 
 class ForwardBacktestService:
+    """
+    Ejecuta el backtest forward post-promocion para un trader: corre sus reglas
+    sobre datos OOS reales (desde su fecha de promocion hasta la fecha de
+    evaluacion) y calcula `TraderForwardMetrics` para que `evaluate_trader_health`
+    lo compare contra `TraderDesignProfile`.
+    """
+
     def __init__(self, *, store: Any, artifacts_root: Path) -> None:
         self.store = store
         self.artifacts_root = Path(artifacts_root)
@@ -219,6 +229,11 @@ class ForwardBacktestService:
         raise FileNotFoundError(f"No CSV encontrado para {promoted_spec.asset}")
 
     def _executed_metrics(self, trader_id: str, evaluation_date: str) -> Dict[str, Any]:
+        """
+        Reconstruye que paso REALMENTE en operativa con las senales de este
+        trader: cuantas se ejecutaron, cuantas selecciono el PortfolioManagerProcess,
+        que pnl real produjo. Lee del audit log live.
+        """
         audits = list(self.store.list_trader_signal_audit(trader_id=trader_id, limit=5000))
         if not audits:
             return {}
@@ -227,8 +242,7 @@ class ForwardBacktestService:
         if not filtered:
             return {}
         executed = [row for row in filtered if bool(row.get("executed"))]
-        selected = [row for row in filtered if bool(row.get("ppo_selected"))]
-        blocked = [row for row in filtered if not bool(row.get("risk_approved"))]
+        selected = [row for row in filtered if bool(row.get("pm_selected"))]
         executed_returns = pd.Series([float(r.get("executed_return") or 0.0) for r in executed], dtype="float64")
         return {
             "executed_trades": int(len(executed)),
@@ -237,15 +251,14 @@ class ForwardBacktestService:
             "executed_sharpe": compute_sharpe(executed_returns, annualization=52.0) if not executed_returns.empty else None,
             "executed_profit_factor": compute_profit_factor(executed_returns) if not executed_returns.empty else None,
             "executed_max_drawdown": compute_max_drawdown((1.0 + executed_returns).cumprod()) if not executed_returns.empty else None,
-            "ppo_selected_count": int(len(selected)),
-            "risk_blocked_count": int(len(blocked)),
+            "pm_selected_count": int(len(selected)),
         }
 
     def run_forward_backtest_for_trader(
         self,
         trader_id: str,
         promoted_spec: PromotedTraderSpec,
-        design_profile: DesignRiskProfile,
+        design_profile: TraderDesignProfile,
         evaluation_date: str,
         data_source: Any,
         artifacts_root: Path | None = None,
@@ -259,12 +272,12 @@ class ForwardBacktestService:
         raw_df[date_col] = _to_naive_datetime_series(raw_df[date_col])
         raw_df = raw_df.dropna(subset=[date_col]).sort_values(date_col)
         if raw_df.empty:
-            raise ValueError(f"CSV sin fechas válidas para {promoted_spec.asset}")
+            raise ValueError(f"CSV sin fechas validas para {promoted_spec.asset}")
         last_date = min(_to_naive_timestamp(raw_df[date_col].max()), eval_ts)
         forward_start = promoted_ts.normalize()
-        evaluation_run_id = str(evaluation_run_id or f"risk_{uuid4().hex[:10]}")
+        evaluation_run_id = str(evaluation_run_id or f"hr_{uuid4().hex[:10]}")
         run_id = f"fw_{trader_id}_{uuid4().hex[:8]}"
-        output_root = Path(artifacts_root or self.artifacts_root) / "risk_forward" / trader_id / run_id
+        output_root = Path(artifacts_root or self.artifacts_root) / "trader_health_forward" / trader_id / run_id
         output_root.mkdir(parents=True, exist_ok=True)
 
         if last_date <= forward_start or raw_df.loc[raw_df[date_col] >= forward_start].shape[0] < 15:
@@ -365,9 +378,7 @@ class ForwardBacktestService:
             shadow_expectancy=compute_expectancy(trades_norm),
             shadow_losing_streak=compute_losing_streak(trades_norm),
             signal_count=int(len(trades_norm)),
-            ppo_selected_count=int(executed.get("ppo_selected_count") or 0),
-            ppo_blocked_count=max(0, int(len(trades_norm)) - int(executed.get("ppo_selected_count") or 0)),
-            risk_blocked_count=int(executed.get("risk_blocked_count") or 0),
+            pm_selected_count=int(executed.get("pm_selected_count") or 0),
             insufficient_evidence=bool(len(trades_norm) == 0),
             metadata={
                 "design_profile": design_profile.to_dict(),
@@ -401,7 +412,7 @@ class ForwardBacktestService:
             metrics=metrics.to_dict(),
         )
         emit_log(
-            "risk_forward",
+            "trader_health_forward",
             "forward_backtest_completed",
             console=False,
             trader_id=trader_id,

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from queue import Queue
 
-from app.agents import AgentContext, DeveloperAgent, PortfolioManagerAgent, TraderAgent, ValidationAgent
+from app.agents import AgentContext, DeveloperAgent, PortfolioManagerProcess, TraderAgent, ValidationAgent
 from app.core.structured_logging import LOG_FILE_PATH, emit_log
 from app.execution.local_data_provider import LocalMarketDataProvider
 from app.execution.models import ExecutionMode
@@ -57,13 +57,13 @@ def main(*, db_path: Path | None = None) -> int:
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
     # Portfolio/Risk quedan temporalmente fuera de esta fase live MVP.
-    portfolio_agent = PortfolioManagerAgent(ctx)
+    portfolio_manager_process = PortfolioManagerProcess(ctx)
     simulation = SimulationRuntime(
         data_process=data_process,
         developer_agent=developer_agent,
         validation_agent=validation_agent,
         trader_agent=trader_agent,
-        portfolio_agent=portfolio_agent,
+        portfolio_manager_process=portfolio_manager_process,
     )
 
     emit_log(

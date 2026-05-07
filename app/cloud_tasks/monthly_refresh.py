@@ -16,12 +16,12 @@ def main() -> int:
     try:
         supervisor = build_supervisor()
         refresh_out = supervisor.run_portfolio_monthly_refresh(force=True, as_of=_now_iso())
-        risk_out = supervisor.force_risk_evaluation(force_backtest=True)
+        trader_health_out = supervisor.force_trader_health_evaluation(force_backtest=True)
         retrain_out = supervisor.process_pending_retrain_requests()
         result = {
             "status": "completed",
             "refresh": refresh_out,
-            "risk": risk_out,
+            "trader_health": trader_health_out,
             "retrain_requests": retrain_out,
         }
     except Exception as exc:

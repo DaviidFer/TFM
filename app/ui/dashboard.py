@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 
 from app.runtime import DevelopmentOperationalSupervisor
-from app.services.risk import align_development_and_forward_curves, build_metric_comparison_table
+from app.services.trader_health import align_development_and_forward_curves, build_metric_comparison_table
 from app.ui.dashboard_data import load_dashboard_snapshot
 
 
@@ -147,82 +147,49 @@ def _sanitize_line_chart_frame(df: pd.DataFrame, *, index_name: str | None = Non
     return work.dropna(axis=1, how="all")
 
 
-def _build_ppo_run_figures(
+def _build_portfolio_curve_figures(
     *,
-    history_df: pd.DataFrame,
-    curve_frames: Dict[str, pd.DataFrame],
-    forward_frames: Dict[str, pd.DataFrame],
+    portfolio_curve: pd.DataFrame,
     latest_weights: Dict[str, float],
 ) -> List[Any]:
+    """
+    Genera las figuras del Portfolio Manager para el modo GA+PSO:
+    - curva historica de la cartera seleccionada vs. equal-weight,
+    - asignacion de pesos por trader.
+    """
     figures: List[Any] = []
 
-    fig_reward, ax_reward = plt.subplots(figsize=(6, 2.8))
-    if not history_df.empty and {"step", "average_reward"}.issubset(history_df.columns):
-        ax_reward.plot(history_df["step"], history_df["average_reward"], color="tab:blue")
-        ax_reward.set_title("Reward media PPO")
-        ax_reward.grid(True, alpha=0.2)
+    fig_curves, ax_curves = plt.subplots(figsize=(6, 3))
+    plotted = False
+    if portfolio_curve is not None and not portfolio_curve.empty:
+        for col in portfolio_curve.columns:
+            ax_curves.plot(
+                portfolio_curve.index,
+                portfolio_curve[col].astype(float) * 100.0,
+                label=str(col),
+            )
+            plotted = True
+    if plotted:
+        ax_curves.set_title("Curva acumulada cartera GA+PSO vs. equal weight (%)")
+        ax_curves.set_ylabel("%")
+        ax_curves.legend(fontsize=8)
+        ax_curves.grid(True, alpha=0.2)
     else:
-        ax_reward.text(0.5, 0.5, "Sin historial PPO", ha="center", va="center")
-        ax_reward.set_axis_off()
-    figures.append(fig_reward)
-
-    fig_loss, ax_loss = plt.subplots(figsize=(6, 2.8))
-    plotted_loss = False
-    if not history_df.empty and "step" in history_df.columns:
-        for key in ("policy_loss", "value_loss", "entropy", "approx_kl", "clip_fraction", "explained_variance"):
-            if key in history_df.columns:
-                ax_loss.plot(history_df["step"], history_df[key], label=key)
-                plotted_loss = True
-    if plotted_loss:
-        ax_loss.set_title("Curvas PPO")
-        ax_loss.legend(fontsize=7)
-        ax_loss.grid(True, alpha=0.2)
-    else:
-        ax_loss.text(0.5, 0.5, "Sin pérdidas PPO", ha="center", va="center")
-        ax_loss.set_axis_off()
-    figures.append(fig_loss)
+        ax_curves.text(0.5, 0.5, "Sin curvas historicas", ha="center", va="center")
+        ax_curves.set_axis_off()
+    figures.append(fig_curves)
 
     fig_weights, ax_weights = plt.subplots(figsize=(6, 3))
     if latest_weights:
         keys = list(latest_weights.keys())
         vals = [float(latest_weights[k]) * 100.0 for k in keys]
         ax_weights.bar(keys, vals, color="tab:green")
-        ax_weights.set_title("Asignación PPO (%)")
+        ax_weights.set_title("Asignacion GA+PSO (%)")
         ax_weights.tick_params(axis="x", rotation=90, labelsize=8)
     else:
-        ax_weights.text(0.5, 0.5, "Sin pesos para este run", ha="center", va="center")
+        ax_weights.text(0.5, 0.5, "Sin pesos disponibles", ha="center", va="center")
         ax_weights.set_axis_off()
     figures.append(fig_weights)
-
-    fig_curves, ax_curves = plt.subplots(figsize=(6, 3))
-    plotted_curves = False
-    for label, frame in curve_frames.items():
-        if frame is not None and not frame.empty:
-            ax_curves.plot(frame.index, frame.iloc[:, 0], label=label)
-            plotted_curves = True
-    if plotted_curves:
-        ax_curves.set_title("Rentabilidad acumulada train / val / test (%)")
-        ax_curves.legend(fontsize=8)
-        ax_curves.grid(True, alpha=0.2)
-    else:
-        ax_curves.text(0.5, 0.5, "Sin curvas train/val/test", ha="center", va="center")
-        ax_curves.set_axis_off()
-    figures.append(fig_curves)
-
-    fig_forward, ax_forward = plt.subplots(figsize=(6, 3))
-    plotted_forward = False
-    for label, frame in forward_frames.items():
-        if frame is not None and not frame.empty:
-            ax_forward.plot(frame.index, frame.iloc[:, 0], label=label)
-            plotted_forward = True
-    if plotted_forward:
-        ax_forward.set_title("Forward 1Y por rebalance (%)")
-        ax_forward.legend(fontsize=8)
-        ax_forward.grid(True, alpha=0.2)
-    else:
-        ax_forward.text(0.5, 0.5, "Sin curvas forward", ha="center", va="center")
-        ax_forward.set_axis_off()
-    figures.append(fig_forward)
 
     return figures
 
@@ -277,8 +244,6 @@ def _render_dev_forward_equity_chart(
 def _pm_signal_row_from_live(row: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "rebalance_id": str(row.get("rebalance_id") or ""),
-        "training_run_id": str(row.get("training_run_id") or ""),
-        "model_version": str(row.get("model_version") or ""),
         "trader": _pretty_trader_name(row.get("trader_id"), asset=row.get("symbol"), timeframe="D1"),
         "symbol": row.get("symbol"),
         "side": _human_side_label(row.get("side")),
@@ -297,12 +262,10 @@ def _pm_signal_row_from_live(row: Dict[str, Any]) -> Dict[str, Any]:
 
 def _pm_signal_row_from_audit(row: Dict[str, Any]) -> Dict[str, Any]:
     metadata = dict(row.get("metadata") or {})
-    status = "executed" if bool(row.get("executed")) else ("selected" if bool(row.get("ppo_selected")) and bool(row.get("risk_approved")) else "discarded")
-    selected = status in {"selected", "executed"}
+    selected = bool(row.get("pm_selected"))
+    status = "executed" if bool(row.get("executed")) else ("selected" if selected else "discarded")
     return {
         "rebalance_id": str(metadata.get("rebalance_id") or ""),
-        "training_run_id": str(metadata.get("training_run_id") or ""),
-        "model_version": str(metadata.get("model_version") or ""),
         "trader": _pretty_trader_name(row.get("trader_id"), asset=row.get("asset"), timeframe=row.get("timeframe") or "D1"),
         "symbol": row.get("asset"),
         "side": _human_side_label(row.get("signal_side")),
@@ -310,7 +273,7 @@ def _pm_signal_row_from_audit(row: Dict[str, Any]) -> Dict[str, Any]:
         "fase_pm": _interpret_pm_phase(metadata.get("portfolio_phase")),
         "decision_pm": "seleccionado" if selected else "descartado",
         "estado_orden": status,
-        "peso_pct": round(float(row.get("ppo_weight") or 0.0) * 100.0, 3),
+        "peso_pct": round(float(row.get("pm_weight") or 0.0) * 100.0, 3),
         "euros_asignados": round(float(metadata.get("portfolio_euros") or 0.0), 2),
         "acciones_estimadas": int(float(metadata.get("volume") or 0.0)) if metadata.get("volume") is not None else 0,
         "motivo_interpretado": _interpret_pm_reason(row.get("reason_if_blocked") or metadata.get("source") or status),
@@ -326,7 +289,6 @@ def _normalize_pm_signal_rows(signal_book: List[Dict[str, Any]], signal_audit: L
         key = "|".join(
             [
                 str(item.get("rebalance_id") or ""),
-                str(item.get("training_run_id") or ""),
                 str(item.get("trader") or ""),
                 str(item.get("symbol") or ""),
                 str(item.get("side") or ""),
@@ -415,22 +377,22 @@ def _render_pm_signal_tables(signal_rows: List[Dict[str, Any]], *, key_prefix: s
 
 
 def _is_live_portfolio_rebalance(row: Dict[str, Any]) -> bool:
+    """
+    Determina si un snapshot persistido corresponde a un rebalanceo real
+    del runtime live (modo GA+PSO). Se ignoran los registros marcados como
+    `offline_test_eval` (rebalanceos sinteticos heredados del antiguo PPO).
+    """
     metadata = dict(row.get("metadata") or {})
     if str(metadata.get("source") or "").strip().lower() == "offline_test_eval":
         return False
-    return bool(row.get("rebalance_date")) and bool(row.get("training_run_id") or row.get("fine_tune_run_id"))
+    return bool(row.get("rebalance_date"))
 
 
 def _human_risk_action(action: Any) -> str:
+    """Etiqueta humana para `TraderReviewAction` (KEEP / RETRAINING)."""
     mapping = {
         "keep": "Mantener",
         "retraining": "Reentrenando",
-        "approve": "Aprobada",
-        "approve_with_clipping": "Aprobada con recorte",
-        "scale_down": "Reducir exposición",
-        "force_cash": "Forzar caja",
-        "reject_portfolio": "Rechazar cartera",
-        "emergency_stop": "Parada de emergencia",
     }
     return mapping.get(str(action or "").strip().lower(), str(action or "-"))
 
@@ -1123,12 +1085,10 @@ def _build_live_signature(
         bt_sig_parts.append(f"{trader_id}:{b.get('status')}:{b.get('updated_at')}")
     signal_book = list(pm_snapshot.get("signal_book", []) or [])
     last_output = dict(pm_snapshot.get("last_output", {}) or {})
-    latest_model = dict(pm_snapshot.get("latest_model", {}) or {})
-    training_runs = list(pm_snapshot.get("training_runs", []) or [])
     rebalance_rows = list(pm_snapshot.get("rebalance_rows", []) or [])
     monthly_refresh = dict(pm_snapshot.get("monthly_refresh", {}) or {})
-    risk_status = dict(risk_snapshot.get("status", {}) or {})
-    risk_runs = list(risk_snapshot.get("runs", []) or [])
+    hr_status = dict(risk_snapshot.get("status", {}) or {})
+    hr_runs = list(risk_snapshot.get("runs", []) or [])
     pending_retrain = list(risk_snapshot.get("pending_retrain_requests", []) or [])
     signal_sig = ",".join(
         sorted(
@@ -1170,22 +1130,15 @@ def _build_live_signature(
             position_sig,
             str(len(pending_orders)),
             pending_sig,
-            str(latest_model.get("model_version", "")),
-            str(latest_model.get("trained_at", "")),
-            str(latest_model.get("fine_tuned_at", "")),
-            str(len(training_runs)),
             str(len(rebalance_rows)),
             str(monthly_refresh.get("cutoff_date", "")),
             str(monthly_refresh.get("status", "")),
             str(monthly_refresh.get("mask_source", "")),
-            str(monthly_refresh.get("last_manual_retrain_at", "")),
             str(monthly_refresh.get("last_manual_rebalance_at", "")),
-            str(monthly_refresh.get("last_manual_retrain_only_at", "")),
-            str(monthly_refresh.get("last_manual_retrain_and_rebalance_at", "")),
-            str(risk_status.get("last_evaluation_at", "")),
-            str(risk_status.get("last_evaluation_status", "")),
-            str(risk_status.get("last_force_evaluation_at", "")),
-            str(len(risk_runs)),
+            str(hr_status.get("last_run_at", "")),
+            str(hr_status.get("last_status", "")),
+            str(hr_status.get("last_force_run_at", "")),
+            str(len(hr_runs)),
             str(len(pending_retrain)),
         ]
     )
@@ -1364,7 +1317,7 @@ def main() -> None:
     supervisor = _get_supervisor()
 
     status = supervisor.get_status()
-    section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Risk Agent"]
+    section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
     selected_section = st.radio(
         "Sección",
         options=section_options,
@@ -1377,7 +1330,7 @@ def main() -> None:
     need_states = True
     need_backtests = selected_section == "Backtest"
     need_pm_history = selected_section == "Portfolio manager"
-    need_risk_history = selected_section == "Risk Agent"
+    need_hr_history = selected_section == "Recursos Humanos"
     need_open_positions = bool(status.get("mt5_connected")) and selected_section == "Operativa"
 
     all_events = _load_events(Path(supervisor.db_path), int(DEFAULT_EVENT_LIMIT)) if need_events else []
@@ -1388,9 +1341,9 @@ def main() -> None:
         if hasattr(supervisor, "get_portfolio_manager_snapshot")
         else {}
     )
-    risk_snapshot = (
-        supervisor.get_risk_agent_snapshot(include_history=need_risk_history)
-        if hasattr(supervisor, "get_risk_agent_snapshot")
+    hr_snapshot = (
+        supervisor.get_human_resources_snapshot(include_history=need_hr_history)
+        if hasattr(supervisor, "get_human_resources_snapshot")
         else {}
     )
     pending_orders = list(pm_snapshot.get("pending_orders", []) or [])
@@ -1398,11 +1351,7 @@ def main() -> None:
     signal_book = list(pm_snapshot.get("signal_book", []) or [])
     signal_audit = list(pm_snapshot.get("signal_audit", []) or [])
     last_output = dict(pm_snapshot.get("last_output", {}) or {})
-    latest_model = dict(pm_snapshot.get("latest_model", {}) or {})
-    training_runs = list(pm_snapshot.get("training_runs", []) or [])
-    training_metrics = list(pm_snapshot.get("training_metrics", []) or [])
     rebalance_rows = list(pm_snapshot.get("rebalance_rows", []) or [])
-    forward_rows = list(pm_snapshot.get("forward_rows", []) or [])
     monthly_refresh = dict(pm_snapshot.get("monthly_refresh", {}) or {})
     backtest_runs = list(pm_snapshot.get("backtest_runs", []) or [])
     normalized_pm_signals = _normalize_pm_signal_rows(signal_book, signal_audit)
@@ -1413,7 +1362,7 @@ def main() -> None:
         all_states=all_states,
         backtests=backtests,
         pm_snapshot=pm_snapshot,
-        risk_snapshot=risk_snapshot,
+        risk_snapshot=hr_snapshot,
         open_positions=open_positions,
         pending_orders=pending_orders,
     )
@@ -1697,22 +1646,15 @@ def main() -> None:
                         st.info("Backtest pendiente. Se ejecutara al crear/promover el trader.")
 
     if selected_section == "Portfolio manager":
-        st.markdown("### Portfolio manager")
-        pm_btn_1, pm_btn_2 = st.columns(2)
-        if pm_btn_1.button("Forzar solo reentrenamiento", key="btn_pm_force_retrain_only"):
-            out = supervisor.force_portfolio_retraining_only() if hasattr(supervisor, "force_portfolio_retraining_only") else {}
-            refresh_status = str(((out.get("refresh") or {}).get("status")) or "")
-            st.session_state["pm_manual_action_message"] = (
-                f"Solo reentrenamiento ejecutado. Refresh=`{refresh_status or '-'}` | rebalanceo=`no solicitado`."
-            )
-            st.rerun()
-        if pm_btn_2.button("Forzar reentrenamiento y rebalanceo ahora", key="btn_pm_force_retrain"):
-            out = supervisor.force_portfolio_retraining_and_rebalance() if hasattr(supervisor, "force_portfolio_retraining_and_rebalance") else {}
+        st.markdown("### Portfolio manager (GA + PSO)")
+        pm_btn_1, _ = st.columns(2)
+        if pm_btn_1.button("Forzar rebalanceo ahora", key="btn_pm_force_rebalance"):
+            out = supervisor.force_portfolio_rebalance() if hasattr(supervisor, "force_portfolio_rebalance") else {}
             refresh_status = str(((out.get("refresh") or {}).get("status")) or "")
             rebalance_status = str(((out.get("rebalance") or {}).get("status")) or "")
             rebalance_reason = str(((out.get("rebalance") or {}).get("reason")) or "")
             st.session_state["pm_manual_action_message"] = (
-                f"Reentrenamiento + rebalanceo ejecutado. Refresh=`{refresh_status or '-'}` | "
+                f"Rebalanceo ejecutado. Refresh=`{refresh_status or '-'}` | "
                 f"rebalanceo=`{rebalance_status or '-'}`"
                 f"{f' | motivo=`{rebalance_reason}`' if rebalance_reason else ''}."
             )
@@ -1722,41 +1664,76 @@ def main() -> None:
             if st.button("Limpiar aviso portfolio", key="btn_pm_clear_manual_msg"):
                 st.session_state.pop("pm_manual_action_message", None)
                 st.rerun()
+
+        decision = dict(last_output.get("decision") or {})
+        decision_metadata = dict(decision.get("metadata") or {})
+        ga_config = dict(decision_metadata.get("ga_config") or {})
+        pso_config = dict(decision_metadata.get("pso_config") or {})
+        baselines = dict(decision_metadata.get("baselines") or {}) or dict(last_output.get("baselines") or {})
+        ew_baseline = dict(baselines.get("equal_weight_all_valid") or {})
         pm_status = str(last_output.get("status") or "")
         pm_phase = _interpret_pm_phase(last_output.get("portfolio_phase"))
-        latest_dataset_refresh = dict((latest_model.get("metrics", {}) or {}).get("dataset_refresh", {}) or {})
-        current_training_run_id = str(last_output.get("training_run_id") or ((last_output.get("decision") or {}).get("training_run_id") or ""))
+
         s1, s2, s3, s4, s5, s6, s7, s8 = st.columns(8)
-        s1.metric("Fase PM", pm_phase)
-        s2.metric("Estado PM", pm_status or str(latest_model.get("mode") or "-"))
-        s3.metric("Modelo PPO", str(latest_model.get("model_version") or "-"))
-        s4.metric("Universo elegible", int(latest_model.get("universe_size") or 0))
-        s5.metric("Señales activas", int(len(signal_book)))
-        s6.metric("Seleccionados", int(last_output.get("decision", {}).get("selected_universe_size") or len([r for r in signal_book if bool(r.get("selected"))])))
-        s7.metric("Cash target", f"{float(last_output.get('target_cash_weight') or 0.0) * 100.0:.2f}%")
-        s8.metric("Rebalanceos guardados", int(len(live_rebalance_rows)))
+        s1.metric("Modo", str(last_output.get("optimizer_mode") or decision.get("optimizer_mode") or "ga_pso").upper())
+        s2.metric("Fase PM", pm_phase)
+        s3.metric("Estado PM", pm_status or "-")
+        s4.metric("Activos / validos", f"{int(last_output.get('active_universe_size') or 0)} / {int(last_output.get('valid_universe_size') or 0)}")
+        s5.metric("Seleccionados", int(last_output.get("selected_universe_size") or decision.get("selected_universe_size") or 0))
+        s6.metric("Cash target", f"{float(last_output.get('target_cash_weight') or decision.get('target_cash_weight') or 0.0) * 100.0:.2f}%")
+        s7.metric("Fitness", f"{float(last_output.get('fitness') or decision.get('fitness') or 0.0):.4f}")
+        s8.metric("Tiempo (s)", f"{float(last_output.get('execution_time_seconds') or decision_metadata.get('execution_time_seconds') or 0.0):.2f}")
+
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
+        m1.metric("Sharpe neto", f"{float(last_output.get('sharpe_neto') or decision.get('sharpe_neto') or 0.0):.4f}")
+        m2.metric("MDD", f"{float(last_output.get('mdd') or decision.get('mdd') or 0.0) * 100.0:.2f}%")
+        m3.metric("Corr media", f"{float(last_output.get('corr_media') or decision.get('corr_media') or 0.0):.4f}")
+        m4.metric("lambda_dd", f"{float(decision_metadata.get('lambda_dd') or 0.0):.2f}")
+        m5.metric("lambda_corr", f"{float(decision_metadata.get('lambda_corr') or 0.0):.2f}")
+        m6.metric("Lookback (semanas)", int(decision_metadata.get("lookback_weeks") or 0))
+
+        if ew_baseline:
+            st.caption(
+                "Baseline equal weight (todos los traders validos): "
+                f"fitness=`{float(ew_baseline.get('fitness') or 0.0):.4f}` | "
+                f"Sharpe=`{float(ew_baseline.get('sharpe_neto') or 0.0):.4f}` | "
+                f"MDD=`{float(ew_baseline.get('mdd') or 0.0) * 100.0:.2f}%` | "
+                f"Corr media=`{float(ew_baseline.get('corr_media') or 0.0):.4f}`"
+            )
+        excluded_traders = list(decision_metadata.get("excluded_traders") or [])
+        if excluded_traders:
+            st.caption(
+                f"Traders excluidos por falta de historico ({len(excluded_traders)}): "
+                + ", ".join(_pretty_trader_name(t) for t in excluded_traders[:20])
+                + ("..." if len(excluded_traders) > 20 else "")
+            )
+
+        with st.expander("Configuracion GA / PSO", expanded=False):
+            cg1, cg2 = st.columns(2)
+            with cg1:
+                st.markdown("**GA**")
+                if ga_config:
+                    st.dataframe(pd.DataFrame([ga_config]).T.rename(columns={0: "valor"}), width="stretch")
+                else:
+                    st.info("No hay configuracion GA registrada todavia.")
+            with cg2:
+                st.markdown("**PSO**")
+                if pso_config:
+                    st.dataframe(pd.DataFrame([pso_config]).T.rename(columns={0: "valor"}), width="stretch")
+                else:
+                    st.info("No hay configuracion PSO registrada todavia.")
+
         st.caption(
-            f"Último entrenamiento: {str(latest_model.get('trained_at') or '-')}"
-            f" | Último fine-tuning: {str(latest_model.get('fine_tuned_at') or '-')}"
-        )
-        st.caption(
-            f"Último refresh mensual: {str(monthly_refresh.get('last_refresh_at') or '-')}"
-            f" | Fecha de corte efectiva: {str(monthly_refresh.get('cutoff_date') or latest_dataset_refresh.get('cutoff_date') or '-')}"
+            f"Ultimo refresh mensual: {str(monthly_refresh.get('last_refresh_at') or '-')}"
+            f" | Fecha de corte: {str(monthly_refresh.get('cutoff_date') or '-')}"
             f" | Traders refrescados: {int(monthly_refresh.get('n_traders') or 0)}"
-            f" | Máscara PPO usada: {str(monthly_refresh.get('mask_source') or latest_dataset_refresh.get('mask_source') or '-')}"
         )
         st.caption(
             f"Estado refresh backtests: {str(monthly_refresh.get('backtests_status') or '-')}"
             f" | Estado refresh mensual: {str(monthly_refresh.get('status') or '-')}"
+            f" | Ultimo rebalanceo manual: {str(monthly_refresh.get('last_manual_rebalance_at') or '-')}"
         )
-        st.caption(
-            f"Último reentrenamiento manual: {str(monthly_refresh.get('last_manual_retrain_at') or '-')}"
-            f" | Último rebalanceo manual: {str(monthly_refresh.get('last_manual_rebalance_at') or '-')}"
-        )
-        st.caption(
-            f"Último 'solo reentrenamiento': {str(monthly_refresh.get('last_manual_retrain_only_at') or '-')}"
-            f" | Último 'reentrenar + rebalancear': {str(monthly_refresh.get('last_manual_retrain_and_rebalance_at') or '-')}"
-        )
+
         st.markdown(
             "".join(
                 [
@@ -1772,141 +1749,39 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-        def _safe_read_csv(path_str: str) -> pd.DataFrame:
-            try:
-                if path_str:
-                    return pd.read_csv(path_str)
-            except Exception:
-                return pd.DataFrame()
-            return pd.DataFrame()
+        # Curva historica de la cartera GA+PSO vs equal-weight (de la ultima ejecucion).
+        portfolio_curve = last_output.get("portfolio_curve")
+        weights_for_chart = dict(last_output.get("weights") or decision.get("weights") or {})
+        if isinstance(portfolio_curve, pd.DataFrame) and not portfolio_curve.empty:
+            curve_chart = _sanitize_line_chart_frame(portfolio_curve.copy() * 100.0)
+            if not curve_chart.empty:
+                st.markdown("**Curva acumulada (cartera vs. equal weight)**")
+                st.line_chart(curve_chart, width="stretch")
+        elif weights_for_chart:
+            figs = _build_portfolio_curve_figures(
+                portfolio_curve=pd.DataFrame(),
+                latest_weights=weights_for_chart,
+            )
+            for fig in figs:
+                st.pyplot(fig, clear_figure=False, width="stretch")
 
-        if training_runs:
-            st.markdown("**Histórico de entrenamientos PPO**")
-            df_runs = pd.DataFrame(training_runs)
-            if not df_runs.empty:
-                for _, run_row in df_runs.iterrows():
-                    run_id = str(run_row.get("run_id") or "")
-                    run_type_txt = "Entrenamiento inicial" if str(run_row.get("run_type")) == "initial_train" else "Fine-tuning"
-                    run_date = _fmt_ts(str(run_row.get("completed_at") or run_row.get("started_at") or ""))
-                    run_title = f"{run_type_txt} | {run_date} | {str(run_row.get('model_version') or '-')}"
-                    with st.expander(run_title, expanded=False):
-                        c_run_1, c_run_2, c_run_3, c_run_4 = st.columns(4)
-                        c_run_1.metric("Estado", str(run_row.get("status") or "-"))
-                        c_run_2.metric("Tipo", run_type_txt)
-                        c_run_3.metric("Modelo", str(run_row.get("model_version") or "-"))
-                        c_run_4.metric("Run ID", str(run_row.get("run_id") or "-"))
-                        st.caption(
-                            f"Inicio: {str(run_row.get('started_at') or '-')}"
-                            f" | Fin: {str(run_row.get('completed_at') or '-')}"
-                        )
-                        artifacts_row = dict(run_row.get("artifacts", {}) or {})
-                        run_hist_rows: List[Dict[str, Any]] = []
-                        run_fig_history = pd.DataFrame()
-                        try:
-                            run_hist_rows = list(supervisor.ctx.store.list_portfolio_training_metrics(str(run_row.get("run_id") or "")))
-                        except Exception:
-                            run_hist_rows = []
-                        run_hist_df = pd.DataFrame(run_hist_rows)
-                        curve_frames_map: Dict[str, pd.DataFrame] = {}
-                        if not run_hist_df.empty:
-                            run_hist_pivot = (
-                                run_hist_df.pivot_table(index="step", columns="metric_name", values="metric_value", aggfunc="last")
-                                .sort_index()
-                            )
-                            run_hist_pivot = _sanitize_line_chart_frame(run_hist_pivot)
-                            run_fig_history = run_hist_pivot.reset_index()
-                            st.markdown("**Métricas de entrenamiento PPO**")
-                            run_cols_metrics = [
-                                c
-                                for c in [
-                                    "average_reward",
-                                    "policy_loss",
-                                    "value_loss",
-                                    "entropy",
-                                    "approx_kl",
-                                    "clip_fraction",
-                                    "explained_variance",
-                                    "val_score",
-                                ]
-                                if c in run_hist_pivot.columns
-                            ]
-                            if run_cols_metrics:
-                                chart_df = _sanitize_line_chart_frame(run_hist_pivot[run_cols_metrics])
-                                if not chart_df.empty:
-                                    st.line_chart(chart_df, width="stretch")
-                        run_curve_frames = []
-                        for label, path_key in [("train", "train_curve_csv"), ("val", "val_curve_csv"), ("test", "test_curve_csv")]:
-                            df_curve = _safe_read_csv(str(artifacts_row.get(path_key, "")))
-                            if not df_curve.empty and {"date", "equity"}.issubset(df_curve.columns):
-                                tmp = _equity_frame_to_return_frame(df_curve, series_name=label)
-                                if not tmp.empty:
-                                    run_curve_frames.append(tmp)
-                                    curve_frames_map[label] = tmp
-                        if run_curve_frames:
-                            st.markdown("**Rentabilidad acumulada train / val / test (%)**")
-                            chart_df = _sanitize_line_chart_frame(pd.concat(run_curve_frames, axis=1))
-                            if not chart_df.empty:
-                                st.line_chart(chart_df, width="stretch")
+        if weights_for_chart:
+            top = sorted(weights_for_chart.items(), key=lambda kv: float(kv[1]), reverse=True)[:20]
+            top_df = pd.DataFrame(
+                [
+                    {
+                        "Trader": _pretty_trader_name(tid),
+                        "Peso (%)": float(w) * 100.0,
+                        "Capital (EUR)": float(dict(last_output.get("euros") or {}).get(tid, 0.0)),
+                    }
+                    for tid, w in top
+                ]
+            )
+            st.markdown("**Top traders por peso (ultima decision)**")
+            st.dataframe(top_df, width="stretch", hide_index=True)
 
-                        run_rebalances = [
-                            dict(row)
-                            for row in live_rebalance_rows
-                            if str(row.get("training_run_id") or "") == run_id or str(row.get("fine_tune_run_id") or "") == run_id
-                        ]
-                        run_rebalances = sorted(run_rebalances, key=lambda row: str(row.get("rebalance_date") or ""))
-                        latest_run_rebalance = run_rebalances[-1] if run_rebalances else {}
-                        diagnostics_map = dict(latest_run_rebalance.get("diagnostics") or {})
-                        if bool(diagnostics_map.get("min_open_positions_enforced")):
-                            st.info(
-                                "La asignación uniforme de este run viene de la regla de seguridad del PM: "
-                                f"se forzaron {int(diagnostics_map.get('min_open_positions_target') or 0)} posiciones mínimas."
-                            )
-                        run_rebalance_ids = {str(row.get("rebalance_id") or "") for row in run_rebalances if str(row.get("rebalance_id") or "")}
-                        run_forward_rows = [dict(row) for row in forward_rows if str(row.get("rebalance_id") or "") in run_rebalance_ids]
-                        if run_forward_rows:
-                            st.markdown("**Forward 1Y por rebalance**")
-                            latest_rebalance_date = max(str(row.get("as_of") or "") for row in run_forward_rows)
-                            latest_forward = [row for row in run_forward_rows if str(row.get("as_of") or "") == latest_rebalance_date]
-                            forward_curves: list[pd.DataFrame] = []
-                            forward_frames_map: Dict[str, pd.DataFrame] = {}
-                            for row in latest_forward:
-                                curve_points = row.get("curve_points", []) or []
-                                curve_df = pd.DataFrame(curve_points)
-                                if curve_df.empty or "date" not in curve_df.columns or "equity" not in curve_df.columns:
-                                    continue
-                                curve_df = _equity_frame_to_return_frame(curve_df, series_name=str(row.get("benchmark_name") or "benchmark"))
-                                if curve_df.empty:
-                                    continue
-                                forward_curves.append(curve_df)
-                                forward_frames_map[str(row.get("benchmark_name") or "benchmark")] = curve_df
-                            if forward_curves:
-                                chart_df = _sanitize_line_chart_frame(pd.concat(forward_curves, axis=1))
-                                if not chart_df.empty:
-                                    st.line_chart(chart_df, width="stretch")
-                        else:
-                            forward_frames_map = {}
-
-                        run_signal_rows = [
-                            row
-                            for row in normalized_pm_signals
-                            if (str(row.get("training_run_id") or "") == run_id and run_id)
-                            or str(row.get("rebalance_id") or "") in run_rebalance_ids
-                        ]
-                        _render_pm_signal_tables(run_signal_rows, key_prefix=f"pm_run_{run_id}")
-
-                        rebuilt_figures = _build_ppo_run_figures(
-                            history_df=run_fig_history,
-                            curve_frames=curve_frames_map,
-                            forward_frames=forward_frames_map,
-                            latest_weights=dict(latest_run_rebalance.get("target_weights") or {}),
-                        )
-                        for idx in range(0, len(rebuilt_figures), 2):
-                            col_left, col_right = st.columns(2)
-                            with col_left:
-                                st.pyplot(rebuilt_figures[idx], clear_figure=False, width="stretch")
-                            if idx + 1 < len(rebuilt_figures):
-                                with col_right:
-                                    st.pyplot(rebuilt_figures[idx + 1], clear_figure=False, width="stretch")
+        # Senales de la ultima rebalanceo
+        _render_pm_signal_tables(normalized_pm_signals, key_prefix="pm_ga_pso")
 
         if backtest_runs:
             st.markdown("**Refresh mensual de backtests promovidos**")
@@ -1923,9 +1798,9 @@ def main() -> None:
                     width="stretch",
                     hide_index=True,
                 )
-                risk_rows_by_trader = {
+                hr_rows_by_trader = {
                     str(row.get("trader_id") or ""): dict(row)
-                    for row in list(risk_snapshot.get("trader_rows", []) or [])
+                    for row in list(hr_snapshot.get("trader_rows", []) or [])
                 }
                 for _, bt_row in df_runs.iterrows():
                     trader_id = str(bt_row.get("trader_id") or "")
@@ -1934,10 +1809,10 @@ def main() -> None:
                         dev_curve = supervisor.get_trader_history_frame(trader_id) if hasattr(supervisor, "get_trader_history_frame") else None
                         forward_curve = pd.DataFrame()
                         promoted_at = ""
-                        risk_row = risk_rows_by_trader.get(trader_id, {})
-                        if risk_row:
-                            promoted_at = str(risk_row.get("promoted_at") or "")
-                            forward_run = dict(risk_row.get("forward_run") or {})
+                        hr_row = hr_rows_by_trader.get(trader_id, {})
+                        if hr_row:
+                            promoted_at = str(hr_row.get("promoted_at") or "")
+                            forward_run = dict(hr_row.get("forward_run") or {})
                             forward_pnl_path = str((forward_run.get("artifact_paths") or {}).get("historical_pnl_path") or "")
                             if forward_pnl_path:
                                 try:
@@ -1953,97 +1828,90 @@ def main() -> None:
                         )
 
         if live_rebalance_rows:
-            st.markdown("**Histórico de rebalanceos PPO**")
+            st.markdown("**Historico de rebalanceos GA+PSO**")
             df_reb = pd.DataFrame(live_rebalance_rows)
             if not df_reb.empty:
-                realized_map: Dict[str, Dict[str, float]] = {}
-                if forward_rows:
-                    fwd_df = pd.DataFrame(forward_rows)
-                    if not fwd_df.empty:
-                        ppo_rows = fwd_df[fwd_df["benchmark_name"].astype(str) == "ppo"].copy()
-                        for _, row in ppo_rows.iterrows():
-                            realized_map[str(row.get("rebalance_id"))] = {
-                                "realized_forward_return_1y": float(row.get("cumulative_return_1y") or 0.0),
-                                "realized_forward_sharpe_1y": float(row.get("sharpe_1y") or 0.0),
-                                "realized_forward_maxdd_1y": float(row.get("max_drawdown_1y") or 0.0),
-                            }
                 table_rows: list[Dict[str, Any]] = []
                 for _, row in df_reb.iterrows():
-                    reb_id = str(row.get("rebalance_id"))
-                    metrics_map = realized_map.get(reb_id, {})
+                    metadata_map = dict(row.get("metadata") or {})
                     weights_map = dict(row.get("target_weights") or {})
                     top_weights = sorted(weights_map.items(), key=lambda x: float(x[1]), reverse=True)[:5]
                     table_rows.append(
                         {
                             "rebalance_date": row.get("rebalance_date"),
                             "n_active": len(row.get("active_traders") or []),
+                            "n_valid": int(metadata_map.get("valid_universe_size") or 0),
                             "n_selected": len(row.get("selected_traders") or []),
-                            "target_cash": float(row.get("target_cash_weight") or 0.0),
+                            "cash": float(row.get("target_cash_weight") or 0.0),
+                            "fitness": float(metadata_map.get("fitness") or 0.0),
+                            "sharpe_neto": float(metadata_map.get("sharpe_neto") or 0.0),
+                            "mdd": float(metadata_map.get("mdd") or 0.0),
+                            "corr_media": float(metadata_map.get("corr_media") or 0.0),
                             "top_selected_traders": ", ".join([_pretty_trader_name(k) for k, _ in top_weights]),
                             "top_weights": ", ".join([f"{_pretty_trader_name(k)}={float(v) * 100.0:.1f}%" for k, v in top_weights]),
-                            "realized_forward_return_1y": metrics_map.get("realized_forward_return_1y"),
-                            "realized_forward_sharpe_1y": metrics_map.get("realized_forward_sharpe_1y"),
-                            "realized_forward_maxdd_1y": metrics_map.get("realized_forward_maxdd_1y"),
                         }
                     )
-                table_df = pd.DataFrame(table_rows).sort_values("rebalance_date", ascending=True).reset_index(drop=True)
+                table_df = pd.DataFrame(table_rows).sort_values("rebalance_date", ascending=False).reset_index(drop=True)
                 st.dataframe(table_df, width="stretch", hide_index=True)
 
-    if selected_section == "Risk Agent":
-        st.markdown("### Risk Agent")
-        risk_runs = list(risk_snapshot.get("runs", []) or [])
-        latest_risk_run = dict(risk_snapshot.get("latest_run", {}) or {})
-        risk_rows = list(risk_snapshot.get("trader_rows", []) or [])
-        risk_details = list(risk_snapshot.get("details", []) or [])
-        risk_checks = list(risk_snapshot.get("portfolio_checks", []) or [])
-        retrain_requests = list(risk_snapshot.get("retrain_requests", []) or [])
-        pending_retrain_requests = list(risk_snapshot.get("pending_retrain_requests", []) or [])
-        risk_status = dict(risk_snapshot.get("status", {}) or {})
+    if selected_section == "Recursos Humanos":
+        st.markdown("### Recursos Humanos (HumanResourcesProcess)")
+        st.caption(
+            "Este proceso compara el comportamiento forward de cada trader promovido con su perfil "
+            "de diseno y decide si sigue valido (KEEP) o si debe pasar a reentrenamiento (RETRAINING)."
+        )
+        hr_runs = list(hr_snapshot.get("runs", []) or [])
+        latest_hr_run = dict(hr_snapshot.get("latest_run", {}) or {})
+        hr_rows = list(hr_snapshot.get("trader_rows", []) or [])
+        hr_details = list(hr_snapshot.get("details", []) or [])
+        retrain_requests = list(hr_snapshot.get("retrain_requests", []) or [])
+        pending_retrain_requests = list(hr_snapshot.get("pending_retrain_requests", []) or [])
+        hr_status = dict(hr_snapshot.get("status", {}) or {})
 
         r_btn_1, r_btn_2, r_btn_3 = st.columns(3)
-        if r_btn_1.button("Forzar evaluación Risk ahora", key="btn_risk_force_eval"):
-            out = supervisor.force_risk_evaluation() if hasattr(supervisor, "force_risk_evaluation") else {}
-            st.session_state["risk_manual_action_message"] = (
-                f"Evaluación Risk ejecutada. Estado=`{str(out.get('status') or '-')}`."
+        if r_btn_1.button("Forzar revision de salud ahora", key="btn_hr_force_eval"):
+            out = supervisor.force_trader_health_evaluation() if hasattr(supervisor, "force_trader_health_evaluation") else {}
+            st.session_state["hr_manual_action_message"] = (
+                f"Revision de salud ejecutada. Estado=`{str(out.get('status') or '-')}`."
             )
             st.rerun()
-        if r_btn_2.button("Forzar backtest forward de todos los traders", key="btn_risk_force_backtest"):
-            out = supervisor.force_risk_evaluation(force_backtest=True) if hasattr(supervisor, "force_risk_evaluation") else {}
-            st.session_state["risk_manual_action_message"] = (
-                f"Backtest forward + evaluación Risk ejecutados. Estado=`{str(out.get('status') or '-')}`."
+        if r_btn_2.button("Forzar backtest forward de todos los traders", key="btn_hr_force_backtest"):
+            out = supervisor.force_trader_health_evaluation(force_backtest=True) if hasattr(supervisor, "force_trader_health_evaluation") else {}
+            st.session_state["hr_manual_action_message"] = (
+                f"Backtest forward + revision de salud ejecutados. Estado=`{str(out.get('status') or '-')}`."
             )
             st.rerun()
-        if r_btn_3.button("Procesar RetrainRequests pendientes", key="btn_risk_process_retrain"):
+        if r_btn_3.button("Procesar RetrainRequests pendientes", key="btn_hr_process_retrain"):
             out = supervisor.process_pending_retrain_requests() if hasattr(supervisor, "process_pending_retrain_requests") else {}
-            st.session_state["risk_manual_action_message"] = (
+            st.session_state["hr_manual_action_message"] = (
                 f"RetrainRequests procesadas. OK=`{len(list(out.get('processed') or []))}` | errores=`{len(list(out.get('failed') or []))}`."
             )
             st.rerun()
-        if st.session_state.get("risk_manual_action_message"):
-            st.success(str(st.session_state.get("risk_manual_action_message")))
-            if st.button("Limpiar aviso risk", key="btn_risk_clear_manual_msg"):
-                st.session_state.pop("risk_manual_action_message", None)
+        if st.session_state.get("hr_manual_action_message"):
+            st.success(str(st.session_state.get("hr_manual_action_message")))
+            if st.button("Limpiar aviso", key="btn_hr_clear_manual_msg"):
+                st.session_state.pop("hr_manual_action_message", None)
                 st.rerun()
 
-        live_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "live")
-        retraining_count = sum(1 for row in risk_rows if str(row.get("current_state")) == "retraining")
-        insufficient_count = sum(1 for row in risk_rows if bool((row.get("forward_metrics") or {}).get("insufficient_evidence")))
+        live_count = sum(1 for row in hr_rows if str(row.get("current_state")) == "live")
+        retraining_count = sum(1 for row in hr_rows if str(row.get("current_state")) == "retraining")
+        insufficient_count = sum(1 for row in hr_rows if bool((row.get("forward_metrics") or {}).get("insufficient_evidence")))
         k1, k2, k3, k4, k5, k6 = st.columns(6)
-        k1.metric("Última evaluación", _fmt_ts(str(risk_status.get("last_evaluation_at") or latest_risk_run.get("completed_at") or "-")))
-        k2.metric("Próxima evaluación", "Días 1-3 / 30 días")
+        k1.metric("Ultima revision", _fmt_ts(str(hr_status.get("last_run_at") or latest_hr_run.get("completed_at") or "-")))
+        k2.metric("Proxima revision", "Dias 1-3 / 30 dias")
         k3.metric("LIVE", live_count)
         k4.metric("RETRAINING", retraining_count)
         k5.metric("Retrain pendientes", len(pending_retrain_requests))
         k6.metric("Evidencia insuficiente", insufficient_count)
         st.caption(
-            f"Estado evaluación Risk: {str(risk_status.get('last_evaluation_status') or latest_risk_run.get('status') or '-')}"
-            f" | Run ID: {str(risk_status.get('last_evaluation_run_id') or latest_risk_run.get('run_id') or '-')}"
-            f" | Traders evaluados: {int(risk_status.get('last_evaluation_traders') or latest_risk_run.get('evaluated_traders') or 0)}"
+            f"Estado revision: {str(hr_status.get('last_status') or latest_hr_run.get('status') or '-')}"
+            f" | Run ID: {str(hr_status.get('last_run_id') or latest_hr_run.get('run_id') or '-')}"
+            f" | Traders evaluados: {int(hr_status.get('last_traders') or latest_hr_run.get('evaluated_traders') or 0)}"
         )
 
-        if risk_rows:
+        if hr_rows:
             summary_rows: list[Dict[str, Any]] = []
-            for row in risk_rows:
+            for row in hr_rows:
                 metrics = dict(row.get("forward_metrics") or {})
                 profile = dict(row.get("design_profile") or {})
                 summary_rows.append(
@@ -2054,46 +1922,44 @@ def main() -> None:
                         "Promoted at": _fmt_ts(str(row.get("promoted_at") or "")),
                         "Estado actual": _human_trader_state(row.get("current_state")),
                         "Health score": round(float(row.get("health_score") or 0.0), 2),
-                        "Última acción": _human_risk_action(row.get("action")),
+                        "Ultima accion": _human_risk_action(row.get("action")),
                         "Shadow trades": int(metrics.get("shadow_trades") or 0),
                         "Executed trades": int(metrics.get("executed_trades") or 0),
                         "Signal count": int(metrics.get("signal_count") or 0),
-                        "PPO selected count": int(metrics.get("ppo_selected_count") or 0),
-                        "PPO blocked count": int(metrics.get("ppo_blocked_count") or 0),
-                        "Risk blocked count": int(metrics.get("risk_blocked_count") or 0),
-                        "Sharpe diseño": profile.get("sharpe_design"),
+                        "PM selected count": int(metrics.get("pm_selected_count") or 0),
+                        "Sharpe diseno": profile.get("sharpe_design"),
                         "Sharpe forward": metrics.get("shadow_sharpe"),
-                        "PF diseño": profile.get("profit_factor_design"),
+                        "PF diseno": profile.get("profit_factor_design"),
                         "PF forward": metrics.get("shadow_profit_factor"),
-                        "Max DD diseño": profile.get("max_drawdown_design"),
+                        "Max DD diseno": profile.get("max_drawdown_design"),
                         "Max DD forward": metrics.get("shadow_max_drawdown"),
-                        "Avg loss diseño": profile.get("avg_loss_design"),
+                        "Avg loss diseno": profile.get("avg_loss_design"),
                         "Avg loss forward": metrics.get("shadow_avg_loss"),
-                        "Losing streak diseño": profile.get("max_losing_streak_design"),
+                        "Losing streak diseno": profile.get("max_losing_streak_design"),
                         "Losing streak forward": metrics.get("shadow_losing_streak"),
-                        "Última evaluación": _fmt_ts(str(row.get("latest_evaluation") or "")),
+                        "Ultima revision": _fmt_ts(str(row.get("latest_evaluation") or "")),
                         "Motivo principal": row.get("main_reason"),
                     }
                 )
             with st.expander("Resumen de traders evaluados", expanded=False):
                 st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
 
-            for row in risk_rows:
+            for row in hr_rows:
                 trader_id = str(row.get("trader_id") or "")
                 asset = str(row.get("asset") or "")
                 timeframe = str(row.get("timeframe") or "D1")
                 profile = dict(row.get("design_profile") or {})
                 metrics = dict(row.get("forward_metrics") or {})
-                detail = dict(row.get("risk_detail") or {})
+                detail = dict(row.get("review_detail") or {})
                 forward_run = dict(row.get("forward_run") or {})
                 title = f"{_pretty_trader_name(trader_id, asset=asset, timeframe=timeframe)} | {_human_trader_state(row.get('current_state'))} | score={round(float(row.get('health_score') or 0.0), 2)}"
                 with st.expander(title, expanded=False):
                     i1, i2, i3, i4 = st.columns(4)
                     i1.metric("Estado", _human_trader_state(row.get("current_state")))
-                    i2.metric("Última acción", _human_risk_action(row.get("action")))
+                    i2.metric("Ultima accion", _human_risk_action(row.get("action")))
                     i3.metric("Health score", f"{float(row.get('health_score') or 0.0):.2f}")
-                    i4.metric("Promoción", _fmt_short_date(row.get("promoted_at")))
-                    st.caption(f"Última evaluación: {_fmt_ts(str(row.get('latest_evaluation') or ''))}")
+                    i4.metric("Promocion", _fmt_short_date(row.get("promoted_at")))
+                    st.caption(f"Ultima revision: {_fmt_ts(str(row.get('latest_evaluation') or ''))}")
                     for reason in list(detail.get("reasons") or []):
                         st.markdown(f"- {reason}")
 
@@ -2162,48 +2028,26 @@ def main() -> None:
                         forward_metrics=metrics,
                         executed_metrics=metrics,
                     )
-                    st.markdown("**Métricas comparativas**")
+                    st.markdown("**Metricas comparativas**")
                     st.dataframe(comparison_df, width="stretch", hide_index=True)
 
                     detail_rows = [
                         {
                             "Fecha": _fmt_ts(str(item.get("created_at") or "")),
-                            "Acción": _human_risk_action(item.get("action")),
+                            "Accion": _human_risk_action(item.get("action")),
                             "Estado anterior": _human_trader_state(item.get("previous_state")),
                             "Estado nuevo": _human_trader_state(item.get("new_state")),
                             "Health score": float(item.get("health_score") or 0.0),
                             "Reasons": "; ".join(list(item.get("reasons") or [])),
                         }
-                        for item in risk_details
+                        for item in hr_details
                         if str(item.get("trader_id") or "") == trader_id
                     ]
                     if detail_rows:
-                        st.markdown("**Historial de decisiones Risk**")
+                        st.markdown("**Historial de revisiones de salud**")
                         st.dataframe(pd.DataFrame(detail_rows), width="stretch", hide_index=True)
         else:
-            st.info("Todavía no hay evaluaciones de Risk guardadas.")
-
-        st.markdown("**Portfolio Risk Checks**")
-        if risk_checks:
-            rows_checks: list[Dict[str, Any]] = []
-            for row in risk_checks[:50]:
-                rows_checks.append(
-                    {
-                        "Fecha": _fmt_ts(str(row.get("created_at") or "")),
-                        "Rebalance ID": row.get("rebalance_id"),
-                        "Approved": "Sí" if bool(row.get("approved")) else "No",
-                        "Action": _human_risk_action(row.get("action")),
-                        "Blocked traders": ", ".join(list(row.get("blocked_traders") or [])),
-                        "Clipped traders": ", ".join(list(row.get("clipped_traders") or [])),
-                        "Forced cash": round(float((row.get("diagnostics") or {}).get("total_exposure", 0.0) or 0.0), 4),
-                        "Reasons": "; ".join(list(row.get("reasons") or [])),
-                        "Original weights": json.dumps(dict(row.get("original_weights") or {}), ensure_ascii=False),
-                        "Adjusted weights": json.dumps(dict(row.get("adjusted_weights") or {}), ensure_ascii=False),
-                    }
-                )
-            st.dataframe(pd.DataFrame(rows_checks), width="stretch", hide_index=True)
-        else:
-            st.info("Todavía no hay revisiones de cartera PPO por parte de Risk.")
+            st.info("Todavia no hay revisiones de salud guardadas.")
 
     if selected_section == "Operativa":
         st.markdown("### Operativa por trader")

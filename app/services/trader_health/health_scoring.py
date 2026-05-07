@@ -5,13 +5,13 @@ from uuid import uuid4
 
 from app.contracts import (
     AgentKind,
-    DesignRiskProfile,
     RetrainRequest,
-    RiskAction,
-    RiskLimitsConfig,
+    TraderDesignProfile,
     TraderForwardMetrics,
+    TraderHealthConfig,
     TraderHealthSnapshot,
     TraderLifecycleState,
+    TraderReviewAction,
 )
 from app.contracts.models import utc_now_iso
 
@@ -58,23 +58,26 @@ def _apply_ratio_penalty(
 
 
 def evaluate_trader_health(
-    design_profile: DesignRiskProfile,
+    design_profile: TraderDesignProfile,
     forward_metrics: TraderForwardMetrics,
     current_state: str,
-    limits: RiskLimitsConfig,
+    config: TraderHealthConfig,
 ) -> TraderHealthSnapshot:
     """
-    Politica binaria: LIVE o RETRAINING.
-    Si la evidencia forward es insuficiente o las metricas estan dentro del
-    umbral, el trader se mantiene LIVE (KEEP). En cuanto cualquier dimension
-    cae bajo el umbral, el trader se manda a RETRAINING (cash).
+    Politica binaria: el trader sigue valido (`KEEP`) o se manda a reentrenamiento
+    (`RETRAINING`).
+
+    - Si la evidencia forward es insuficiente (pocos trades), se mantiene LIVE.
+    - Si supera los umbrales de salud, se mantiene LIVE.
+    - En cuanto cualquier dimension cae bajo el umbral, se manda a RETRAINING
+      y se emite un `RetrainRequest`.
     """
     score = 100.0
     reasons: list[str] = []
     flags: Dict[str, Any] = {"insufficient_evidence": bool(forward_metrics.insufficient_evidence)}
 
     shadow_trades = int(forward_metrics.shadow_trades or 0)
-    insufficient = shadow_trades < int(limits.min_forward_trades_for_retraining)
+    insufficient = shadow_trades < int(config.min_forward_trades_for_retraining)
     if insufficient:
         flags["insufficient_evidence"] = True
         reasons.append("Evidencia forward insuficiente para una decision dura.")
@@ -83,7 +86,7 @@ def evaluate_trader_health(
         score,
         current=_safe_float(forward_metrics.shadow_profit_factor),
         baseline=_safe_float(design_profile.profit_factor_design),
-        retraining_floor=float(limits.min_profit_factor_ratio_retraining),
+        retraining_floor=float(config.min_profit_factor_ratio_retraining),
         label="profit_factor",
         reasons=reasons,
         flags=flags,
@@ -92,7 +95,7 @@ def evaluate_trader_health(
         score,
         current=_safe_float(forward_metrics.shadow_sharpe),
         baseline=_safe_float(design_profile.sharpe_design),
-        retraining_floor=float(limits.min_sharpe_ratio_retraining),
+        retraining_floor=float(config.min_sharpe_ratio_retraining),
         label="sharpe",
         reasons=reasons,
         flags=flags,
@@ -102,7 +105,7 @@ def evaluate_trader_health(
     dd_forward = _safe_float(forward_metrics.shadow_max_drawdown)
     if dd_design is not None and dd_forward is not None:
         flags["drawdown_ratio"] = dd_forward / max(dd_design, 1e-9)
-        if dd_forward >= dd_design * float(limits.max_drawdown_multiplier_retraining):
+        if dd_forward >= dd_design * float(config.max_drawdown_multiplier_retraining):
             score -= 35.0
             reasons.append("Drawdown forward por encima del umbral admitido.")
 
@@ -118,7 +121,7 @@ def evaluate_trader_health(
     losing_forward = _safe_int(forward_metrics.shadow_losing_streak)
     if losing_design is not None and losing_forward is not None:
         flags["losing_streak_ratio"] = losing_forward / max(float(losing_design or 1), 1.0)
-        if losing_forward > max(int(losing_design), 1) * float(limits.max_losing_streak_multiplier):
+        if losing_forward > max(int(losing_design), 1) * float(config.max_losing_streak_multiplier):
             score -= 12.0
             reasons.append("Racha de perdidas forward peor que la esperada.")
 
@@ -134,37 +137,34 @@ def evaluate_trader_health(
         reasons.append("Winrate forward significativamente inferior al de diseno.")
         flags["winrate_ratio"] = winrate_forward / max(winrate_design, 1e-9)
 
-    if int(forward_metrics.signal_count or 0) > 0 and int(forward_metrics.ppo_selected_count or 0) == 0:
+    # Si genera senales pero el PortfolioManagerProcess (GA+PSO) nunca las
+    # selecciona, su edge ya no es competitivo dentro de la cartera.
+    if int(forward_metrics.signal_count or 0) > 0 and int(forward_metrics.pm_selected_count or 0) == 0:
         score -= 5.0
-        reasons.append("El trader genera senales pero no aporta edge operativo.")
-
-    if int(forward_metrics.ppo_blocked_count or 0) > 0:
-        score -= min(10.0, float(forward_metrics.ppo_blocked_count))
-        reasons.append("Parte de las senales han sido bloqueadas aguas abajo.")
+        reasons.append("El trader genera senales pero nunca lo selecciona el portfolio manager.")
 
     score = max(0.0, min(100.0, float(score)))
     previous_state = str(current_state or TraderLifecycleState.LIVE.value)
 
     if insufficient:
-        # Sin evidencia forward suficiente no se manda a reentrenamiento, se mantiene LIVE.
-        action = RiskAction.KEEP.value
+        action = TraderReviewAction.KEEP.value
         new_state = TraderLifecycleState.LIVE.value
-    elif score < float(limits.retraining_health_threshold):
-        action = RiskAction.RETRAINING.value
+    elif score < float(config.retraining_health_threshold):
+        action = TraderReviewAction.RETRAINING.value
         new_state = TraderLifecycleState.RETRAINING.value
     else:
-        action = RiskAction.KEEP.value
+        action = TraderReviewAction.KEEP.value
         new_state = TraderLifecycleState.LIVE.value
 
     retrain_request = None
-    if action == RiskAction.RETRAINING.value:
+    if action == TraderReviewAction.RETRAINING.value:
         retrain_request = RetrainRequest(
             request_id=f"rr_{uuid4().hex[:10]}",
             trader_id=design_profile.trader_id,
             asset=design_profile.asset,
             timeframe=design_profile.timeframe,
             reason="; ".join(reasons) or "health_score_below_retraining_threshold",
-            requested_by=AgentKind.RISK,
+            requested_by=AgentKind.HUMAN_RESOURCES,
             context={
                 "health_score": score,
                 "evaluation_run_id": forward_metrics.evaluation_run_id,
@@ -188,10 +188,10 @@ def evaluate_trader_health(
         reasons=reasons,
         design_profile=design_profile,
         forward_metrics=forward_metrics,
-        risk_flags=flags,
+        flags=flags,
         retrain_request=retrain_request,
         metadata={
-            "limits": limits.to_dict(),
+            "config": config.to_dict(),
             "current_state": previous_state,
             "evaluated_at": utc_now_iso(),
         },

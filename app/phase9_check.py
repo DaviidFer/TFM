@@ -5,8 +5,7 @@ from pathlib import Path
 from app.agents import (
     AgentContext,
     DeveloperAgent,
-    PortfolioManagerAgent,
-    RiskAgent,
+    PortfolioManagerProcess,
     TraderAgent,
     ValidationAgent,
 )
@@ -49,14 +48,13 @@ def main(*, db_path: Path | None = None) -> int:
     developer_agent = DeveloperAgent(ctx)
     validation_agent = ValidationAgent(ctx)
     trader_agent = TraderAgent(ctx)
-    portfolio_agent = PortfolioManagerAgent(ctx)
-    risk_agent = RiskAgent(ctx)
+    portfolio_manager_process = PortfolioManagerProcess(ctx)
     simulation = SimulationRuntime(
         data_process=data_process,
         developer_agent=developer_agent,
         validation_agent=validation_agent,
         trader_agent=trader_agent,
-        portfolio_agent=portfolio_agent,
+        portfolio_manager_process=portfolio_manager_process,
     )
 
     emit_log("phase9_check", "run_started", db_path=str(db_path), mode="paper", universe=list(universe.keys()))
@@ -85,11 +83,9 @@ def main(*, db_path: Path | None = None) -> int:
     if ok <= 0:
         raise RuntimeError("Expected routed paper orders from trader.")
 
-    # Portfolio y Risk leen ejecución (permitido)
-    pm_positions = portfolio_agent.get_broker_positions()
-    rk_info = risk_agent.get_broker_account_info()
+    # Portfolio puede leer ejecucion (permitido); Recursos Humanos ya no toca el broker.
+    pm_positions = portfolio_manager_process.get_broker_positions()
     print(f"pm_positions: {len(pm_positions)}")
-    print(f"risk_account: {rk_info}")
 
     # Data/Developer/Validation no deben tener acceso
     denied = False

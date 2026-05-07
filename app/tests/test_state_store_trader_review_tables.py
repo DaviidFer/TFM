@@ -9,14 +9,18 @@ from app.storage import StateStore
 def _tmp_db_path() -> Path:
     base = Path("app/.tmp/tests")
     base.mkdir(parents=True, exist_ok=True)
-    return base / f"risk_store_{uuid4().hex[:8]}.sqlite"
+    return base / f"trader_review_store_{uuid4().hex[:8]}.sqlite"
 
 
-def test_state_store_risk_tables_roundtrip() -> None:
+def test_state_store_trader_review_tables_roundtrip() -> None:
+    """
+    Roundtrip de las tablas de revision de traders del HumanResourcesProcess:
+    `trader_review_runs`, `trader_review_details` y `retrain_requests`.
+    """
     store = StateStore(db_path=_tmp_db_path())
-    store.create_risk_evaluation_run(run_id="risk_1", run_type="manual")
-    store.save_risk_evaluation_detail(
-        evaluation_run_id="risk_1",
+    store.create_trader_review_run(run_id="hr_1", run_type="manual")
+    store.save_trader_review_detail(
+        evaluation_run_id="hr_1",
         trader_id="tr_A",
         asset="AAPL",
         timeframe="D1",
@@ -45,14 +49,14 @@ def test_state_store_risk_tables_roundtrip() -> None:
     all_requests = store.list_retrain_requests()
     assert all_requests[0]["status"] == "completed"
     assert all_requests[0]["payload"]["new_trader_id"] == "tr_A_v2"
-    store.complete_risk_evaluation_run(
-        run_id="risk_1",
+    store.complete_trader_review_run(
+        run_id="hr_1",
         status="completed",
         evaluated_traders=1,
         retraining_count=1,
         retrain_requests_count=1,
     )
-    runs = store.list_risk_evaluation_runs()
-    details = store.list_risk_evaluation_details()
+    runs = store.list_trader_review_runs()
+    details = store.list_trader_review_details()
     assert runs[0]["evaluated_traders"] == 1
     assert details[0]["trader_id"] == "tr_A"
