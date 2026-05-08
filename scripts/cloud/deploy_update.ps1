@@ -4,6 +4,7 @@ param()
 $ErrorActionPreference = "Stop"
 
 . "$PSScriptRoot\Resolve-TfmProjectDir.ps1"
+. "$PSScriptRoot\Ensure-ProjectRequirements.ps1"
 
 function Get-PythonExe([string]$ProjectDir) {
     $venvPython = Join-Path $ProjectDir ".venv\Scripts\python.exe"
@@ -13,32 +14,8 @@ function Get-PythonExe([string]$ProjectDir) {
     return "python"
 }
 
-function Install-ProjectRequirements([string]$PythonExe, [string]$ProjectDir) {
-    $requirementsFile = Join-Path $ProjectDir "requirements.txt"
-    if (-not (Test-Path $requirementsFile)) {
-        throw "No existe requirements.txt en $ProjectDir"
-    }
-
-    & $PythonExe -m pip install -r $requirementsFile
-    if ($LASTEXITCODE -ne 0) {
-        throw "Fallo instalando requirements.txt"
-    }
-
-    $pyVersion = & $PythonExe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-    if ($LASTEXITCODE -ne 0) {
-        throw "No se pudo leer la version de Python"
-    }
-    $pyVersion = ($pyVersion | Select-Object -First 1).Trim()
-
-    if ($pyVersion -eq "3.11") {
-        & $PythonExe -m pip install --no-deps --ignore-requires-python "pyeventbt==0.0.9"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Fallo instalando pyeventbt==0.0.9 para Python 3.11"
-        }
-    }
-}
-
 $projectDir = Get-TfmProjectDir
+Set-TfmProjectEnvironment -ProjectDir $projectDir
 $logDir = Join-Path $projectDir "app\.tmp\logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "deploy_update.log"
@@ -55,8 +32,7 @@ try {
     }
 
     $pythonExe = Get-PythonExe -ProjectDir $projectDir
-    & $pythonExe -m pip install --upgrade pip
-    Install-ProjectRequirements -PythonExe $pythonExe -ProjectDir $projectDir
+    Ensure-ProjectRequirements -PythonExe $pythonExe -ProjectDir $projectDir -Force
 
     & $pythonExe -m app.cloud_tasks.smoke_test_cloud
 }

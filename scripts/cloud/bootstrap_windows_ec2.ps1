@@ -2,13 +2,16 @@
 param(
     [string]$RepoUrl = $env:GITHUB_REPO_URL,
     [string]$Branch = $(if ($env:GITHUB_BRANCH) { $env:GITHUB_BRANCH } else { "main" }),
-    [string]$ProjectDir = $(if ($env:TFM_PROJECT_DIR) { $env:TFM_PROJECT_DIR } else { "C:\tfm\tfm-project" })
+    [string]$ProjectDir = $(if ($env:TFM_PROJECT_DIR) { $env:TFM_PROJECT_DIR } else { "C:\tfm\tfm-project-gitpublic" })
 )
 
 $ErrorActionPreference = "Stop"
 $bootstrapRoot = "C:\tfm"
 $bootstrapLogDir = Join-Path $bootstrapRoot "logs"
 $bootstrapLogFile = Join-Path $bootstrapLogDir "bootstrap.log"
+
+. "$PSScriptRoot\Resolve-TfmProjectDir.ps1"
+. "$PSScriptRoot\Ensure-ProjectRequirements.ps1"
 
 function Install-ChocolateyIfNeeded {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
@@ -28,31 +31,6 @@ function Install-ChocoPackageIfNeeded([string]$CommandName, [string]$PackageName
     }
     else {
         choco install $PackageName -y --params $ExtraArgs
-    }
-}
-
-function Install-ProjectRequirements([string]$PythonExe, [string]$ProjectDir) {
-    $requirementsFile = Join-Path $ProjectDir "requirements.txt"
-    if (-not (Test-Path $requirementsFile)) {
-        throw "No existe requirements.txt en $ProjectDir"
-    }
-
-    & $PythonExe -m pip install -r $requirementsFile
-    if ($LASTEXITCODE -ne 0) {
-        throw "Fallo instalando requirements.txt"
-    }
-
-    $pyVersion = & $PythonExe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-    if ($LASTEXITCODE -ne 0) {
-        throw "No se pudo leer la version de Python"
-    }
-    $pyVersion = ($pyVersion | Select-Object -First 1).Trim()
-
-    if ($pyVersion -eq "3.11") {
-        & $PythonExe -m pip install --no-deps --ignore-requires-python "pyeventbt==0.0.9"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Fallo instalando pyeventbt==0.0.9 para Python 3.11"
-        }
     }
 }
 
@@ -89,6 +67,7 @@ try {
     }
 
     Set-Location $ProjectDir
+    Set-TfmProjectEnvironment -ProjectDir $ProjectDir
     $envExample = Join-Path $ProjectDir ".env.example"
     $envFile = Join-Path $ProjectDir ".env"
     if ((Test-Path $envExample) -and (-not (Test-Path $envFile))) {
@@ -101,8 +80,7 @@ try {
         & $bootstrapPython -m venv ".venv"
     }
 
-    & $venvPython -m pip install --upgrade pip
-    Install-ProjectRequirements -PythonExe $venvPython -ProjectDir $ProjectDir
+    Ensure-ProjectRequirements -PythonExe $venvPython -ProjectDir $ProjectDir -Force
 }
 finally {
     Stop-Transcript | Out-Null

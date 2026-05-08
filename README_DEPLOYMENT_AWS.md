@@ -94,10 +94,10 @@ Variables utiles (opcional): `TFM_PROJECT_DIR`, `STREAMLIT_PORT` (por defecto `8
 
 ## Ejecutar scripts principales
 
-Desde el directorio raiz del repo (ej. `C:\tfm\tfm-project`):
+Desde el directorio raiz del repo (ej. `C:\tfm\tfm-project-gitpublic` o `C:\tfm\tfm-project`):
 
 ```powershell
-cd C:\tfm\tfm-project
+cd C:\tfm\tfm-project-gitpublic
 .\scripts\cloud\run_streamlit.ps1
 ```
 
@@ -115,13 +115,14 @@ Otros:
 ```powershell
 mkdir C:\tfm -Force | Out-Null
 cd C:\tfm
-git clone https://github.com/DaviidFer/TFM.git tfm-project
-cd .\tfm-project
+git clone https://github.com/DaviidFer/TFM.git tfm-project-gitpublic
+cd .\tfm-project-gitpublic
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pip install --no-deps --ignore-requires-python pyeventbt==0.0.9
+python -m pip install "numpy>=1.24,<=2.3.5"
 .\scripts\cloud\run_streamlit.ps1
 ```
 
@@ -133,11 +134,11 @@ Flujo recomendado:
 2. en la EC2:
 
 ```powershell
-cd C:\tfm\tfm-project
+cd C:\tfm\tfm-project-gitpublic
 .\scripts\cloud\deploy_update.ps1
 ```
 
-Tambien puedes hacer `git pull` manualmente en esa misma ruta. Si aun no existe `C:\tfm\tfm-project`, clona el repo alli o ejecuta `bootstrap_windows_ec2.ps1`.
+Tambien puedes hacer `git pull` manualmente en esa misma ruta. Si aun no existe `C:\tfm\tfm-project-gitpublic`, clona el repo alli o ejecuta `bootstrap_windows_ec2.ps1`.
 
 ## Destruir recursos
 

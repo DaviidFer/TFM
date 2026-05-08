@@ -5,6 +5,75 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _is_project_dir(path: Path) -> bool:
+    try:
+        return path.exists() and (path / "requirements.txt").exists() and (path / ".git").exists()
+    except Exception:
+        return False
+
+
+def _path_is_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except Exception:
+        return False
+
+
+def _normalized_project_path(*, env_name: str, default: Path, project_dir: Path) -> Path:
+    raw = str(os.getenv(env_name, "")).strip()
+    if not raw:
+        return default
+    candidate = Path(raw).expanduser()
+    # Si la variable heredada apunta fuera del repo activo, la tratamos como
+    # obsoleta y volvemos a la ruta canónica del proyecto actual.
+    if not _path_is_within(candidate, project_dir):
+        return default
+    return candidate
+
+
+def _discover_project_dir() -> Path:
+    candidate_paths: list[Path] = []
+    env_project_dir = str(os.getenv("TFM_PROJECT_DIR", "")).strip()
+    if env_project_dir:
+        candidate_paths.append(Path(env_project_dir).expanduser())
+
+    cwd = Path.cwd()
+    candidate_paths.append(cwd)
+    candidate_paths.extend(cwd.parents)
+
+    candidate_paths.extend(
+        [
+            Path(r"C:\tfm\tfm-project-gitpublic"),
+            Path(r"C:\tfm\tfm-project"),
+            Path(r"C:\tfm-trading"),
+            Path(r"C:\TFM"),
+            Path(r"C:\tfm\TFM"),
+        ]
+    )
+
+    seen: set[str] = set()
+    for candidate in candidate_paths:
+        candidate = candidate.expanduser()
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        if _is_project_dir(candidate):
+            return candidate
+
+    tfm_root = Path(r"C:\tfm")
+    if tfm_root.exists():
+        repos = sorted(
+            [p for p in tfm_root.iterdir() if p.is_dir() and _is_project_dir(p)],
+            key=lambda p: (0 if p.name == "tfm-project-gitpublic" else 1 if p.name == "tfm-project" else 2, str(p).lower()),
+        )
+        if repos:
+            return repos[0]
+
+    return Path(env_project_dir or r"C:\tfm\tfm-project-gitpublic").expanduser()
+
+
 def _load_project_dotenv() -> None:
     try:
         from dotenv import load_dotenv  # type: ignore
@@ -14,8 +83,11 @@ def _load_project_dotenv() -> None:
     candidate_paths: list[Path] = []
     env_project_dir = str(os.getenv("TFM_PROJECT_DIR", "")).strip()
     if env_project_dir:
-        candidate_paths.append(Path(env_project_dir) / ".env")
+        candidate_paths.append(Path(env_project_dir).expanduser() / ".env")
     candidate_paths.append(Path.cwd() / ".env")
+    discovered = _discover_project_dir()
+    candidate_paths.append(discovered / ".env")
+    candidate_paths.append(Path(r"C:\tfm\tfm-project-gitpublic") / ".env")
     candidate_paths.append(Path(r"C:\tfm\tfm-project") / ".env")
 
     seen: set[str] = set()
@@ -78,13 +150,27 @@ class CloudConfig:
 
 def load_cloud_config() -> CloudConfig:
     _load_project_dotenv()
-    project_dir = Path(os.getenv("TFM_PROJECT_DIR", r"C:\tfm\tfm-project")).expanduser()
-    artifacts_root = Path(
-        os.getenv("TFM_ARTIFACTS_ROOT", str(project_dir / "app" / ".tmp"))
+    env_project_dir = str(os.getenv("TFM_PROJECT_DIR", "")).strip()
+    project_dir = Path(env_project_dir).expanduser() if env_project_dir else _discover_project_dir()
+    project_dir = project_dir.expanduser()
+    artifacts_root_default = project_dir / "app" / ".tmp"
+    db_path_default = artifacts_root_default / "supervisor" / "supervisor.sqlite"
+    artifacts_root = _normalized_project_path(
+        env_name="TFM_ARTIFACTS_ROOT",
+        default=artifacts_root_default,
+        project_dir=project_dir,
     ).expanduser()
-    db_path = Path(
-        os.getenv("TFM_DB_PATH", str(project_dir / "app" / ".tmp" / "supervisor" / "supervisor.sqlite"))
+    db_path = _normalized_project_path(
+        env_name="TFM_DB_PATH",
+        default=db_path_default,
+        project_dir=project_dir,
     ).expanduser()
+    # Reexporta valores consistentes para que cualquier subprocess/importe
+    # posterior vea el mismo proyecto/SQLite, aunque la sesión arrastrase envs
+    # obsoletas desde repos antiguos.
+    os.environ["TFM_PROJECT_DIR"] = str(project_dir)
+    os.environ["TFM_ARTIFACTS_ROOT"] = str(artifacts_root)
+    os.environ["TFM_DB_PATH"] = str(db_path)
     logs_dir = artifacts_root / "logs"
     return CloudConfig(
         tfm_env=str(os.getenv("TFM_ENV", "local")).strip() or "local",

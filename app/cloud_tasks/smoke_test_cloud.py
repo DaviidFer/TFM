@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+from pathlib import Path
 
 from app.cloud import CLOUD_PATHS, S3Storage, load_cloud_config
 from app.cloud.heartbeat import build_heartbeat_payload, upload_heartbeat_if_enabled, write_heartbeat
@@ -17,7 +18,7 @@ EVENT_BACKTEST_PROBE_MODULES: tuple[str, ...] = (
 
 
 def _numpy_compatible_with_numba_stack(result: dict[str, object]) -> None:
-    """Numba en PyEventBT no admite NumPy 2.4+ en la matriz probada; requirements.txt pinna numpy<2.4."""
+    """Numba 0.62.x no admite NumPy 2.4+; requirements.txt y scripts cloud fijan numpy<=2.3.5."""
     try:
         import numpy as np
 
@@ -25,7 +26,7 @@ def _numpy_compatible_with_numba_stack(result: dict[str, object]) -> None:
         maj, minor = int(parts[0]), int(parts[1])
         if maj > 2 or (maj == 2 and minor >= 4):
             result["imports"]["numpy_numba_abi"] = (
-                f"error: numpy {np.__version__} — usar numpy<2.4 con numba/pyeventbt"
+                f"error: numpy {np.__version__} — usar numpy<=2.3.5 con numba/pyeventbt (pip install \"numpy>=1.24,<=2.3.5\")"
             )
             result["status"] = "error"
         else:
@@ -33,6 +34,60 @@ def _numpy_compatible_with_numba_stack(result: dict[str, object]) -> None:
     except Exception as exc:
         result["imports"]["numpy_numba_abi"] = f"error: {exc}"
         result["status"] = "error"
+
+
+def _numba_version_compatible_with_pyeventbt(result: dict[str, object]) -> None:
+    """PyEventBT 0.0.9 requiere numba>=0.62.1,<0.63.0 en la instalacion cloud soportada."""
+    try:
+        import sys
+        import numba
+
+        if tuple(sys.version_info[:2]) != (3, 11):
+            result["imports"]["numba_pyeventbt_range"] = f"skipped (python {sys.version_info.major}.{sys.version_info.minor})"
+            return
+
+        parts = numba.__version__.split(".")
+        maj, minor = int(parts[0]), int(parts[1])
+        if maj != 0 or minor < 62 or minor >= 63:
+            result["imports"]["numba_pyeventbt_range"] = (
+                f"error: numba {numba.__version__} — usar numba>=0.62.1,<0.63.0 con pyeventbt 0.0.9"
+            )
+            result["status"] = "error"
+        else:
+            result["imports"]["numba_pyeventbt_range"] = f"ok ({numba.__version__})"
+    except Exception as exc:
+        result["imports"]["numba_pyeventbt_range"] = f"error: {exc}"
+        result["status"] = "error"
+
+
+def _paths_align_with_project(result: dict[str, object], *, project_dir: Path, artifacts_root: Path, db_path: Path) -> None:
+    try:
+        project_dir = project_dir.resolve()
+        artifacts_root = artifacts_root.resolve()
+        db_path = db_path.resolve()
+    except Exception:
+        pass
+
+    artifacts_under_project = True
+    try:
+        artifacts_root.relative_to(project_dir)
+    except Exception:
+        artifacts_under_project = False
+    db_under_project = True
+    try:
+        db_path.relative_to(project_dir)
+    except Exception:
+        db_under_project = False
+
+    result["paths"]["artifacts_under_project"] = artifacts_under_project
+    result["paths"]["db_under_project"] = db_under_project
+    if not (artifacts_under_project and db_under_project):
+        result["imports"]["cloud_path_alignment"] = (
+            f"error: rutas mezcladas; project_dir={project_dir}, artifacts_root={artifacts_root}, db_path={db_path}"
+        )
+        result["status"] = "error"
+    else:
+        result["imports"]["cloud_path_alignment"] = "ok"
 
 
 def main() -> int:
@@ -70,6 +125,13 @@ def main() -> int:
             result["status"] = "error"
 
     _numpy_compatible_with_numba_stack(result)
+    _numba_version_compatible_with_pyeventbt(result)
+    _paths_align_with_project(
+        result,
+        project_dir=config.project_dir,
+        artifacts_root=config.artifacts_root,
+        db_path=config.db_path,
+    )
 
     mt5_expected = bool(config.mt5_path or config.mt5_login or config.mt5_server)
     if mt5_expected:

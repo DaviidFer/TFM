@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -72,8 +73,13 @@ def _render_desarrollo_controls(supervisor: DevelopmentOperationalSupervisor) ->
     with c_ctl_2:
         b1, b2, b3 = st.columns(3)
         if b1.button("Iniciar desarrollo de agentes trader", key="btn_dev_start"):
-            supervisor.start()
-            st.success("Desarrollo iniciado.")
+            if supervisor.start():
+                st.success("Desarrollo iniciado.")
+            else:
+                st.warning(
+                    "No se inicia desarrollo: ya hay tantos traders promovidos como el objetivo configurado "
+                    "(o más). Reduzca traders con reinicio / HR o suba el objetivo."
+                )
             st.rerun()
         if b2.button("Parar desarrollo de agentes trader", key="btn_dev_stop"):
             supervisor.stop_development()
@@ -773,18 +779,46 @@ def _render_pretty_dev_events(
             st.text("\n".join(lines).strip())
 
 
-def _get_supervisor() -> DevelopmentOperationalSupervisor:
-    default_db_path = Path(os.getenv("TFM_DB_PATH", str(LOCAL_PATHS.supervisor_db)))
-    if "tfm_supervisor" not in st.session_state:
-        st.session_state["tfm_supervisor"] = DevelopmentOperationalSupervisor(db_path=default_db_path)
-        return st.session_state["tfm_supervisor"]
+_SUPERVISOR_SINGLETON_LOCK = threading.Lock()
+_SUPERVISOR_BY_DB_KEY: Dict[str, DevelopmentOperationalSupervisor] = {}
 
-    sup = st.session_state["tfm_supervisor"]
-    # Compatibilidad hot-reload: si hay una instancia antigua en memoria,
-    # la reemplazamos por una nueva con la version actual de la clase.
+
+def _supervisor_db_cache_key(db_path: Path) -> str:
+    try:
+        return str(db_path.resolve())
+    except Exception:
+        return str(db_path)
+
+
+def _maybe_warn_numpy_abi() -> None:
+    """Un aviso global si NumPy es demasiado nuevo para Numba/PyEventBT."""
+    if st.session_state.get("_tfm_numpy_abi_checked"):
+        return
+    st.session_state["_tfm_numpy_abi_checked"] = True
+    try:
+        from app.core.numpy_numba_abi import numpy_numba_abi_fail_message
+
+        msg = numpy_numba_abi_fail_message()
+        if msg:
+            st.error(msg)
+    except Exception:
+        pass
+
+
+def _get_supervisor() -> DevelopmentOperationalSupervisor:
+    """Un supervisor por BD compartido entre todas las sesiones Streamlit (mismo proceso)."""
+    default_db_path = Path(os.getenv("TFM_DB_PATH", str(LOCAL_PATHS.supervisor_db)))
+    cache_key = _supervisor_db_cache_key(default_db_path)
+
+    with _SUPERVISOR_SINGLETON_LOCK:
+        sup = _SUPERVISOR_BY_DB_KEY.get(cache_key)
+        if sup is None:
+            sup = DevelopmentOperationalSupervisor(db_path=default_db_path)
+            _SUPERVISOR_BY_DB_KEY[cache_key] = sup
+
     needs_rebuild = (
         (not hasattr(sup, "get_backtest_registry"))
-        or int(getattr(sup, "dashboard_snapshot_schema_version", 0)) < 10
+        or int(getattr(sup, "dashboard_snapshot_schema_version", 0)) < DevelopmentOperationalSupervisor._DASHBOARD_SNAPSHOT_SCHEMA_VERSION
     )
     if needs_rebuild:
         db_path = Path(getattr(sup, "db_path", default_db_path))
@@ -811,8 +845,12 @@ def _get_supervisor() -> DevelopmentOperationalSupervisor:
                 rebuilt.start_operational_runtime()
         except Exception:
             pass
-        st.session_state["tfm_supervisor"] = rebuilt
-    return st.session_state["tfm_supervisor"]
+        with _SUPERVISOR_SINGLETON_LOCK:
+            _SUPERVISOR_BY_DB_KEY[_supervisor_db_cache_key(db_path)] = rebuilt
+        sup = rebuilt
+
+    st.session_state["tfm_supervisor"] = sup
+    return sup
 
 
 @st.cache_data(ttl=2, show_spinner=False)
@@ -2187,6 +2225,8 @@ def main() -> None:
     )
     st.title("Dashboard Multiagente TFM")
     st.write("Desarrollo y operativa en tiempo real (MT5 D1).")
+
+    _maybe_warn_numpy_abi()
 
     supervisor = _get_supervisor()
 

@@ -71,6 +71,7 @@ try {
     & $venvPython -m pip install --upgrade pip
     if (Test-Path (Join-Path $projectDir "requirements.txt")) {
         & $venvPython -m pip install -r "requirements.txt"
+        & $venvPython -m pip install "numpy>=1.24,<=2.3.5"
     }
 }
 finally {

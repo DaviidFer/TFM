@@ -7,6 +7,7 @@ from uuid import uuid4
 import pandas as pd
 
 from app.cloud import LOCAL_PATHS
+from app.core.numpy_numba_abi import numpy_numba_abi_fail_message
 from app.toolbox.backtest_eventos.runner import run_event_backtest
 from app.contracts import PromotedTraderSpec, TraderDesignProfile, TraderForwardMetrics
 from app.core.structured_logging import emit_log
@@ -316,6 +317,10 @@ class ForwardBacktestService:
                 metrics=metrics.to_dict(),
             )
             return metrics
+
+        abi_msg = numpy_numba_abi_fail_message()
+        if abi_msg:
+            raise RuntimeError(abi_msg)
 
         bt = run_event_backtest(
             csv_dir=str(LOCAL_PATHS.backtests_csv_dir),

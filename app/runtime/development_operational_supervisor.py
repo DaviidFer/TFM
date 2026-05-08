@@ -36,6 +36,7 @@ from app.services import DataProcess
 from app.services.portfolio_support import PortfolioOHLCRefreshService
 from app.services.trader_health import build_trader_design_profile
 from app.storage import StateStore
+from app.core.numpy_numba_abi import numpy_numba_abi_fail_message
 
 # Silencia warnings conocidos de sklearn que saturan la consola durante
 # ciclos de desarrollo repetitivos sin aportar valor operativo.
@@ -86,6 +87,7 @@ class DevelopmentOperationalSupervisor:
         )
         self._shutdown = threading.Event()
         self._develop_enabled = threading.Event()
+        self._development_cycle_lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._status_lock = threading.Lock()
         self._status: Dict[str, object] = {
@@ -133,6 +135,29 @@ class DevelopmentOperationalSupervisor:
         except Exception:
             total = len(self._promoted_registry)
         self._set_status(developed_traders=int(total))
+
+    def _halt_development_if_quota_met(self) -> bool:
+        """
+        Comprueba el número real de traders promovidos (BD + sesión) frente al objetivo.
+        Si ya se alcanzó o superó la cuota, detiene el desarrollo y arranca runtime si aplica.
+        """
+        self._sync_developed_traders_from_history()
+        current = len(self.get_all_promoted_specs())
+        target = max(1, int(self.get_status().get("target_traders", 8)))
+        if current < target:
+            return False
+        if self._develop_enabled.is_set():
+            self._develop_enabled.clear()
+            self._set_status(develop_enabled=False, current_stage="idle")
+            emit_log(
+                "supervisor",
+                "target_traders_reached",
+                console=False,
+                target_traders=target,
+                developed_traders=current,
+            )
+            self._bootstrap_runtime_after_target_reached()
+        return True
 
     def _load_persistent_supervisor_prefs(self) -> None:
         """Restaura preferencias del supervisor desde SQLite (y opcionalmente env)."""
@@ -586,6 +611,22 @@ class DevelopmentOperationalSupervisor:
     def _run_backtest_for_promoted(self, promoted_spec, *, refresh_reason: str = "development_cycle") -> None:
         trader_id = str(promoted_spec.trader_id)
         asset = str(promoted_spec.asset).upper()
+        abi_msg = numpy_numba_abi_fail_message()
+        if abi_msg:
+            self._set_backtest_entry(
+                trader_id,
+                {
+                    "status": "error",
+                    "asset": asset,
+                    "timeframe": str(promoted_spec.timeframe),
+                    "long_rules": list(promoted_spec.long_rules),
+                    "short_rules": list(promoted_spec.short_rules),
+                    "error": abi_msg,
+                    "updated_at": _utc_now_iso(),
+                },
+            )
+            emit_log("supervisor", "backtest_skipped_numpy_abi", console=False, trader_id=trader_id, detail=abi_msg)
+            return
         csv_path = self.local_market_data.get_csv_path(asset)
         if not csv_path:
             self._set_backtest_entry(
@@ -827,7 +868,8 @@ class DevelopmentOperationalSupervisor:
             self.ctx.store.set_supervisor_pref_int("target_traders", target)
         except Exception:
             pass
-        current = int(self.get_status().get("developed_traders") or 0)
+        self._sync_developed_traders_from_history()
+        current = len(self.get_all_promoted_specs())
         if current >= target:
             self._develop_enabled.clear()
             self._set_status(develop_enabled=False, current_stage="idle")
@@ -1054,6 +1096,8 @@ class DevelopmentOperationalSupervisor:
         return {"chosen_family": chosen, "params": params, "split": split, "validation": validation}
 
     def _run_development_cycle(self) -> None:
+        if self._halt_development_if_quota_met():
+            return
         symbols = list(self.local_market_data.asset_csv_by_symbol.keys())
         if not symbols:
             raise RuntimeError("No hay activos disponibles en carpeta datos para desarrollo.")
@@ -1087,6 +1131,19 @@ class DevelopmentOperationalSupervisor:
                 return
             self._set_status(current_stage="validation_agent")
             self._append_cycle_step("validation_agent")
+            self._sync_developed_traders_from_history()
+            target_cap = max(1, int(self.get_status().get("target_traders", 8)))
+            if len(self.get_all_promoted_specs()) >= target_cap:
+                emit_log(
+                    "supervisor",
+                    "validation_skipped_quota_full_before_validate",
+                    console=False,
+                    asset=str(asset),
+                    target_traders=target_cap,
+                )
+                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._halt_development_if_quota_met()
+                return
             val = self.validation_agent.validate_and_promote(
                 dev,
                 validation_profile=strategy["validation"],
@@ -1145,21 +1202,7 @@ class DevelopmentOperationalSupervisor:
             last_cycle_asset=asset,
             last_cycle_trader_id=trader_id,
         )
-
-        # Si el objetivo se ha alcanzado en este mismo ciclo, desactiva desarrollo de inmediato.
-        current = len(self.get_all_promoted_specs())
-        target = int(self.get_status().get("target_traders", 8))
-        if current >= target:
-            self._develop_enabled.clear()
-            self._set_status(develop_enabled=False, current_stage="idle")
-            emit_log(
-                "supervisor",
-                "target_traders_reached",
-                console=False,
-                target_traders=target,
-                developed_traders=current,
-            )
-            self._bootstrap_runtime_after_target_reached()
+        self._halt_development_if_quota_met()
 
     def _load_historical_promoted_specs(self) -> Dict[str, PromotedTraderSpec]:
         """
@@ -1220,6 +1263,7 @@ class DevelopmentOperationalSupervisor:
             return 100000.0
 
     def _portfolio_universe_ready(self) -> bool:
+        self._sync_developed_traders_from_history()
         status = self.get_status()
         try:
             developed = int(status.get("developed_traders") or 0)
@@ -1643,22 +1687,10 @@ class DevelopmentOperationalSupervisor:
         emit_log("supervisor", "thread_started", console=False, execution_mode=self.execution_mode.value)
         while not self._shutdown.is_set():
             try:
-                if self._develop_enabled.is_set():
-                    current = int(self._status.get("developed_traders", 0))
-                    target = int(self._status.get("target_traders", 8))
-                    if current < target:
-                        self._run_development_cycle()
-                    else:
-                        self._develop_enabled.clear()
-                        self._set_status(develop_enabled=False, current_stage="idle")
-                        emit_log(
-                            "supervisor",
-                            "target_traders_reached",
-                            console=False,
-                            target_traders=target,
-                            developed_traders=current,
-                        )
-                        self._bootstrap_runtime_after_target_reached()
+                with self._development_cycle_lock:
+                    if self._develop_enabled.is_set():
+                        if not self._halt_development_if_quota_met():
+                            self._run_development_cycle()
                 self._ensure_operational_runtime()
                 if self._should_run_portfolio_monthly_refresh():
                     self.run_portfolio_monthly_refresh()
@@ -1672,7 +1704,26 @@ class DevelopmentOperationalSupervisor:
         self._set_status(running=False, current_stage="stopped")
         emit_log("supervisor", "thread_stopped", console=False)
 
-    def start(self) -> None:
+    def start(self) -> bool:
+        """Arranca desarrollo. Devuelve False si ya se cumplió el objetivo de traders."""
+        self._sync_developed_traders_from_history()
+        target = max(1, int(self.get_status().get("target_traders", 8)))
+        if len(self.get_all_promoted_specs()) >= target:
+            self._develop_enabled.clear()
+            self._set_status(
+                develop_enabled=False,
+                current_stage="idle",
+                current_asset=None,
+                current_cycle_steps=[],
+            )
+            emit_log(
+                "supervisor",
+                "development_start_refused_quota_met",
+                console=False,
+                target_traders=target,
+                developed=len(self.get_all_promoted_specs()),
+            )
+            return False
         if self._thread is None or not self._thread.is_alive():
             self._shutdown.clear()
             self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -1686,6 +1737,7 @@ class DevelopmentOperationalSupervisor:
             current_cycle_steps=[],
         )
         emit_log("supervisor", "development_enabled", console=False)
+        return True
 
     def stop_development(self) -> None:
         self._develop_enabled.clear()

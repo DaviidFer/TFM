@@ -7,10 +7,11 @@ Los scripts de `scripts/cloud` estan pensados para ejecutarse manualmente por RD
 Los scripts cargan `Resolve-TfmProjectDir.ps1` y usan `Get-TfmProjectDir`. Buscan el repo validando `requirements.txt` y `.git`, en este orden:
 
 1. Variable de entorno `TFM_PROJECT_DIR` (si apunta a un directorio valido).
-2. **`C:\tfm\tfm-project`** (valor por defecto del bootstrap en EC2).
-3. Variantes conocidas (`C:\tfm-trading`, etc.) y subcarpetas directas bajo `C:\tfm`.
+2. **`C:\tfm\tfm-project-gitpublic`** (si existe, tiene prioridad).
+3. **`C:\tfm\tfm-project`** (valor clasico del bootstrap en EC2).
+4. Variantes conocidas (`C:\tfm-trading`, etc.) y subcarpetas directas bajo `C:\tfm`.
 
-Por tanto en EC2 puedes ejecutar los `.ps1` **desde cualquier directorio**, siempre que el repo exista en una de esas rutas.
+Por tanto en EC2 puedes ejecutar los `.ps1` **desde cualquier directorio**, siempre que el repo exista en una de esas rutas. Ademas, al resolverlo exportan al proceso actual `TFM_PROJECT_DIR`, `TFM_ARTIFACTS_ROOT` y `TFM_DB_PATH` para que Python use exactamente la misma ruta.
 
 ## Scripts principales
 
