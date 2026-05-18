@@ -17,6 +17,7 @@ NO entrena modelos. NO carga checkpoints. NO contiene PPO, policy networks ni RL
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Sequence
@@ -190,16 +191,18 @@ class PortfolioManagerProcess:
         history_loader: Callable[[str], pd.DataFrame | pd.Series | None] | None = None,
         historical_pnl_paths: Mapping[str, str | Path] | None = None,
         historical_series_by_system: Mapping[str, pd.DataFrame | pd.Series] | None = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, Dict[str, str]]:
         """
         Carga los retornos semanales de cada trader activo y los alinea por fecha.
-        Devuelve un DataFrame `(T, N)` con columnas = trader_id.
+        Devuelve `(returns_df, excluded_reasons)` donde `returns_df` contiene solo
+        traders activos con historico suficiente y datos validos.
         """
         active_df = self.discover_active_systems(active_systems)
         if active_df.empty:
-            return pd.DataFrame()
+            return pd.DataFrame(), {}
 
         series_map: Dict[str, pd.Series] = {}
+        excluded_reasons: Dict[str, str] = {}
         for trader_id in active_df["trader_id"].tolist():
             history_obj: Any = None
             if historical_series_by_system and trader_id in historical_series_by_system:
@@ -209,23 +212,32 @@ class PortfolioManagerProcess:
             elif historical_pnl_paths and trader_id in historical_pnl_paths:
                 history_obj = pd.read_csv(historical_pnl_paths[trader_id])
             if history_obj is None:
+                excluded_reasons[str(trader_id)] = "missing_history"
                 continue
             ret = self._coerce_history_to_weekly_returns(
                 history_obj,
                 weekly_frequency=self.config.weekly_frequency,
                 lookback_weeks=self.config.lookback_weeks,
             )
-            if ret.empty or float(ret.abs().sum()) == 0.0:
+            if ret.empty or len(ret.index) < 2:
+                excluded_reasons[str(trader_id)] = "insufficient_history"
+                continue
+            if float(ret.abs().sum()) == 0.0:
+                excluded_reasons[str(trader_id)] = "invalid_history"
                 continue
             series_map[trader_id] = ret.rename(trader_id)
 
         if not series_map:
-            return pd.DataFrame()
+            return pd.DataFrame(), excluded_reasons
 
         returns_df = pd.concat(series_map.values(), axis=1, join="outer").sort_index()
         returns_df = returns_df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
         nz_cols = [c for c in returns_df.columns if float(returns_df[c].abs().sum()) > 0.0]
-        return returns_df[nz_cols]
+        kept = set(nz_cols)
+        for trader_id in list(series_map.keys()):
+            if trader_id not in kept:
+                excluded_reasons[str(trader_id)] = "invalid_or_unalignable_history"
+        return returns_df[nz_cols], excluded_reasons
 
     # ------------------------------------------------------------------
     # Rebalanceo principal (GA + PSO)
@@ -246,9 +258,9 @@ class PortfolioManagerProcess:
         start_ts = time.perf_counter()
         active_df = self.discover_active_systems(active_signals)
         if active_df.empty:
-            return self._empty_pm_output(active_df, status="no_active_signals", elapsed=0.0)
+            return self._empty_pm_output(active_df, status="no_active_traders", elapsed=0.0)
 
-        returns_df = self.load_system_returns(
+        returns_df, excluded_reasons = self.load_system_returns(
             active_df,
             history_loader=history_loader,
             historical_pnl_paths=historical_pnl_paths,
@@ -257,31 +269,58 @@ class PortfolioManagerProcess:
         active_ids = active_df["trader_id"].astype(str).tolist()
         valid_ids = [c for c in returns_df.columns.tolist() if c in set(active_ids)] if not returns_df.empty else []
         excluded_ids = sorted(set(active_ids) - set(valid_ids))
+        excluded_reason_map = {trader_id: str(excluded_reasons.get(trader_id) or "invalid_or_unalignable_history") for trader_id in excluded_ids}
         active_universe_size = len(active_ids)
-        valid_universe_size = len(valid_ids)
+        valid_active_universe_size = len(valid_ids)
+        total_promoted_traders = len(self._promoted_specs)
 
-        if valid_universe_size == 0:
+        if valid_active_universe_size <= 0:
             elapsed = time.perf_counter() - start_ts
             return self._empty_pm_output(
                 active_df,
-                status="no_history",
+                status="not_enough_valid_traders",
                 elapsed=elapsed,
                 excluded_traders=excluded_ids,
+                excluded_reasons=excluded_reason_map,
                 active_universe_size=active_universe_size,
-                valid_universe_size=0,
+                valid_universe_size=valid_active_universe_size,
+                total_promoted_traders=total_promoted_traders,
             )
+
+        # El PM trabaja sobre el subconjunto de traders con señal activa en este
+        # rebalanceo. Si hoy solo hay 1-4 señales válidas, no debemos bloquear
+        # toda la ejecución por el mínimo estructural de cartera; ajustamos el
+        # mínimo/máximo efectivos al tamaño real del conjunto activo.
+        effective_min_selected = max(1, min(int(self.config.min_selected_traders), valid_active_universe_size))
+        effective_max_selected = max(
+            effective_min_selected,
+            min(int(self.config.max_selected_traders), valid_active_universe_size),
+        )
+        effective_config = replace(
+            self.config,
+            min_selected_traders=effective_min_selected,
+            max_selected_traders=effective_max_selected,
+        )
 
         ordered_returns = returns_df[valid_ids]
         returns_matrix = ordered_returns.to_numpy(dtype=float, copy=False)
-        result = optimize_portfolio_ga_pso(returns_matrix, config=self.config)
+        result = optimize_portfolio_ga_pso(returns_matrix, config=effective_config)
         self._last_optimization = result
 
-        # Map columnas (indices) -> trader_id
-        selected_traders = [str(valid_ids[i]) for i in result.selected_indices]
-        weights_map: Dict[str, float] = {
-            str(valid_ids[i]): float(w) for i, w in zip(result.selected_indices, result.weights)
-        }
-        cash_weight = float(result.cash_weight)
+        # Map columnas (indices) -> trader_id. Filtramos pesos residuales por
+        # debajo del mínimo operativo configurado para que no aparezcan como
+        # posiciones "seleccionadas" traders con 0%/1.x% que en realidad deben
+        # quedarse en cash.
+        effective_weight_floor = max(float(effective_config.min_live_weight), 1e-9)
+        raw_selected_pairs = [
+            (str(valid_ids[i]), float(w))
+            for i, w in zip(result.selected_indices, result.weights)
+        ]
+        selected_pairs = [(tid, weight) for tid, weight in raw_selected_pairs if float(weight) >= effective_weight_floor]
+        selected_traders = [tid for tid, _w in selected_pairs]
+        weights_map: Dict[str, float] = {tid: weight for tid, weight in selected_pairs}
+        dropped_weight_mass = float(sum(weight for _tid, weight in raw_selected_pairs) - sum(weight for _tid, weight in selected_pairs))
+        cash_weight = float(result.cash_weight) + max(0.0, dropped_weight_mass)
         euros_map: Dict[str, float] = {
             tid: float(w) * float(total_capital_eur) for tid, w in weights_map.items()
         }
@@ -300,6 +339,7 @@ class PortfolioManagerProcess:
         diagnostics: Dict[str, Any] = {
             "ga_top_subsets": [
                 {
+                    "chromosome": [str(valid_ids[i]) for i in sub.indices],
                     "indices": [str(valid_ids[i]) for i in sub.indices],
                     "fitness": float(sub.fitness),
                     "sharpe": float(sub.sharpe),
@@ -324,39 +364,52 @@ class PortfolioManagerProcess:
         metadata: Dict[str, Any] = {
             "optimizer_mode": "ga_pso",
             "ga_config": {
-                "population_size": int(self.config.ga_population_size),
-                "generations": int(self.config.ga_generations),
-                "tournament_size": int(self.config.ga_tournament_size),
-                "crossover_rate": float(self.config.ga_crossover_rate),
-                "mutation_rate": float(self.config.ga_mutation_rate),
-                "elitism": int(self.config.ga_elitism),
-                "early_stopping_generations": int(self.config.ga_early_stopping_generations),
-                "top_k_subsets_for_pso": int(self.config.top_k_subsets_for_pso),
+                "population_size": int(effective_config.ga_population_size),
+                "generations": int(effective_config.ga_generations),
+                "tournament_size": int(effective_config.ga_tournament_size),
+                "crossover_rate": float(effective_config.ga_crossover_rate),
+                "elitism": int(effective_config.ga_elitism),
+                "early_stopping_generations": int(effective_config.ga_early_stopping_generations),
+                "weight_simulations": int(effective_config.ga_weight_simulations),
+                "mutation_probability": float(effective_config.ga_mutation_probability),
+                "mutation_new_traders_min": int(effective_config.ga_mutation_new_traders_min),
+                "mutation_new_traders_max": int(effective_config.ga_mutation_new_traders_max),
+                "mutation_remove_max": int(effective_config.ga_mutation_remove_max),
+                "correlation_prune_threshold": float(effective_config.ga_correlation_prune_threshold),
+                "top_k_subsets_for_pso": int(effective_config.top_k_subsets_for_pso),
             },
             "pso_config": {
-                "swarm_size": int(self.config.pso_swarm_size),
-                "iterations": int(self.config.pso_iterations),
-                "inertia_start": float(self.config.pso_inertia_start),
-                "inertia_end": float(self.config.pso_inertia_end),
-                "cognitive_coef": float(self.config.pso_cognitive_coef),
-                "social_coef": float(self.config.pso_social_coef),
-                "early_stopping_iterations": int(self.config.pso_early_stopping_iterations),
+                "swarm_size": int(effective_config.pso_swarm_size),
+                "iterations": int(effective_config.pso_iterations),
+                "inertia_start": float(effective_config.pso_inertia_start),
+                "inertia_end": float(effective_config.pso_inertia_end),
+                "cognitive_coef": float(effective_config.pso_cognitive_coef),
+                "social_coef": float(effective_config.pso_social_coef),
+                "early_stopping_iterations": int(effective_config.pso_early_stopping_iterations),
             },
-            "lambda_dd": float(self.config.lambda_dd),
-            "lambda_corr": float(self.config.lambda_corr),
-            "lookback_weeks": int(self.config.lookback_weeks),
-            "weekly_frequency": str(self.config.weekly_frequency),
+            "lambda_dd": float(effective_config.lambda_dd),
+            "lambda_corr": float(effective_config.lambda_corr),
+            "lookback_weeks": int(effective_config.lookback_weeks),
+            "weekly_frequency": str(effective_config.weekly_frequency),
             "min_selected_traders": int(self.config.min_selected_traders),
             "max_selected_traders": int(self.config.max_selected_traders),
-            "max_weight_per_trader": float(self.config.max_weight_per_trader),
-            "min_live_weight": float(self.config.min_live_weight),
-            "max_cash_weight": float(self.config.max_cash_weight),
+            "effective_min_selected_traders": int(effective_min_selected),
+            "effective_max_selected_traders": int(effective_max_selected),
+            "max_weight_per_trader": float(effective_config.max_weight_per_trader),
+            "min_live_weight": float(effective_config.min_live_weight),
+            "max_cash_weight": float(effective_config.max_cash_weight),
+            "total_promoted_traders": int(total_promoted_traders),
             "active_universe_size": int(active_universe_size),
-            "valid_universe_size": int(valid_universe_size),
+            "valid_universe_size": int(valid_active_universe_size),
+            "valid_active_universe_size": int(valid_active_universe_size),
             "selected_universe_size": int(len(selected_traders)),
             "excluded_traders": list(excluded_ids),
+            "excluded_traders_count": int(len(excluded_ids)),
+            "excluded_reasons": dict(excluded_reason_map),
             "execution_time_seconds": float(elapsed),
             "baselines": baselines,
+            "chromosome_representation": "variable_length_list",
+            "no_preselection": True,
             "ppo_removed": True,
         }
 
@@ -369,7 +422,7 @@ class PortfolioManagerProcess:
             optimizer_mode="ga_pso",
             target_cash_weight=float(cash_weight),
             active_universe_size=int(active_universe_size),
-            valid_universe_size=int(valid_universe_size),
+            valid_universe_size=int(valid_active_universe_size),
             selected_universe_size=int(len(selected_traders)),
             fitness=float(result.fitness),
             sharpe_neto=float(result.sharpe_neto),
@@ -454,8 +507,10 @@ class PortfolioManagerProcess:
             "sharpe_neto": float(result.sharpe_neto),
             "mdd": float(result.mdd),
             "corr_media": float(result.corr_media),
+            "total_promoted_traders": int(total_promoted_traders),
             "active_universe_size": int(active_universe_size),
-            "valid_universe_size": int(valid_universe_size),
+            "valid_universe_size": int(valid_active_universe_size),
+            "valid_active_universe_size": int(valid_active_universe_size),
             "selected_universe_size": int(len(selected_traders)),
             "execution_time_seconds": float(elapsed),
             "diagnostics": diagnostics,
@@ -499,8 +554,10 @@ class PortfolioManagerProcess:
         status: str,
         elapsed: float,
         excluded_traders: list[str] | None = None,
+        excluded_reasons: Mapping[str, str] | None = None,
         active_universe_size: int = 0,
         valid_universe_size: int = 0,
+        total_promoted_traders: int = 0,
     ) -> Dict[str, Any]:
         return {
             "active_systems": active_df,
@@ -522,7 +579,42 @@ class PortfolioManagerProcess:
                 selected_universe_size=0,
                 metadata={
                     "optimizer_mode": "ga_pso",
+                    "ga_config": {
+                        "population_size": int(self.config.ga_population_size),
+                        "generations": int(self.config.ga_generations),
+                        "tournament_size": int(self.config.ga_tournament_size),
+                        "crossover_rate": float(self.config.ga_crossover_rate),
+                        "elitism": int(self.config.ga_elitism),
+                        "early_stopping_generations": int(self.config.ga_early_stopping_generations),
+                        "weight_simulations": int(self.config.ga_weight_simulations),
+                        "mutation_probability": float(self.config.ga_mutation_probability),
+                        "mutation_new_traders_min": int(self.config.ga_mutation_new_traders_min),
+                        "mutation_new_traders_max": int(self.config.ga_mutation_new_traders_max),
+                        "mutation_remove_max": int(self.config.ga_mutation_remove_max),
+                        "correlation_prune_threshold": float(self.config.ga_correlation_prune_threshold),
+                        "top_k_subsets_for_pso": int(self.config.top_k_subsets_for_pso),
+                    },
+                    "pso_config": {
+                        "swarm_size": int(self.config.pso_swarm_size),
+                        "iterations": int(self.config.pso_iterations),
+                        "inertia_start": float(self.config.pso_inertia_start),
+                        "inertia_end": float(self.config.pso_inertia_end),
+                        "cognitive_coef": float(self.config.pso_cognitive_coef),
+                        "social_coef": float(self.config.pso_social_coef),
+                        "early_stopping_iterations": int(self.config.pso_early_stopping_iterations),
+                    },
+                    "lambda_dd": float(self.config.lambda_dd),
+                    "lambda_corr": float(self.config.lambda_corr),
+                    "lookback_weeks": int(self.config.lookback_weeks),
                     "excluded_traders": list(excluded_traders or []),
+                    "excluded_traders_count": int(len(excluded_traders or [])),
+                    "excluded_reasons": dict(excluded_reasons or {}),
+                    "total_promoted_traders": int(total_promoted_traders),
+                    "active_universe_size": int(active_universe_size or len(active_df.index)),
+                    "valid_universe_size": int(valid_universe_size),
+                    "valid_active_universe_size": int(valid_universe_size),
+                    "chromosome_representation": "variable_length_list",
+                    "no_preselection": True,
                     "execution_time_seconds": float(elapsed),
                     "ppo_removed": True,
                 },
@@ -533,11 +625,16 @@ class PortfolioManagerProcess:
             "sharpe_neto": 0.0,
             "mdd": 0.0,
             "corr_media": 0.0,
+            "total_promoted_traders": int(total_promoted_traders),
             "active_universe_size": int(active_universe_size or len(active_df.index)),
             "valid_universe_size": int(valid_universe_size),
+            "valid_active_universe_size": int(valid_universe_size),
             "selected_universe_size": 0,
             "execution_time_seconds": float(elapsed),
-            "diagnostics": {"status": str(status)},
+            "diagnostics": {
+                "status": str(status),
+                "excluded_reasons": dict(excluded_reasons or {}),
+            },
             "baselines": {},
             "returns_active": pd.DataFrame(),
             "returns_selected": pd.DataFrame(),

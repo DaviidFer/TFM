@@ -242,7 +242,9 @@ def build_rulefit_rules_multiseed(
     max_features="sqrt",
     start_random_state: int = 1,
     target_n_rules: int = 3000,
-    progress_every: int = 25
+    progress_every: int = 25,
+    max_seed_attempts: int | None = 8,
+    max_stalled_seeds: int | None = 3,
 ):
     """
     Itera sobre random_state hasta acumular target_n_rules reglas únicas.
@@ -254,8 +256,15 @@ def build_rulefit_rules_multiseed(
     all_rules = []
     seen = set()
     rs = start_random_state
+    seed_attempts = 0
+    stalled_seeds = 0
 
     while len(seen) < target_n_rules:
+        if max_seed_attempts is not None and seed_attempts >= int(max_seed_attempts):
+            break
+        if max_stalled_seeds is not None and stalled_seeds >= int(max_stalled_seeds):
+            break
+        before_seed = len(seen)
         df_alc_seed, df_baj_seed = _build_rulefit_rules_single_seed(
             data=data,
             target_col=target_col,
@@ -284,6 +293,11 @@ def build_rulefit_rules_multiseed(
         if progress_every and rs % progress_every == 0:
             print(f"random_state={rs} | reglas únicas acumuladas={len(seen)}")
 
+        seed_attempts += 1
+        if len(seen) == before_seed:
+            stalled_seeds += 1
+        else:
+            stalled_seeds = 0
         rs += 1
 
     out = pd.DataFrame(all_rules).drop_duplicates(subset=["regla"]).reset_index(drop=True)

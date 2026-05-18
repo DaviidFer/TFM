@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from typing import Mapping, Optional
 from uuid import uuid4
 
-import pandas as pd
-
 from app.contracts import (
     AgentStatus,
     EventType,
@@ -14,7 +12,6 @@ from app.contracts import (
 )
 from app.core.structured_logging import emit_log
 from app.services import build_promoted_spec, run_validation_pipeline
-from app.services.rule_generation_service import safe_rules_from_df
 
 from .base import AgentContext
 from .developer_agent import DevelopmentOutput
@@ -37,8 +34,9 @@ class ValidationAgent:
         dev: DevelopmentOutput,
         *,
         validation_profile: Mapping[str, Mapping[str, object]] | None = None,
-        promote_if_empty: bool = True,
+        promote_if_empty: bool = False,
     ) -> ValidationOutput:
+        _ = promote_if_empty  # compatibilidad retroactiva: ya no se promociona vacío.
         self.ctx.store.set_agent_status(self.agent_id, AgentStatus.RUNNING, "validating and promoting")
         emit_log(
             self.agent_id,
@@ -62,13 +60,7 @@ class ValidationAgent:
         stable = out["stability"]
         winners_long = stable.get("winners_long_stable", [])
         winners_short = stable.get("winners_short_stable", [])
-
-        fallback_used = False
-        if len(winners_long) + len(winners_short) == 0:
-            # Fallback defensivo para no romper fase de integración si estabilidad queda vacía.
-            winners_long = safe_rules_from_df(out.get("decor_long", pd.DataFrame()))[:5]
-            winners_short = safe_rules_from_df(out.get("decor_short", pd.DataFrame()))[:5]
-            fallback_used = True
+        no_rules_survived = (len(winners_long) + len(winners_short) == 0)
 
         report = ValidationReport(
             experiment_id=dev.experiment_config.experiment_id,
@@ -77,7 +69,7 @@ class ValidationAgent:
             passed_short=len(winners_short),
             failed_long=max(len(dev.candidate_rules.long_rules) - len(winners_long), 0),
             failed_short=max(len(dev.candidate_rules.short_rules) - len(winners_short), 0),
-            notes="fallback_used" if fallback_used else "stable_rules_selected",
+            notes="no_rules_passed_validation" if no_rules_survived else "stable_rules_selected",
             metrics={
                 "n_candidates_long": len(dev.candidate_rules.long_rules),
                 "n_candidates_short": len(dev.candidate_rules.short_rules),
@@ -87,7 +79,7 @@ class ValidationAgent:
             },
         )
 
-        if (len(winners_long) + len(winners_short) == 0) and not promote_if_empty:
+        if no_rules_survived:
             emit_log(
                 self.agent_id,
                 "validation_completed_no_promotion",

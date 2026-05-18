@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Dict, Mapping
 
 import pandas as pd
@@ -81,6 +82,7 @@ def run_validation_pipeline(
         validation_profile=merged_profile,
         candidate_families=list(candidates_by_family.keys()),
     )
+    validation_started = perf_counter()
 
     monkey_is_cfg = merged_profile["monkey_is"]
     monkey_oos_cfg = merged_profile["monkey_oos"]
@@ -91,6 +93,7 @@ def run_validation_pipeline(
     long_groups = _concat_rule_groups(candidates_by_family, side="long")
     short_groups = _concat_rule_groups(candidates_by_family, side="short")
 
+    stage_started = perf_counter()
     long_is = monkey_validate_is_multi(
         dataset_is=data_is,
         rule_dfs=long_groups,
@@ -110,7 +113,9 @@ def run_validation_pipeline(
         n_jobs=int(monkey_is_cfg["n_jobs"]),
         min_coverage_is=int(monkey_is_cfg.get("min_coverage_is", 0)),
     ) if short_groups else pd.DataFrame()
+    is_elapsed_ms = int((perf_counter() - stage_started) * 1000)
 
+    stage_started = perf_counter()
     long_oos = monkey_validate_oos_multi(
         dataset_oos=data_oos,
         df_reglas_is_ok=long_is,
@@ -130,7 +135,9 @@ def run_validation_pipeline(
         n_jobs=int(monkey_oos_cfg["n_jobs"]),
         min_coverage_oos=int(monkey_oos_cfg["min_coverage_oos"]),
     ) if not short_is.empty else pd.DataFrame()
+    oos_elapsed_ms = int((perf_counter() - stage_started) * 1000)
 
+    stage_started = perf_counter()
     corr = run_pl_correlation_pruning(
         data_all=data_is,
         df_rules_long=long_oos if not long_oos.empty else None,
@@ -141,7 +148,9 @@ def run_validation_pipeline(
     )
     decor_long = corr.get("final_rules_long", pd.DataFrame())
     decor_short = corr.get("final_rules_short", pd.DataFrame())
+    corr_elapsed_ms = int((perf_counter() - stage_started) * 1000)
 
+    stage_started = perf_counter()
     forward = validate_forward_year_profitability(
         data_target_year=data_2025,
         df_rules_long=decor_long if not decor_long.empty else None,
@@ -152,7 +161,9 @@ def run_validation_pipeline(
     )
     passed_long = forward.get("passed_long_forward", pd.DataFrame())
     passed_short = forward.get("passed_short_forward", pd.DataFrame())
+    forward_elapsed_ms = int((perf_counter() - stage_started) * 1000)
 
+    stage_started = perf_counter()
     stable = run_pl_stability_selection(
         winners_long=passed_long,
         winners_short=passed_short,
@@ -166,6 +177,15 @@ def run_validation_pipeline(
         min_ops=int(stab_cfg["min_ops"]),
         verbose=bool(stab_cfg["verbose"]),
     )
+    stability_elapsed_ms = int((perf_counter() - stage_started) * 1000)
+    timing_ms = {
+        "monkey_is": is_elapsed_ms,
+        "monkey_oos": oos_elapsed_ms,
+        "correlation": corr_elapsed_ms,
+        "forward": forward_elapsed_ms,
+        "stability": stability_elapsed_ms,
+        "total": int((perf_counter() - validation_started) * 1000),
+    }
     emit_log(
         "validation_service",
         "validation_pipeline_completed",
@@ -179,6 +199,7 @@ def run_validation_pipeline(
             "stable_long": int(len(stable.get("winners_long_stable", []))),
             "stable_short": int(len(stable.get("winners_short_stable", []))),
         },
+        timing_ms=timing_ms,
     )
 
     return {
@@ -191,5 +212,6 @@ def run_validation_pipeline(
         "forward": forward,
         "stability": stable,
         "validation_profile": merged_profile,
+        "timing_ms": timing_ms,
     }
 

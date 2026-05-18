@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from app.agents.portfolio_manager_process import PortfolioManagerProcess
 from app.contracts import PortfolioDecision
 from app.services.portfolio_optimizer import (
+    OptimizationResult,
     PortfolioOptimizerConfig,
     compute_corr_media,
     compute_fitness,
@@ -48,14 +49,19 @@ def _basic_config(**overrides: object) -> PortfolioOptimizerConfig:
         min_selected_traders=3,
         max_selected_traders=8,
         max_weight_per_trader=0.5,
-        max_cash_weight=0.5,
-        min_live_weight=0.0,
+        max_cash_weight=1.0,
+        min_live_weight=0.02,
         ga_population_size=20,
         ga_generations=5,
         ga_early_stopping_generations=3,
         ga_tournament_size=3,
         ga_crossover_rate=0.8,
-        ga_mutation_rate=0.05,
+        ga_weight_simulations=4,
+        ga_mutation_probability=0.8,
+        ga_mutation_new_traders_min=1,
+        ga_mutation_new_traders_max=2,
+        ga_mutation_remove_max=1,
+        ga_correlation_prune_threshold=0.8,
         ga_elitism=2,
         top_k_subsets_for_pso=2,
         pso_swarm_size=12,
@@ -116,12 +122,14 @@ def test_compute_corr_media_runs_with_two_assets() -> None:
 
 def test_repair_chromosome_enforces_min_max_selected() -> None:
     rng = np.random.default_rng(0)
-    chrom = np.zeros(20, dtype=int)
-    repaired = repair_chromosome(chrom, min_selected=5, max_selected=10, rng=rng)
-    assert 5 <= repaired.sum() <= 10
-    too_many = np.ones(20, dtype=int)
-    repaired2 = repair_chromosome(too_many, min_selected=5, max_selected=10, rng=rng)
-    assert 5 <= repaired2.sum() <= 10
+    chrom = np.array([1, 1, 7, 19, 22, -1], dtype=int)
+    repaired = repair_chromosome(chrom, universe_size=20, min_selected=5, max_selected=10, rng=rng)
+    assert 5 <= len(repaired.tolist()) <= 10
+    assert len(set(repaired.tolist())) == len(repaired.tolist())
+    assert all(0 <= int(gene) < 20 for gene in repaired.tolist())
+    too_many = np.arange(20, dtype=int)
+    repaired2 = repair_chromosome(too_many, universe_size=20, min_selected=5, max_selected=10, rng=rng)
+    assert 5 <= len(repaired2.tolist()) <= 10
 
 
 def test_repair_weights_respects_caps_and_simplex() -> None:
@@ -176,9 +184,10 @@ def test_genetic_select_subsets_returns_valid_chromosomes() -> None:
     subsets = genetic_select_subsets(returns, config=config)
     assert subsets, "El GA debe devolver al menos un subconjunto"
     for s in subsets:
-        n = int(s.chromosome.sum())
+        n = int(len(s.chromosome))
         assert config.min_selected_traders <= n <= config.max_selected_traders
         assert len(s.indices) == n
+        assert len(set(s.chromosome)) == len(s.chromosome)
 
 
 # ---------------------------------------------------------------------------
@@ -221,10 +230,9 @@ def test_optimize_portfolio_handles_too_few_traders() -> None:
     returns = _make_returns(seed=4, n_traders=2, n_weeks=80)
     config = _basic_config(min_selected_traders=5, max_selected_traders=10)
     result = optimize_portfolio_ga_pso(returns, config=config)
-    assert result.status == "degraded_few_traders"
-    # Debe seguir cumpliendo el simplex.
-    total = float(np.sum(result.weights) + result.cash_weight)
-    assert pytest.approx(total, rel=1e-6) == 1.0
+    assert result.status == "not_enough_valid_traders"
+    assert result.selected_indices == []
+    assert result.cash_weight == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +263,7 @@ def test_portfolio_manager_decision_contract() -> None:
         min_selected_traders=3,
         max_selected_traders=6,
         max_weight_per_trader=0.4,
-        max_cash_weight=0.4,
+        max_cash_weight=0.25,
         min_live_weight=0.0,
         ga_population_size=20,
         ga_generations=4,
@@ -301,6 +309,8 @@ def test_portfolio_manager_decision_contract() -> None:
         assert field in decision, f"Falta campo {field} en la decision"
     assert decision["optimizer_mode"] == "ga_pso"
     assert bool(decision["metadata"].get("ppo_removed"))
+    assert decision["metadata"].get("chromosome_representation") == "variable_length_list"
+    assert bool(decision["metadata"].get("no_preselection"))
     weights_total = sum(float(v) for v in decision["weights"].values()) + float(decision["target_cash_weight"])
     assert pytest.approx(weights_total, rel=1e-6) == 1.0
     assert (np.array(list(decision["weights"].values())) <= config.max_weight_per_trader + 1e-6).all()
@@ -314,7 +324,7 @@ def test_portfolio_manager_handles_no_signals() -> None:
         total_capital_eur=100_000.0,
         history_loader=lambda _tid: None,
     )
-    assert out["status"] == "no_active_signals"
+    assert out["status"] == "no_active_traders"
     assert out["selected_tickers"] == []
     assert out["target_cash_weight"] == pytest.approx(1.0)
 
@@ -327,8 +337,119 @@ def test_portfolio_manager_handles_no_history() -> None:
         total_capital_eur=100_000.0,
         history_loader=lambda _tid: None,
     )
-    assert out["status"] == "no_history"
+    assert out["status"] == "not_enough_valid_traders"
     assert out["selected_tickers"] == []
+
+
+def test_portfolio_manager_adapts_min_selection_to_active_signal_set() -> None:
+    process = PortfolioManagerProcess(
+        ctx=None,
+        optimizer_config=_basic_config(min_selected_traders=5, max_selected_traders=8),
+    )
+    active_signals = [
+        {"trader_id": "tr_a", "symbol": "AAA", "side": "buy"},
+        {"trader_id": "tr_b", "symbol": "BBB", "side": "buy"},
+        {"trader_id": "tr_c", "symbol": "CCC", "side": "buy"},
+    ]
+    dates = pd.date_range("2023-01-06", periods=80, freq="W-FRI")
+    returns_df = pd.DataFrame(
+        {
+            "tr_a": np.linspace(0.001, 0.003, num=len(dates)),
+            "tr_b": np.linspace(0.002, 0.004, num=len(dates)),
+            "tr_c": np.linspace(-0.001, 0.002, num=len(dates)),
+        },
+        index=dates,
+    )
+    out = process.rebalance_active_signals(
+        active_signals=active_signals,
+        total_capital_eur=100_000.0,
+        history_loader=_build_history_loader(returns_df),
+    )
+
+    metadata = dict((out.get("decision") or {}).get("metadata") or {})
+    assert out["status"] == "ok"
+    assert int(out.get("active_universe_size") or 0) == 3
+    assert int(out.get("valid_active_universe_size") or 0) == 3
+    assert metadata.get("min_selected_traders") == 5
+    assert metadata.get("effective_min_selected_traders") == 3
+    assert metadata.get("effective_max_selected_traders") == 3
+    assert len(out.get("selected_tickers") or []) >= 1
+
+
+def test_portfolio_manager_drops_zero_or_subfloor_weights_from_final_decision(monkeypatch) -> None:
+    process = PortfolioManagerProcess(
+        ctx=None,
+        optimizer_config=_basic_config(min_live_weight=0.02, max_weight_per_trader=0.15, max_cash_weight=1.0),
+    )
+    active_signals = [
+        {"trader_id": "tr_a", "symbol": "AAA", "side": "buy"},
+        {"trader_id": "tr_b", "symbol": "BBB", "side": "buy"},
+        {"trader_id": "tr_c", "symbol": "CCC", "side": "buy"},
+    ]
+    dates = pd.date_range("2023-01-06", periods=40, freq="W-FRI")
+    returns_df = pd.DataFrame(
+        {
+            "tr_a": np.linspace(0.001, 0.003, num=len(dates)),
+            "tr_b": np.linspace(0.002, 0.004, num=len(dates)),
+            "tr_c": np.linspace(-0.001, 0.002, num=len(dates)),
+        },
+        index=dates,
+    )
+
+    def _fake_optimize(*args, **kwargs):
+        return OptimizationResult(
+            selected_indices=[0, 1, 2],
+            weights=np.array([0.15, 0.019, 0.0], dtype=float),
+            cash_weight=0.831,
+            fitness=1.0,
+            sharpe_neto=1.0,
+            mdd=0.1,
+            corr_media=0.2,
+            ga_top_subsets=[],
+            pso_iterations=1,
+            status="ok",
+        )
+
+    monkeypatch.setattr("app.agents.portfolio_manager_process.optimize_portfolio_ga_pso", _fake_optimize)
+
+    out = process.rebalance_active_signals(
+        active_signals=active_signals,
+        total_capital_eur=100_000.0,
+        history_loader=_build_history_loader(returns_df),
+    )
+
+    assert out["selected_tickers"] == ["tr_a"]
+    assert set(out["weights"].keys()) == {"tr_a"}
+    assert out["weights"]["tr_a"] == pytest.approx(0.15)
+    assert out["target_cash_weight"] == pytest.approx(0.85)
+
+
+def test_portfolio_manager_tracks_excluded_active_traders() -> None:
+    process = PortfolioManagerProcess(ctx=None, optimizer_config=_basic_config(min_selected_traders=2, max_selected_traders=4))
+    active_signals = [
+        {"trader_id": "tr_a", "symbol": "AAA", "side": "buy"},
+        {"trader_id": "tr_b", "symbol": "BBB", "side": "buy"},
+        {"trader_id": "tr_c", "symbol": "CCC", "side": "buy"},
+    ]
+    dates = pd.date_range("2023-01-06", periods=60, freq="W-FRI")
+    returns_df = pd.DataFrame(
+        {
+            "tr_a": np.linspace(0.001, 0.003, num=len(dates)),
+            "tr_b": np.linspace(0.002, 0.004, num=len(dates)),
+        },
+        index=dates,
+    )
+    out = process.rebalance_active_signals(
+        active_signals=active_signals,
+        total_capital_eur=100_000.0,
+        history_loader=_build_history_loader(returns_df),
+    )
+    metadata = dict((out.get("decision") or {}).get("metadata") or {})
+    assert out["status"] == "ok"
+    assert int(out.get("active_universe_size") or 0) == 3
+    assert int(out.get("valid_active_universe_size") or 0) == 2
+    assert metadata.get("excluded_traders_count") == 1
+    assert metadata.get("excluded_reasons", {}).get("tr_c") == "missing_history"
 
 
 def test_portfolio_decision_dataclass_has_no_ppo_fields() -> None:

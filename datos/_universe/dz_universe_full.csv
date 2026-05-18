@@ -1,2138 +1,791 @@
 ﻿asset_type,symbol,description,path
-ETF,AAXJ,,datos\ETFs\AAXJ.csv
-ETF,ARKG,,datos\ETFs\ARKG.csv
-ETF,ARKK,,datos\ETFs\ARKK.csv
-ETF,ARKW,,datos\ETFs\ARKW.csv
-ETF,DGRO,,datos\ETFs\DGRO.csv
-ETF,DIA,,datos\ETFs\DIA.csv
-ETF,DVY,,datos\ETFs\DVY.csv
-ETF,EEM,,datos\ETFs\EEM.csv
-ETF,EFA,,datos\ETFs\EFA.csv
-ETF,EFAV,,datos\ETFs\EFAV.csv
-ETF,EFG,,datos\ETFs\EFG.csv
-ETF,EFV,,datos\ETFs\EFV.csv
-ETF,EMB,,datos\ETFs\EMB.csv
-ETF,ESGU,,datos\ETFs\ESGU.csv
-ETF,EWJ,,datos\ETFs\EWJ.csv
-ETF,EWT,,datos\ETFs\EWT.csv
-ETF,EWY,,datos\ETFs\EWY.csv
-ETF,EWZ,,datos\ETFs\EWZ.csv
-ETF,EZU,,datos\ETFs\EZU.csv
-ETF,FDN,,datos\ETFs\FDN.csv
-ETF,FTEC,,datos\ETFs\FTEC.csv
-ETF,FVD,,datos\ETFs\FVD.csv
-ETF,GDX,,datos\ETFs\GDX.csv
-ETF,GDXJ,,datos\ETFs\GDXJ.csv
-ETF,GLD,,datos\ETFs\GLD.csv
-ETF,GSLC,,datos\ETFs\GSLC.csv
-ETF,HDV,,datos\ETFs\HDV.csv
-ETF,IBB,,datos\ETFs\IBB.csv
-ETF,ICLN,,datos\ETFs\ICLN.csv
-ETF,IGV,,datos\ETFs\IGV.csv
-ETF,IHI,,datos\ETFs\IHI.csv
-ETF,IJH,,datos\ETFs\IJH.csv
-ETF,IJR,,datos\ETFs\IJR.csv
-ETF,IJS,,datos\ETFs\IJS.csv
-ETF,INDA,,datos\ETFs\INDA.csv
-ETF,ITOT,,datos\ETFs\ITOT.csv
-ETF,IUSG,,datos\ETFs\IUSG.csv
-ETF,IUSV,,datos\ETFs\IUSV.csv
-ETF,IVE,,datos\ETFs\IVE.csv
-ETF,IVW,,datos\ETFs\IVW.csv
-ETF,IWB,,datos\ETFs\IWB.csv
-ETF,IWD,,datos\ETFs\IWD.csv
-ETF,IWF,,datos\ETFs\IWF.csv
-ETF,IWM,,datos\ETFs\IWM.csv
-ETF,IWN,,datos\ETFs\IWN.csv
-ETF,IWO,,datos\ETFs\IWO.csv
-ETF,IWS,,datos\ETFs\IWS.csv
-ETF,IYR,,datos\ETFs\IYR.csv
-ETF,IYW,,datos\ETFs\IYW.csv
-ETF,KRE,,datos\ETFs\KRE.csv
-ETF,MCHI,,datos\ETFs\MCHI.csv
-ETF,MDY,,datos\ETFs\MDY.csv
-ETF,MTUM,,datos\ETFs\MTUM.csv
-ETF,NFLX,,datos\ETFs\NFLX.csv
-ETF,OEF,,datos\ETFs\OEF.csv
-ETF,PFF,,datos\ETFs\PFF.csv
-ETF,QQQ,,datos\ETFs\QQQ.csv
-ETF,QUAL,,datos\ETFs\QUAL.csv
-ETF,RSP,,datos\ETFs\RSP.csv
-ETF,SCHB,,datos\ETFs\SCHB.csv
-ETF,SCHD,,datos\ETFs\SCHD.csv
-ETF,SCHF,,datos\ETFs\SCHF.csv
-ETF,SCHG,,datos\ETFs\SCHG.csv
-ETF,SCHV,,datos\ETFs\SCHV.csv
-ETF,SCZ,,datos\ETFs\SCZ.csv
-ETF,SKYY,,datos\ETFs\SKYY.csv
-ETF,SLV,,datos\ETFs\SLV.csv
-ETF,SMH,,datos\ETFs\SMH.csv
-ETF,SOXX,,datos\ETFs\SOXX.csv
-ETF,SPDW,,datos\ETFs\SPDW.csv
-ETF,SPLV,,datos\ETFs\SPLV.csv
-ETF,SPY,,datos\ETFs\SPY.csv
-ETF,SPYG,,datos\ETFs\SPYG.csv
-ETF,SPYV,,datos\ETFs\SPYV.csv
-ETF,USMV,,datos\ETFs\USMV.csv
-ETF,VDE,,datos\ETFs\VDE.csv
-ETF,VEA,,datos\ETFs\VEA.csv
-ETF,VGT,,datos\ETFs\VGT.csv
-ETF,VHT,,datos\ETFs\VHT.csv
-ETF,VLUE,,datos\ETFs\VLUE.csv
-ETF,VNQ,,datos\ETFs\VNQ.csv
-ETF,VOE,,datos\ETFs\VOE.csv
-ETF,VPL,,datos\ETFs\VPL.csv
-ETF,VT,,datos\ETFs\VT.csv
-ETF,VTI,,datos\ETFs\VTI.csv
-ETF,VWO,,datos\ETFs\VWO.csv
-ETF,VXF,,datos\ETFs\VXF.csv
-ETF,VXUS,,datos\ETFs\VXUS.csv
-ETF,XBI,,datos\ETFs\XBI.csv
-ETF,XLB,,datos\ETFs\XLB.csv
-ETF,XLC,,datos\ETFs\XLC.csv
-ETF,XLE,,datos\ETFs\XLE.csv
-ETF,XLF,,datos\ETFs\XLF.csv
-ETF,XLI,,datos\ETFs\XLI.csv
-ETF,XLK,,datos\ETFs\XLK.csv
-ETF,XLP,,datos\ETFs\XLP.csv
-ETF,XLU,,datos\ETFs\XLU.csv
-ETF,XLV,,datos\ETFs\XLV.csv
-ETF,XLY,,datos\ETFs\XLY.csv
-Stock,A,,datos\Stocks\A.csv
-Stock,AA,,datos\Stocks\AA.csv
-Stock,AACB,,datos\Stocks\AACB.csv
-Stock,AACG,,datos\Stocks\AACG.csv
-Stock,AAGR,,datos\Stocks\AAGR.csv
-Stock,AAL,,datos\Stocks\AAL.csv
-Stock,AAME,,datos\Stocks\AAME.csv
-Stock,AAOI,,datos\Stocks\AAOI.csv
-Stock,AAON,,datos\Stocks\AAON.csv
-Stock,AAP,,datos\Stocks\AAP.csv
-Stock,AAPL,,datos\Stocks\AAPL.csv
-Stock,AAT,,datos\Stocks\AAT.csv
-Stock,ABAT,,datos\Stocks\ABAT.csv
-Stock,ABBV,,datos\Stocks\ABBV.csv
-Stock,ABCB,,datos\Stocks\ABCB.csv
-Stock,ABCL,,datos\Stocks\ABCL.csv
-Stock,ABEO,,datos\Stocks\ABEO.csv
-Stock,ABEV,,datos\Stocks\ABEV.csv
-Stock,ABG,,datos\Stocks\ABG.csv
-Stock,ABLV,,datos\Stocks\ABLV.csv
-Stock,ABM,,datos\Stocks\ABM.csv
-Stock,ABNB,,datos\Stocks\ABNB.csv
-Stock,ABOS,,datos\Stocks\ABOS.csv
-Stock,ABR,,datos\Stocks\ABR.csv
-Stock,ABR-PD,,datos\Stocks\ABR-PD.csv
-Stock,ABR-PE,,datos\Stocks\ABR-PE.csv
-Stock,ABR-PF,,datos\Stocks\ABR-PF.csv
-Stock,ABSI,,datos\Stocks\ABSI.csv
-Stock,ABT,,datos\Stocks\ABT.csv
-Stock,ABTS,,datos\Stocks\ABTS.csv
-Stock,ABUS,,datos\Stocks\ABUS.csv
-Stock,ABVC,,datos\Stocks\ABVC.csv
-Stock,ABVE,,datos\Stocks\ABVE.csv
-Stock,ABVX,,datos\Stocks\ABVX.csv
-Stock,ACA,,datos\Stocks\ACA.csv
-Stock,ACAD,,datos\Stocks\ACAD.csv
-Stock,ACB,,datos\Stocks\ACB.csv
-Stock,ACCO,,datos\Stocks\ACCO.csv
-Stock,ACDC,,datos\Stocks\ACDC.csv
-Stock,ACEL,,datos\Stocks\ACEL.csv
-Stock,ACET,,datos\Stocks\ACET.csv
-Stock,ACGL,,datos\Stocks\ACGL.csv
-Stock,ACGLN,,datos\Stocks\ACGLN.csv
-Stock,ACGLO,,datos\Stocks\ACGLO.csv
-Stock,ACHC,,datos\Stocks\ACHC.csv
-Stock,ACHR,,datos\Stocks\ACHR.csv
-Stock,ACHV,,datos\Stocks\ACHV.csv
-Stock,ACI,,datos\Stocks\ACI.csv
-Stock,ACIC,,datos\Stocks\ACIC.csv
-Stock,ACIU,,datos\Stocks\ACIU.csv
-Stock,ACIW,,datos\Stocks\ACIW.csv
-Stock,ACLS,,datos\Stocks\ACLS.csv
-Stock,ACM,,datos\Stocks\ACM.csv
-Stock,ACMR,,datos\Stocks\ACMR.csv
-Stock,ACN,,datos\Stocks\ACN.csv
-Stock,ACNB,,datos\Stocks\ACNB.csv
-Stock,ACOG,,datos\Stocks\ACOG.csv
-Stock,ACON,,datos\Stocks\ACON.csv
-Stock,ACP,,datos\Stocks\ACP.csv
-Stock,ACP-PA,,datos\Stocks\ACP-PA.csv
-Stock,ACR,,datos\Stocks\ACR.csv
-Stock,ACR-PC,,datos\Stocks\ACR-PC.csv
-Stock,ACR-PD,,datos\Stocks\ACR-PD.csv
-Stock,ACRE,,datos\Stocks\ACRE.csv
-Stock,ACRS,,datos\Stocks\ACRS.csv
-Stock,ACRV,,datos\Stocks\ACRV.csv
-Stock,ACT,,datos\Stocks\ACT.csv
-Stock,ACTG,,datos\Stocks\ACTG.csv
-Stock,ACU,,datos\Stocks\ACU.csv
-Stock,ACV,,datos\Stocks\ACV.csv
-Stock,ACVA,,datos\Stocks\ACVA.csv
-Stock,ADAG,,datos\Stocks\ADAG.csv
-Stock,ADBE,,datos\Stocks\ADBE.csv
-Stock,ADC,,datos\Stocks\ADC.csv
-Stock,ADC-PA,,datos\Stocks\ADC-PA.csv
-Stock,ADCT,,datos\Stocks\ADCT.csv
-Stock,ADEA,,datos\Stocks\ADEA.csv
-Stock,ADI,,datos\Stocks\ADI.csv
-Stock,ADIL,,datos\Stocks\ADIL.csv
-Stock,ADM,,datos\Stocks\ADM.csv
-Stock,ADMA,,datos\Stocks\ADMA.csv
-Stock,ADNT,,datos\Stocks\ADNT.csv
-Stock,ADP,,datos\Stocks\ADP.csv
-Stock,ADSE,,datos\Stocks\ADSE.csv
-Stock,ADSK,,datos\Stocks\ADSK.csv
-Stock,ADT,,datos\Stocks\ADT.csv
-Stock,ADUR,,datos\Stocks\ADUR.csv
-Stock,ADUS,,datos\Stocks\ADUS.csv
-Stock,ADV,,datos\Stocks\ADV.csv
-Stock,ADX,,datos\Stocks\ADX.csv
-Stock,ADXN,,datos\Stocks\ADXN.csv
-Stock,AEE,,datos\Stocks\AEE.csv
-Stock,AEF,,datos\Stocks\AEF.csv
-Stock,AEG,,datos\Stocks\AEG.csv
-Stock,AEHL,,datos\Stocks\AEHL.csv
-Stock,AEI,,datos\Stocks\AEI.csv
-Stock,AEM,,datos\Stocks\AEM.csv
-Stock,AENT,,datos\Stocks\AENT.csv
-Stock,AEO,,datos\Stocks\AEO.csv
-Stock,AEP,,datos\Stocks\AEP.csv
-Stock,AER,,datos\Stocks\AER.csv
-Stock,AERT,,datos\Stocks\AERT.csv
-Stock,AES,,datos\Stocks\AES.csv
-Stock,AESI,,datos\Stocks\AESI.csv
-Stock,AEVA,,datos\Stocks\AEVA.csv
-Stock,AEYE,,datos\Stocks\AEYE.csv
-Stock,AFB,,datos\Stocks\AFB.csv
-Stock,AFBI,,datos\Stocks\AFBI.csv
-Stock,AFG,,datos\Stocks\AFG.csv
-Stock,AFL,,datos\Stocks\AFL.csv
-Stock,AFRI,,datos\Stocks\AFRI.csv
-Stock,AFRM,,datos\Stocks\AFRM.csv
-Stock,AFYA,,datos\Stocks\AFYA.csv
-Stock,AG,,datos\Stocks\AG.csv
-Stock,AGAE,,datos\Stocks\AGAE.csv
-Stock,AGCO,,datos\Stocks\AGCO.csv
-Stock,AGD,,datos\Stocks\AGD.csv
-Stock,AGEN,,datos\Stocks\AGEN.csv
-Stock,AGH,,datos\Stocks\AGH.csv
-Stock,AGI,,datos\Stocks\AGI.csv
-Stock,AGL,,datos\Stocks\AGL.csv
-Stock,AGM,,datos\Stocks\AGM.csv
-Stock,AGM-A,,datos\Stocks\AGM-A.csv
-Stock,AGM-PD,,datos\Stocks\AGM-PD.csv
-Stock,AGM-PE,,datos\Stocks\AGM-PE.csv
-Stock,AGM-PF,,datos\Stocks\AGM-PF.csv
-Stock,AGM-PG,,datos\Stocks\AGM-PG.csv
-Stock,AGMH,,datos\Stocks\AGMH.csv
-Stock,AGNC,,datos\Stocks\AGNC.csv
-Stock,AGNCL,,datos\Stocks\AGNCL.csv
-Stock,AGNCM,,datos\Stocks\AGNCM.csv
-Stock,AGNCN,,datos\Stocks\AGNCN.csv
-Stock,AGNCO,,datos\Stocks\AGNCO.csv
-Stock,AGNCP,,datos\Stocks\AGNCP.csv
-Stock,AGO,,datos\Stocks\AGO.csv
-Stock,AGRO,,datos\Stocks\AGRO.csv
-Stock,AGX,,datos\Stocks\AGX.csv
-Stock,AGYS,,datos\Stocks\AGYS.csv
-Stock,AHCO,,datos\Stocks\AHCO.csv
-Stock,AHG,,datos\Stocks\AHG.csv
-Stock,AHL-PD,,datos\Stocks\AHL-PD.csv
-Stock,AHL-PE,,datos\Stocks\AHL-PE.csv
-Stock,AHL-PF,,datos\Stocks\AHL-PF.csv
-Stock,AHR,,datos\Stocks\AHR.csv
-Stock,AHT,,datos\Stocks\AHT.csv
-Stock,AHT-PD,,datos\Stocks\AHT-PD.csv
-Stock,AHT-PF,,datos\Stocks\AHT-PF.csv
-Stock,AHT-PG,,datos\Stocks\AHT-PG.csv
-Stock,AHT-PH,,datos\Stocks\AHT-PH.csv
-Stock,AHT-PI,,datos\Stocks\AHT-PI.csv
-Stock,AI,,datos\Stocks\AI.csv
-Stock,AIG,,datos\Stocks\AIG.csv
-Stock,AIMD,,datos\Stocks\AIMD.csv
-Stock,AIN,,datos\Stocks\AIN.csv
-Stock,AIO,,datos\Stocks\AIO.csv
-Stock,AIP,,datos\Stocks\AIP.csv
-Stock,AIR,,datos\Stocks\AIR.csv
-Stock,AIRE,,datos\Stocks\AIRE.csv
-Stock,AIRG,,datos\Stocks\AIRG.csv
-Stock,AIRI,,datos\Stocks\AIRI.csv
-Stock,AIRJ,,datos\Stocks\AIRJ.csv
-Stock,AIRS,,datos\Stocks\AIRS.csv
-Stock,AISP,,datos\Stocks\AISP.csv
-Stock,AIT,,datos\Stocks\AIT.csv
-Stock,AIV,,datos\Stocks\AIV.csv
-Stock,AIZ,,datos\Stocks\AIZ.csv
-Stock,AJG,,datos\Stocks\AJG.csv
-Stock,AKA,,datos\Stocks\AKA.csv
-Stock,AKAM,,datos\Stocks\AKAM.csv
-Stock,AKAN,,datos\Stocks\AKAN.csv
-Stock,AKO-A,,datos\Stocks\AKO-A.csv
-Stock,AKO-B,,datos\Stocks\AKO-B.csv
-Stock,AKR,,datos\Stocks\AKR.csv
-Stock,AKTX,,datos\Stocks\AKTX.csv
-Stock,AL,,datos\Stocks\AL.csv
-Stock,ALAB,,datos\Stocks\ALAB.csv
-Stock,ALAR,,datos\Stocks\ALAR.csv
-Stock,ALB,,datos\Stocks\ALB.csv
-Stock,ALB-PA,,datos\Stocks\ALB-PA.csv
-Stock,ALC,,datos\Stocks\ALC.csv
-Stock,ALCO,,datos\Stocks\ALCO.csv
-Stock,ALCY,,datos\Stocks\ALCY.csv
-Stock,ALDX,,datos\Stocks\ALDX.csv
-Stock,ALEC,,datos\Stocks\ALEC.csv
-Stock,ALG,,datos\Stocks\ALG.csv
-Stock,ALGN,,datos\Stocks\ALGN.csv
-Stock,ALGT,,datos\Stocks\ALGT.csv
-Stock,ALIT,,datos\Stocks\ALIT.csv
-Stock,ALK,,datos\Stocks\ALK.csv
-Stock,ALKS,,datos\Stocks\ALKS.csv
-Stock,ALKT,,datos\Stocks\ALKT.csv
-Stock,ALL,,datos\Stocks\ALL.csv
-Stock,ALL-PI,,datos\Stocks\ALL-PI.csv
-Stock,ALL-PJ,,datos\Stocks\ALL-PJ.csv
-Stock,ALLE,,datos\Stocks\ALLE.csv
-Stock,ALLO,,datos\Stocks\ALLO.csv
-Stock,ALLR,,datos\Stocks\ALLR.csv
-Stock,ALLY,,datos\Stocks\ALLY.csv
-Stock,ALNT,,datos\Stocks\ALNT.csv
-Stock,ALNY,,datos\Stocks\ALNY.csv
-Stock,ALOT,,datos\Stocks\ALOT.csv
-Stock,ALRM,,datos\Stocks\ALRM.csv
-Stock,ALT,,datos\Stocks\ALT.csv
-Stock,ALTG,,datos\Stocks\ALTG.csv
-Stock,ALTG-PA,,datos\Stocks\ALTG-PA.csv
-Stock,ALTI,,datos\Stocks\ALTI.csv
-Stock,ALTO,,datos\Stocks\ALTO.csv
-Stock,ALTS,,datos\Stocks\ALTS.csv
-Stock,ALV,,datos\Stocks\ALV.csv
-Stock,ALX,,datos\Stocks\ALX.csv
-Stock,ALXO,,datos\Stocks\ALXO.csv
-Stock,ALZN,,datos\Stocks\ALZN.csv
-Stock,AM,,datos\Stocks\AM.csv
-Stock,AMAL,,datos\Stocks\AMAL.csv
-Stock,AMAT,,datos\Stocks\AMAT.csv
-Stock,AMC,,datos\Stocks\AMC.csv
-Stock,AMCR,,datos\Stocks\AMCR.csv
-Stock,AMD,,datos\Stocks\AMD.csv
-Stock,AME,,datos\Stocks\AME.csv
-Stock,AMG,,datos\Stocks\AMG.csv
-Stock,AMGN,,datos\Stocks\AMGN.csv
-Stock,AMH,,datos\Stocks\AMH.csv
-Stock,AMH-PG,,datos\Stocks\AMH-PG.csv
-Stock,AMH-PH,,datos\Stocks\AMH-PH.csv
-Stock,AMIX,,datos\Stocks\AMIX.csv
-Stock,AMKR,,datos\Stocks\AMKR.csv
-Stock,AMLX,,datos\Stocks\AMLX.csv
-Stock,AMOD,,datos\Stocks\AMOD.csv
-Stock,AMP,,datos\Stocks\AMP.csv
-Stock,AMPG,,datos\Stocks\AMPG.csv
-Stock,AMPX,,datos\Stocks\AMPX.csv
-Stock,AMPY,,datos\Stocks\AMPY.csv
-Stock,AMRC,,datos\Stocks\AMRC.csv
-Stock,AMSF,,datos\Stocks\AMSF.csv
-Stock,AMST,,datos\Stocks\AMST.csv
-Stock,AMT,,datos\Stocks\AMT.csv
-Stock,AMTD,,datos\Stocks\AMTD.csv
-Stock,AMWD,,datos\Stocks\AMWD.csv
-Stock,AMX,,datos\Stocks\AMX.csv
-Stock,AMZN,,datos\Stocks\AMZN.csv
-Stock,AN,,datos\Stocks\AN.csv
-Stock,ANDE,,datos\Stocks\ANDE.csv
-Stock,ANET,,datos\Stocks\ANET.csv
-Stock,ANG-PD,,datos\Stocks\ANG-PD.csv
-Stock,ANGH,,datos\Stocks\ANGH.csv
-Stock,ANIX,,datos\Stocks\ANIX.csv
-Stock,ANL,,datos\Stocks\ANL.csv
-Stock,ANNX,,datos\Stocks\ANNX.csv
-Stock,ANRO,,datos\Stocks\ANRO.csv
-Stock,ANSC,,datos\Stocks\ANSC.csv
-Stock,ANTX,,datos\Stocks\ANTX.csv
-Stock,ANVS,,datos\Stocks\ANVS.csv
-Stock,AOD,,datos\Stocks\AOD.csv
-Stock,AOMR,,datos\Stocks\AOMR.csv
-Stock,AON,,datos\Stocks\AON.csv
-Stock,AORT,,datos\Stocks\AORT.csv
-Stock,AOS,,datos\Stocks\AOS.csv
-Stock,AOSL,,datos\Stocks\AOSL.csv
-Stock,AOUT,,datos\Stocks\AOUT.csv
-Stock,AP,,datos\Stocks\AP.csv
-Stock,APA,,datos\Stocks\APA.csv
-Stock,APAM,,datos\Stocks\APAM.csv
-Stock,APD,,datos\Stocks\APD.csv
-Stock,APEI,,datos\Stocks\APEI.csv
-Stock,APG,,datos\Stocks\APG.csv
-Stock,APH,,datos\Stocks\APH.csv
-Stock,API,,datos\Stocks\API.csv
-Stock,APLD,,datos\Stocks\APLD.csv
-Stock,APLE,,datos\Stocks\APLE.csv
-Stock,APLM,,datos\Stocks\APLM.csv
-Stock,APLS,,datos\Stocks\APLS.csv
-Stock,APM,,datos\Stocks\APM.csv
-Stock,APO,,datos\Stocks\APO.csv
-Stock,APO-PA,,datos\Stocks\APO-PA.csv
-Stock,APP,,datos\Stocks\APP.csv
-Stock,APPF,,datos\Stocks\APPF.csv
-Stock,APPS,,datos\Stocks\APPS.csv
-Stock,APRE,,datos\Stocks\APRE.csv
-Stock,APT,,datos\Stocks\APT.csv
-Stock,APWC,,datos\Stocks\APWC.csv
-Stock,APYX,,datos\Stocks\APYX.csv
-Stock,AQB,,datos\Stocks\AQB.csv
-Stock,AQST,,datos\Stocks\AQST.csv
-Stock,AR,,datos\Stocks\AR.csv
-Stock,ARAY,,datos\Stocks\ARAY.csv
-Stock,ARBB,,datos\Stocks\ARBB.csv
-Stock,ARBE,,datos\Stocks\ARBE.csv
-Stock,ARCB,,datos\Stocks\ARCB.csv
-Stock,ARCC,,datos\Stocks\ARCC.csv
-Stock,ARCT,,datos\Stocks\ARCT.csv
-Stock,ARDX,,datos\Stocks\ARDX.csv
-Stock,ARE,,datos\Stocks\ARE.csv
-Stock,AREC,,datos\Stocks\AREC.csv
-Stock,ARES,,datos\Stocks\ARES.csv
-Stock,ARES-PB,,datos\Stocks\ARES-PB.csv
-Stock,ARGX,,datos\Stocks\ARGX.csv
-Stock,ARHS,,datos\Stocks\ARHS.csv
-Stock,ARI,,datos\Stocks\ARI.csv
-Stock,ARKO,,datos\Stocks\ARKO.csv
-Stock,ARKR,,datos\Stocks\ARKR.csv
-Stock,ARL,,datos\Stocks\ARL.csv
-Stock,ARLO,,datos\Stocks\ARLO.csv
-Stock,ARM,,datos\Stocks\ARM.csv
-Stock,ARMK,,datos\Stocks\ARMK.csv
-Stock,AROW,,datos\Stocks\AROW.csv
-Stock,ARQ,,datos\Stocks\ARQ.csv
-Stock,ARQQ,,datos\Stocks\ARQQ.csv
-Stock,ARQT,,datos\Stocks\ARQT.csv
-Stock,ARR,,datos\Stocks\ARR.csv
-Stock,ARR-PC,,datos\Stocks\ARR-PC.csv
-Stock,ARRY,,datos\Stocks\ARRY.csv
-Stock,ARTW,,datos\Stocks\ARTW.csv
-Stock,ARW,,datos\Stocks\ARW.csv
-Stock,ARWR,,datos\Stocks\ARWR.csv
-Stock,AS,,datos\Stocks\AS.csv
-Stock,ASB,,datos\Stocks\ASB.csv
-Stock,ASB-PE,,datos\Stocks\ASB-PE.csv
-Stock,ASB-PF,,datos\Stocks\ASB-PF.csv
-Stock,ASC,,datos\Stocks\ASC.csv
-Stock,ASG,,datos\Stocks\ASG.csv
-Stock,ASGI,,datos\Stocks\ASGI.csv
-Stock,ASGN,,datos\Stocks\ASGN.csv
-Stock,ASH,,datos\Stocks\ASH.csv
-Stock,ASIX,,datos\Stocks\ASIX.csv
-Stock,ASLE,,datos\Stocks\ASLE.csv
-Stock,ASM,,datos\Stocks\ASM.csv
-Stock,ASML,,datos\Stocks\ASML.csv
-Stock,ASPI,,datos\Stocks\ASPI.csv
-Stock,ASPN,,datos\Stocks\ASPN.csv
-Stock,ASPS,,datos\Stocks\ASPS.csv
-Stock,ASR,,datos\Stocks\ASR.csv
-Stock,ASRV,,datos\Stocks\ASRV.csv
-Stock,ASST,,datos\Stocks\ASST.csv
-Stock,ASTC,,datos\Stocks\ASTC.csv
-Stock,ASTE,,datos\Stocks\ASTE.csv
-Stock,ASTH,,datos\Stocks\ASTH.csv
-Stock,ASTI,,datos\Stocks\ASTI.csv
-Stock,ASTL,,datos\Stocks\ASTL.csv
-Stock,ASTS,,datos\Stocks\ASTS.csv
-Stock,ASUR,,datos\Stocks\ASUR.csv
-Stock,ASX,,datos\Stocks\ASX.csv
-Stock,ASYS,,datos\Stocks\ASYS.csv
-Stock,ATAT,,datos\Stocks\ATAT.csv
-Stock,ATEC,,datos\Stocks\ATEC.csv
-Stock,ATEN,,datos\Stocks\ATEN.csv
-Stock,ATEX,,datos\Stocks\ATEX.csv
-Stock,ATH-PA,,datos\Stocks\ATH-PA.csv
-Stock,ATH-PB,,datos\Stocks\ATH-PB.csv
-Stock,ATH-PD,,datos\Stocks\ATH-PD.csv
-Stock,ATH-PE,,datos\Stocks\ATH-PE.csv
-Stock,ATHE,,datos\Stocks\ATHE.csv
-Stock,ATHM,,datos\Stocks\ATHM.csv
-Stock,ATI,,datos\Stocks\ATI.csv
-Stock,ATKR,,datos\Stocks\ATKR.csv
-Stock,ATLC,,datos\Stocks\ATLC.csv
-Stock,ATLX,,datos\Stocks\ATLX.csv
-Stock,ATMU,,datos\Stocks\ATMU.csv
-Stock,ATNI,,datos\Stocks\ATNI.csv
-Stock,ATO,,datos\Stocks\ATO.csv
-Stock,ATOM,,datos\Stocks\ATOM.csv
-Stock,ATOS,,datos\Stocks\ATOS.csv
-Stock,ATPC,,datos\Stocks\ATPC.csv
-Stock,ATR,,datos\Stocks\ATR.csv
-Stock,ATRO,,datos\Stocks\ATRO.csv
-Stock,ATS,,datos\Stocks\ATS.csv
-Stock,ATXG,,datos\Stocks\ATXG.csv
-Stock,AU,,datos\Stocks\AU.csv
-Stock,AUB,,datos\Stocks\AUB.csv
-Stock,AUB-PA,,datos\Stocks\AUB-PA.csv
-Stock,AUBN,,datos\Stocks\AUBN.csv
-Stock,AUDC,,datos\Stocks\AUDC.csv
-Stock,AUID,,datos\Stocks\AUID.csv
-Stock,AUR,,datos\Stocks\AUR.csv
-Stock,AURA,,datos\Stocks\AURA.csv
-Stock,AUST,,datos\Stocks\AUST.csv
-Stock,AUTL,,datos\Stocks\AUTL.csv
-Stock,AUUD,,datos\Stocks\AUUD.csv
-Stock,AVA,,datos\Stocks\AVA.csv
-Stock,AVAH,,datos\Stocks\AVAH.csv
-Stock,AVAL,,datos\Stocks\AVAL.csv
-Stock,AVAV,,datos\Stocks\AVAV.csv
-Stock,AVB,,datos\Stocks\AVB.csv
-Stock,AVBP,,datos\Stocks\AVBP.csv
-Stock,AVD,,datos\Stocks\AVD.csv
-Stock,AVGO,,datos\Stocks\AVGO.csv
-Stock,AVK,,datos\Stocks\AVK.csv
-Stock,AVNS,,datos\Stocks\AVNS.csv
-Stock,AVNT,,datos\Stocks\AVNT.csv
-Stock,AVPT,,datos\Stocks\AVPT.csv
-Stock,AVT,,datos\Stocks\AVT.csv
-Stock,AVTR,,datos\Stocks\AVTR.csv
-Stock,AVTX,,datos\Stocks\AVTX.csv
-Stock,AVXL,,datos\Stocks\AVXL.csv
-Stock,AVY,,datos\Stocks\AVY.csv
-Stock,AWF,,datos\Stocks\AWF.csv
-Stock,AWI,,datos\Stocks\AWI.csv
-Stock,AWK,,datos\Stocks\AWK.csv
-Stock,AWP,,datos\Stocks\AWP.csv
-Stock,AWR,,datos\Stocks\AWR.csv
-Stock,AWRE,,datos\Stocks\AWRE.csv
-Stock,AX,,datos\Stocks\AX.csv
-Stock,AXON,,datos\Stocks\AXON.csv
-Stock,AXP,,datos\Stocks\AXP.csv
-Stock,AXR,,datos\Stocks\AXR.csv
-Stock,AXS,,datos\Stocks\AXS.csv
-Stock,AXS-PE,,datos\Stocks\AXS-PE.csv
-Stock,AXTA,,datos\Stocks\AXTA.csv
-Stock,AXTI,,datos\Stocks\AXTI.csv
-Stock,AYI,,datos\Stocks\AYI.csv
-Stock,AYTU,,datos\Stocks\AYTU.csv
-Stock,AZ,,datos\Stocks\AZ.csv
-Stock,AZI,,datos\Stocks\AZI.csv
-Stock,AZN,,datos\Stocks\AZN.csv
-Stock,AZO,,datos\Stocks\AZO.csv
-Stock,AZTA,,datos\Stocks\AZTA.csv
-Stock,AZZ,,datos\Stocks\AZZ.csv
-Stock,B,,datos\Stocks\B.csv
-Stock,BA,,datos\Stocks\BA.csv
-Stock,BA-PA,,datos\Stocks\BA-PA.csv
-Stock,BABA,,datos\Stocks\BABA.csv
-Stock,BAC,,datos\Stocks\BAC.csv
-Stock,BAC-PB,,datos\Stocks\BAC-PB.csv
-Stock,BAC-PE,,datos\Stocks\BAC-PE.csv
-Stock,BAC-PK,,datos\Stocks\BAC-PK.csv
-Stock,BAC-PL,,datos\Stocks\BAC-PL.csv
-Stock,BAC-PN,,datos\Stocks\BAC-PN.csv
-Stock,BAC-PO,,datos\Stocks\BAC-PO.csv
-Stock,BAC-PS,,datos\Stocks\BAC-PS.csv
-Stock,BAER,,datos\Stocks\BAER.csv
-Stock,BAFN,,datos\Stocks\BAFN.csv
-Stock,BAH,,datos\Stocks\BAH.csv
-Stock,BAK,,datos\Stocks\BAK.csv
-Stock,BALL,,datos\Stocks\BALL.csv
-Stock,BAM,,datos\Stocks\BAM.csv
-Stock,BANC,,datos\Stocks\BANC.csv
-Stock,BANC-PF,,datos\Stocks\BANC-PF.csv
-Stock,BANF,,datos\Stocks\BANF.csv
-Stock,BANX,,datos\Stocks\BANX.csv
-Stock,BAOS,,datos\Stocks\BAOS.csv
-Stock,BAP,,datos\Stocks\BAP.csv
-Stock,BAR,,datos\Stocks\BAR.csv
-Stock,BARK,,datos\Stocks\BARK.csv
-Stock,BATL,,datos\Stocks\BATL.csv
-Stock,BATRA,,datos\Stocks\BATRA.csv
-Stock,BATRK,,datos\Stocks\BATRK.csv
-Stock,BAX,,datos\Stocks\BAX.csv
-Stock,BAYA,,datos\Stocks\BAYA.csv
-Stock,BB,,datos\Stocks\BB.csv
-Stock,BBAI,,datos\Stocks\BBAI.csv
-Stock,BBAR,,datos\Stocks\BBAR.csv
-Stock,BBCP,,datos\Stocks\BBCP.csv
-Stock,BBD,,datos\Stocks\BBD.csv
-Stock,BBDO,,datos\Stocks\BBDO.csv
-Stock,BBGI,,datos\Stocks\BBGI.csv
-Stock,BBSI,,datos\Stocks\BBSI.csv
-Stock,BBUC,,datos\Stocks\BBUC.csv
-Stock,BBVA,,datos\Stocks\BBVA.csv
-Stock,BBW,,datos\Stocks\BBW.csv
-Stock,BBWI,,datos\Stocks\BBWI.csv
-Stock,BBY,,datos\Stocks\BBY.csv
-Stock,BC,,datos\Stocks\BC.csv
-Stock,BCAB,,datos\Stocks\BCAB.csv
-Stock,BCAT,,datos\Stocks\BCAT.csv
-Stock,BCBP,,datos\Stocks\BCBP.csv
-Stock,BCE,,datos\Stocks\BCE.csv
-Stock,BCH,,datos\Stocks\BCH.csv
-Stock,BCML,,datos\Stocks\BCML.csv
-Stock,BCO,,datos\Stocks\BCO.csv
-Stock,BCPC,,datos\Stocks\BCPC.csv
-Stock,BCRX,,datos\Stocks\BCRX.csv
-Stock,BCSF,,datos\Stocks\BCSF.csv
-Stock,BCTX,,datos\Stocks\BCTX.csv
-Stock,BCV,,datos\Stocks\BCV.csv
-Stock,BCX,,datos\Stocks\BCX.csv
-Stock,BCYC,,datos\Stocks\BCYC.csv
-Stock,BDJ,,datos\Stocks\BDJ.csv
-Stock,BDTX,,datos\Stocks\BDTX.csv
-Stock,BDX,,datos\Stocks\BDX.csv
-Stock,BE,,datos\Stocks\BE.csv
-Stock,BEAM,,datos\Stocks\BEAM.csv
-Stock,BEAT,,datos\Stocks\BEAT.csv
-Stock,BEEM,,datos\Stocks\BEEM.csv
-Stock,BEKE,,datos\Stocks\BEKE.csv
-Stock,BELFA,,datos\Stocks\BELFA.csv
-Stock,BEN,,datos\Stocks\BEN.csv
-Stock,BEP,,datos\Stocks\BEP.csv
-Stock,BEP-PA,,datos\Stocks\BEP-PA.csv
-Stock,BF-A,,datos\Stocks\BF-A.csv
-Stock,BF-B,,datos\Stocks\BF-B.csv
-Stock,BFAM,,datos\Stocks\BFAM.csv
-Stock,BFH,,datos\Stocks\BFH.csv
-Stock,BFLY,,datos\Stocks\BFLY.csv
-Stock,BFRG,,datos\Stocks\BFRG.csv
-Stock,BFRI,,datos\Stocks\BFRI.csv
-Stock,BFS,,datos\Stocks\BFS.csv
-Stock,BFS-PD,,datos\Stocks\BFS-PD.csv
-Stock,BFS-PE,,datos\Stocks\BFS-PE.csv
-Stock,BFST,,datos\Stocks\BFST.csv
-Stock,BG,,datos\Stocks\BG.csv
-Stock,BGB,,datos\Stocks\BGB.csv
-Stock,BGC,,datos\Stocks\BGC.csv
-Stock,BGH,,datos\Stocks\BGH.csv
-Stock,BGI,,datos\Stocks\BGI.csv
-Stock,BGR,,datos\Stocks\BGR.csv
-Stock,BGS,,datos\Stocks\BGS.csv
-Stock,BGSF,,datos\Stocks\BGSF.csv
-Stock,BGT,,datos\Stocks\BGT.csv
-Stock,BGX,,datos\Stocks\BGX.csv
-Stock,BGY,,datos\Stocks\BGY.csv
-Stock,BH,,datos\Stocks\BH.csv
-Stock,BH-A,,datos\Stocks\BH-A.csv
-Stock,BHC,,datos\Stocks\BHC.csv
-Stock,BHE,,datos\Stocks\BHE.csv
-Stock,BHF,,datos\Stocks\BHF.csv
-Stock,BHFAM,,datos\Stocks\BHFAM.csv
-Stock,BHFAN,,datos\Stocks\BHFAN.csv
-Stock,BHFAO,,datos\Stocks\BHFAO.csv
-Stock,BHFAP,,datos\Stocks\BHFAP.csv
-Stock,BHM,,datos\Stocks\BHM.csv
-Stock,BHP,,datos\Stocks\BHP.csv
-Stock,BHR,,datos\Stocks\BHR.csv
-Stock,BHR-PB,,datos\Stocks\BHR-PB.csv
-Stock,BHR-PD,,datos\Stocks\BHR-PD.csv
-Stock,BHRB,,datos\Stocks\BHRB.csv
-Stock,BIDU,,datos\Stocks\BIDU.csv
-Stock,BIIB,,datos\Stocks\BIIB.csv
-Stock,BILI,,datos\Stocks\BILI.csv
-Stock,BILL,,datos\Stocks\BILL.csv
-Stock,BIO,,datos\Stocks\BIO.csv
-Stock,BIO-B,,datos\Stocks\BIO-B.csv
-Stock,BIOX,,datos\Stocks\BIOX.csv
-Stock,BIP-PA,,datos\Stocks\BIP-PA.csv
-Stock,BIP-PB,,datos\Stocks\BIP-PB.csv
-Stock,BIPC,,datos\Stocks\BIPC.csv
-Stock,BIRK,,datos\Stocks\BIRK.csv
-Stock,BIT,,datos\Stocks\BIT.csv
-Stock,BITF,,datos\Stocks\BITF.csv
-Stock,BJ,,datos\Stocks\BJ.csv
-Stock,BJRI,,datos\Stocks\BJRI.csv
-Stock,BK,,datos\Stocks\BK.csv
-Stock,BK-PK,,datos\Stocks\BK-PK.csv
-Stock,BKD,,datos\Stocks\BKD.csv
-Stock,BKH,,datos\Stocks\BKH.csv
-Stock,BKNG,,datos\Stocks\BKNG.csv
-Stock,BKR,,datos\Stocks\BKR.csv
-Stock,BKT,,datos\Stocks\BKT.csv
-Stock,BKYI,,datos\Stocks\BKYI.csv
-Stock,BL,,datos\Stocks\BL.csv
-Stock,BLD,,datos\Stocks\BLD.csv
-Stock,BLDP,,datos\Stocks\BLDP.csv
-Stock,BLDR,,datos\Stocks\BLDR.csv
-Stock,BLIN,,datos\Stocks\BLIN.csv
-Stock,BLK,,datos\Stocks\BLK.csv
-Stock,BLMN,,datos\Stocks\BLMN.csv
-Stock,BLND,,datos\Stocks\BLND.csv
-Stock,BLNK,,datos\Stocks\BLNK.csv
-Stock,BLTE,,datos\Stocks\BLTE.csv
-Stock,BLW,,datos\Stocks\BLW.csv
-Stock,BLX,,datos\Stocks\BLX.csv
-Stock,BMA,,datos\Stocks\BMA.csv
-Stock,BME,,datos\Stocks\BME.csv
-Stock,BMEA,,datos\Stocks\BMEA.csv
-Stock,BMEZ,,datos\Stocks\BMEZ.csv
-Stock,BMI,,datos\Stocks\BMI.csv
-Stock,BML-PG,,datos\Stocks\BML-PG.csv
-Stock,BML-PH,,datos\Stocks\BML-PH.csv
-Stock,BML-PJ,,datos\Stocks\BML-PJ.csv
-Stock,BML-PL,,datos\Stocks\BML-PL.csv
-Stock,BMN,,datos\Stocks\BMN.csv
-Stock,BMO,,datos\Stocks\BMO.csv
-Stock,BMR,,datos\Stocks\BMR.csv
-Stock,BMRN,,datos\Stocks\BMRN.csv
-Stock,BMY,,datos\Stocks\BMY.csv
-Stock,BN,,datos\Stocks\BN.csv
-Stock,BNAI,,datos\Stocks\BNAI.csv
-Stock,BNL,,datos\Stocks\BNL.csv
-Stock,BNRG,,datos\Stocks\BNRG.csv
-Stock,BNS,,datos\Stocks\BNS.csv
-Stock,BNTX,,datos\Stocks\BNTX.csv
-Stock,BOC,,datos\Stocks\BOC.csv
-Stock,BOE,,datos\Stocks\BOE.csv
-Stock,BOF,,datos\Stocks\BOF.csv
-Stock,BOH-PA,,datos\Stocks\BOH-PA.csv
-Stock,BOH-PB,,datos\Stocks\BOH-PB.csv
-Stock,BOLT,,datos\Stocks\BOLT.csv
-Stock,BOOM,,datos\Stocks\BOOM.csv
-Stock,BOOT,,datos\Stocks\BOOT.csv
-Stock,BORR,,datos\Stocks\BORR.csv
-Stock,BOSC,,datos\Stocks\BOSC.csv
-Stock,BOTJ,,datos\Stocks\BOTJ.csv
-Stock,BOX,,datos\Stocks\BOX.csv
-Stock,BP,,datos\Stocks\BP.csv
-Stock,BPOP,,datos\Stocks\BPOP.csv
-Stock,BPRN,,datos\Stocks\BPRN.csv
-Stock,BPYPM,,datos\Stocks\BPYPM.csv
-Stock,BPYPN,,datos\Stocks\BPYPN.csv
-Stock,BPYPO,,datos\Stocks\BPYPO.csv
-Stock,BPYPP,,datos\Stocks\BPYPP.csv
-Stock,BR,,datos\Stocks\BR.csv
-Stock,BRAG,,datos\Stocks\BRAG.csv
-Stock,BRBR,,datos\Stocks\BRBR.csv
-Stock,BRCC,,datos\Stocks\BRCC.csv
-Stock,BRFH,,datos\Stocks\BRFH.csv
-Stock,BRID,,datos\Stocks\BRID.csv
-Stock,BRK-A,,datos\Stocks\BRK-A.csv
-Stock,BRK-B,,datos\Stocks\BRK-B.csv
-Stock,BRKR,,datos\Stocks\BRKR.csv
-Stock,BRLS,,datos\Stocks\BRLS.csv
-Stock,BRLT,,datos\Stocks\BRLT.csv
-Stock,BRN,,datos\Stocks\BRN.csv
-Stock,BRNS,,datos\Stocks\BRNS.csv
-Stock,BRO,,datos\Stocks\BRO.csv
-Stock,BROS,,datos\Stocks\BROS.csv
-Stock,BRSL,,datos\Stocks\BRSL.csv
-Stock,BRSP,,datos\Stocks\BRSP.csv
-Stock,BRT,,datos\Stocks\BRT.csv
-Stock,BRTX,,datos\Stocks\BRTX.csv
-Stock,BRW,,datos\Stocks\BRW.csv
-Stock,BRX,,datos\Stocks\BRX.csv
-Stock,BSAC,,datos\Stocks\BSAC.csv
-Stock,BSBK,,datos\Stocks\BSBK.csv
-Stock,BSBR,,datos\Stocks\BSBR.csv
-Stock,BSET,,datos\Stocks\BSET.csv
-Stock,BSL,,datos\Stocks\BSL.csv
-Stock,BST,,datos\Stocks\BST.csv
-Stock,BSTZ,,datos\Stocks\BSTZ.csv
-Stock,BSVN,,datos\Stocks\BSVN.csv
-Stock,BSX,,datos\Stocks\BSX.csv
-Stock,BSY,,datos\Stocks\BSY.csv
-Stock,BTBD,,datos\Stocks\BTBD.csv
-Stock,BTBT,,datos\Stocks\BTBT.csv
-Stock,BTCS,,datos\Stocks\BTCS.csv
-Stock,BTCT,,datos\Stocks\BTCT.csv
-Stock,BTDR,,datos\Stocks\BTDR.csv
-Stock,BTE,,datos\Stocks\BTE.csv
-Stock,BTG,,datos\Stocks\BTG.csv
-Stock,BTI,,datos\Stocks\BTI.csv
-Stock,BTM,,datos\Stocks\BTM.csv
-Stock,BTMD,,datos\Stocks\BTMD.csv
-Stock,BTO,,datos\Stocks\BTO.csv
-Stock,BTSG,,datos\Stocks\BTSG.csv
-Stock,BTT,,datos\Stocks\BTT.csv
-Stock,BTU,,datos\Stocks\BTU.csv
-Stock,BTZ,,datos\Stocks\BTZ.csv
-Stock,BUD,,datos\Stocks\BUD.csv
-Stock,BUI,,datos\Stocks\BUI.csv
-Stock,BUR,,datos\Stocks\BUR.csv
-Stock,BURL,,datos\Stocks\BURL.csv
-Stock,BURU,,datos\Stocks\BURU.csv
-Stock,BV,,datos\Stocks\BV.csv
-Stock,BVFL,,datos\Stocks\BVFL.csv
-Stock,BVN,,datos\Stocks\BVN.csv
-Stock,BVS,,datos\Stocks\BVS.csv
-Stock,BW,,datos\Stocks\BW.csv
-Stock,BW-PA,,datos\Stocks\BW-PA.csv
-Stock,BWA,,datos\Stocks\BWA.csv
-Stock,BWAY,,datos\Stocks\BWAY.csv
-Stock,BWB,,datos\Stocks\BWB.csv
-Stock,BWBBP,,datos\Stocks\BWBBP.csv
-Stock,BWEN,,datos\Stocks\BWEN.csv
-Stock,BWG,,datos\Stocks\BWG.csv
-Stock,BWXT,,datos\Stocks\BWXT.csv
-Stock,BX,,datos\Stocks\BX.csv
-Stock,BXMT,,datos\Stocks\BXMT.csv
-Stock,BXSL,,datos\Stocks\BXSL.csv
-Stock,BY,,datos\Stocks\BY.csv
-Stock,BYD,,datos\Stocks\BYD.csv
-Stock,BYND,,datos\Stocks\BYND.csv
-Stock,BYRN,,datos\Stocks\BYRN.csv
-Stock,BYSI,,datos\Stocks\BYSI.csv
-Stock,BZ,,datos\Stocks\BZ.csv
-Stock,BZH,,datos\Stocks\BZH.csv
-Stock,BZUN,,datos\Stocks\BZUN.csv
-Stock,C,,datos\Stocks\C.csv
-Stock,CAAP,,datos\Stocks\CAAP.csv
-Stock,CAAS,,datos\Stocks\CAAS.csv
-Stock,CABA,,datos\Stocks\CABA.csv
-Stock,CABO,,datos\Stocks\CABO.csv
-Stock,CAC,,datos\Stocks\CAC.csv
-Stock,CACC,,datos\Stocks\CACC.csv
-Stock,CACI,,datos\Stocks\CACI.csv
-Stock,CADL,,datos\Stocks\CADL.csv
-Stock,CAE,,datos\Stocks\CAE.csv
-Stock,CAF,,datos\Stocks\CAF.csv
-Stock,CAG,,datos\Stocks\CAG.csv
-Stock,CAH,,datos\Stocks\CAH.csv
-Stock,CAKE,,datos\Stocks\CAKE.csv
-Stock,CAL,,datos\Stocks\CAL.csv
-Stock,CALC,,datos\Stocks\CALC.csv
-Stock,CALM,,datos\Stocks\CALM.csv
-Stock,CAN,,datos\Stocks\CAN.csv
-Stock,CAPR,,datos\Stocks\CAPR.csv
-Stock,CAPT,,datos\Stocks\CAPT.csv
-Stock,CAR,,datos\Stocks\CAR.csv
-Stock,CARE,,datos\Stocks\CARE.csv
-Stock,CARR,,datos\Stocks\CARR.csv
-Stock,CARS,,datos\Stocks\CARS.csv
-Stock,CART,,datos\Stocks\CART.csv
-Stock,CASH,,datos\Stocks\CASH.csv
-Stock,CASS,,datos\Stocks\CASS.csv
-Stock,CASY,,datos\Stocks\CASY.csv
-Stock,CAT,,datos\Stocks\CAT.csv
-Stock,CATO,,datos\Stocks\CATO.csv
-Stock,CATX,,datos\Stocks\CATX.csv
-Stock,CAVA,,datos\Stocks\CAVA.csv
-Stock,CB,,datos\Stocks\CB.csv
-Stock,CBAT,,datos\Stocks\CBAT.csv
-Stock,CBFV,,datos\Stocks\CBFV.csv
-Stock,CBL,,datos\Stocks\CBL.csv
-Stock,CBOE,,datos\Stocks\CBOE.csv
-Stock,CBRE,,datos\Stocks\CBRE.csv
-Stock,CBRL,,datos\Stocks\CBRL.csv
-Stock,CBSH,,datos\Stocks\CBSH.csv
-Stock,CBT,,datos\Stocks\CBT.csv
-Stock,CBUS,,datos\Stocks\CBUS.csv
-Stock,CBZ,,datos\Stocks\CBZ.csv
-Stock,CC,,datos\Stocks\CC.csv
-Stock,CCAP,,datos\Stocks\CCAP.csv
-Stock,CCCC,,datos\Stocks\CCCC.csv
-Stock,CCD,,datos\Stocks\CCD.csv
-Stock,CCEP,,datos\Stocks\CCEP.csv
-Stock,CCG,,datos\Stocks\CCG.csv
-Stock,CCI,,datos\Stocks\CCI.csv
-Stock,CCIF,,datos\Stocks\CCIF.csv
-Stock,CCJ,,datos\Stocks\CCJ.csv
-Stock,CCK,,datos\Stocks\CCK.csv
-Stock,CCL,,datos\Stocks\CCL.csv
-Stock,CCLD,,datos\Stocks\CCLD.csv
-Stock,CCLDO,,datos\Stocks\CCLDO.csv
-Stock,CCNEP,,datos\Stocks\CCNEP.csv
-Stock,CCO,,datos\Stocks\CCO.csv
-Stock,CCS,,datos\Stocks\CCS.csv
-Stock,CCSI,,datos\Stocks\CCSI.csv
-Stock,CCU,,datos\Stocks\CCU.csv
-Stock,CDE,,datos\Stocks\CDE.csv
-Stock,CDLX,,datos\Stocks\CDLX.csv
-Stock,CDNS,,datos\Stocks\CDNS.csv
-Stock,CDP,,datos\Stocks\CDP.csv
-Stock,CDR-PB,,datos\Stocks\CDR-PB.csv
-Stock,CDR-PC,,datos\Stocks\CDR-PC.csv
-Stock,CDRE,,datos\Stocks\CDRE.csv
-Stock,CDRO,,datos\Stocks\CDRO.csv
-Stock,CDT,,datos\Stocks\CDT.csv
-Stock,CDW,,datos\Stocks\CDW.csv
-Stock,CDXS,,datos\Stocks\CDXS.csv
-Stock,CDZI,,datos\Stocks\CDZI.csv
-Stock,CDZIP,,datos\Stocks\CDZIP.csv
-Stock,CE,,datos\Stocks\CE.csv
-Stock,CECO,,datos\Stocks\CECO.csv
-Stock,CEE,,datos\Stocks\CEE.csv
-Stock,CEG,,datos\Stocks\CEG.csv
-Stock,CELC,,datos\Stocks\CELC.csv
-Stock,CELH,,datos\Stocks\CELH.csv
-Stock,CELU,,datos\Stocks\CELU.csv
-Stock,CELZ,,datos\Stocks\CELZ.csv
-Stock,CENN,,datos\Stocks\CENN.csv
-Stock,CENT,,datos\Stocks\CENT.csv
-Stock,CENTA,,datos\Stocks\CENTA.csv
-Stock,CENX,,datos\Stocks\CENX.csv
-Stock,CEPU,,datos\Stocks\CEPU.csv
-Stock,CERS,,datos\Stocks\CERS.csv
-Stock,CERT,,datos\Stocks\CERT.csv
-Stock,CET,,datos\Stocks\CET.csv
-Stock,CETX,,datos\Stocks\CETX.csv
-Stock,CEV,,datos\Stocks\CEV.csv
-Stock,CF,,datos\Stocks\CF.csv
-Stock,CFBK,,datos\Stocks\CFBK.csv
-Stock,CFFI,,datos\Stocks\CFFI.csv
-Stock,CFG,,datos\Stocks\CFG.csv
-Stock,CFG-PE,,datos\Stocks\CFG-PE.csv
-Stock,CFG-PH,,datos\Stocks\CFG-PH.csv
-Stock,CFLT,,datos\Stocks\CFLT.csv
-Stock,CFR,,datos\Stocks\CFR.csv
-Stock,CFR-PB,,datos\Stocks\CFR-PB.csv
-Stock,CG,,datos\Stocks\CG.csv
-Stock,CGAU,,datos\Stocks\CGAU.csv
-Stock,CGBD,,datos\Stocks\CGBD.csv
-Stock,CGC,,datos\Stocks\CGC.csv
-Stock,CGEM,,datos\Stocks\CGEM.csv
-Stock,CGEN,,datos\Stocks\CGEN.csv
-Stock,CGNX,,datos\Stocks\CGNX.csv
-Stock,CGO,,datos\Stocks\CGO.csv
-Stock,CGTX,,datos\Stocks\CGTX.csv
-Stock,CHCI,,datos\Stocks\CHCI.csv
-Stock,CHD,,datos\Stocks\CHD.csv
-Stock,CHDN,,datos\Stocks\CHDN.csv
-Stock,CHE,,datos\Stocks\CHE.csv
-Stock,CHGG,,datos\Stocks\CHGG.csv
-Stock,CHI,,datos\Stocks\CHI.csv
-Stock,CHKP,,datos\Stocks\CHKP.csv
-Stock,CHMG,,datos\Stocks\CHMG.csv
-Stock,CHMI,,datos\Stocks\CHMI.csv
-Stock,CHMI-PA,,datos\Stocks\CHMI-PA.csv
-Stock,CHMI-PB,,datos\Stocks\CHMI-PB.csv
-Stock,CHRD,,datos\Stocks\CHRD.csv
-Stock,CHRW,,datos\Stocks\CHRW.csv
-Stock,CHSCM,,datos\Stocks\CHSCM.csv
-Stock,CHSN,,datos\Stocks\CHSN.csv
-Stock,CHT,,datos\Stocks\CHT.csv
-Stock,CHTR,,datos\Stocks\CHTR.csv
-Stock,CHW,,datos\Stocks\CHW.csv
-Stock,CHWY,,datos\Stocks\CHWY.csv
-Stock,CHY,,datos\Stocks\CHY.csv
-Stock,CI,,datos\Stocks\CI.csv
-Stock,CIA,,datos\Stocks\CIA.csv
-Stock,CIB,,datos\Stocks\CIB.csv
-Stock,CIEN,,datos\Stocks\CIEN.csv
-Stock,CIF,,datos\Stocks\CIF.csv
-Stock,CIFR,,datos\Stocks\CIFR.csv
-Stock,CIG,,datos\Stocks\CIG.csv
-Stock,CIG-C,,datos\Stocks\CIG-C.csv
-Stock,CIGI,,datos\Stocks\CIGI.csv
-Stock,CIGL,,datos\Stocks\CIGL.csv
-Stock,CIK,,datos\Stocks\CIK.csv
-Stock,CIM-PA,,datos\Stocks\CIM-PA.csv
-Stock,CIM-PB,,datos\Stocks\CIM-PB.csv
-Stock,CIM-PC,,datos\Stocks\CIM-PC.csv
-Stock,CIM-PD,,datos\Stocks\CIM-PD.csv
-Stock,CINF,,datos\Stocks\CINF.csv
-Stock,CINT,,datos\Stocks\CINT.csv
-Stock,CION,,datos\Stocks\CION.csv
-Stock,CISO,,datos\Stocks\CISO.csv
-Stock,CISS,,datos\Stocks\CISS.csv
-Stock,CL,,datos\Stocks\CL.csv
-Stock,CLB,,datos\Stocks\CLB.csv
-Stock,CLBK,,datos\Stocks\CLBK.csv
-Stock,CLDT,,datos\Stocks\CLDT.csv
-Stock,CLDT-PA,,datos\Stocks\CLDT-PA.csv
-Stock,CLF,,datos\Stocks\CLF.csv
-Stock,CLGN,,datos\Stocks\CLGN.csv
-Stock,CLIR,,datos\Stocks\CLIR.csv
-Stock,CLLS,,datos\Stocks\CLLS.csv
-Stock,CLMB,,datos\Stocks\CLMB.csv
-Stock,CLNE,,datos\Stocks\CLNE.csv
-Stock,CLOV,,datos\Stocks\CLOV.csv
-Stock,CLPR,,datos\Stocks\CLPR.csv
-Stock,CLPS,,datos\Stocks\CLPS.csv
-Stock,CLPT,,datos\Stocks\CLPT.csv
-Stock,CLS,,datos\Stocks\CLS.csv
-Stock,CLSK,,datos\Stocks\CLSK.csv
-Stock,CLST,,datos\Stocks\CLST.csv
-Stock,CLVT,,datos\Stocks\CLVT.csv
-Stock,CLWT,,datos\Stocks\CLWT.csv
-Stock,CLX,,datos\Stocks\CLX.csv
-Stock,CM,,datos\Stocks\CM.csv
-Stock,CMCL,,datos\Stocks\CMCL.csv
-Stock,CMCM,,datos\Stocks\CMCM.csv
-Stock,CMCSA,,datos\Stocks\CMCSA.csv
-Stock,CME,,datos\Stocks\CME.csv
-Stock,CMG,,datos\Stocks\CMG.csv
-Stock,CMI,,datos\Stocks\CMI.csv
-Stock,CMND,,datos\Stocks\CMND.csv
-Stock,CMP,,datos\Stocks\CMP.csv
-Stock,CMPX,,datos\Stocks\CMPX.csv
-Stock,CMRE,,datos\Stocks\CMRE.csv
-Stock,CMRE-PB,,datos\Stocks\CMRE-PB.csv
-Stock,CMRE-PC,,datos\Stocks\CMRE-PC.csv
-Stock,CMRE-PD,,datos\Stocks\CMRE-PD.csv
-Stock,CMS,,datos\Stocks\CMS.csv
-Stock,CMS-PB,,datos\Stocks\CMS-PB.csv
-Stock,CMS-PC,,datos\Stocks\CMS-PC.csv
-Stock,CMTG,,datos\Stocks\CMTG.csv
-Stock,CMTL,,datos\Stocks\CMTL.csv
-Stock,CMU,,datos\Stocks\CMU.csv
-Stock,CNA,,datos\Stocks\CNA.csv
-Stock,CNC,,datos\Stocks\CNC.csv
-Stock,CNDT,,datos\Stocks\CNDT.csv
-Stock,CNEY,,datos\Stocks\CNEY.csv
-Stock,CNI,,datos\Stocks\CNI.csv
-Stock,CNM,,datos\Stocks\CNM.csv
-Stock,CNNE,,datos\Stocks\CNNE.csv
-Stock,CNO,,datos\Stocks\CNO.csv
-Stock,CNOB,,datos\Stocks\CNOB.csv
-Stock,CNOBP,,datos\Stocks\CNOBP.csv
-Stock,CNP,,datos\Stocks\CNP.csv
-Stock,CNQ,,datos\Stocks\CNQ.csv
-Stock,CNS,,datos\Stocks\CNS.csv
-Stock,CNSP,,datos\Stocks\CNSP.csv
-Stock,CNTB,,datos\Stocks\CNTB.csv
-Stock,CNTX,,datos\Stocks\CNTX.csv
-Stock,CNTY,,datos\Stocks\CNTY.csv
-Stock,CNVS,,datos\Stocks\CNVS.csv
-Stock,CNX,,datos\Stocks\CNX.csv
-Stock,CNXC,,datos\Stocks\CNXC.csv
-Stock,CNXN,,datos\Stocks\CNXN.csv
-Stock,COCH,,datos\Stocks\COCH.csv
-Stock,COCO,,datos\Stocks\COCO.csv
-Stock,COCP,,datos\Stocks\COCP.csv
-Stock,CODI-PA,,datos\Stocks\CODI-PA.csv
-Stock,CODI-PB,,datos\Stocks\CODI-PB.csv
-Stock,CODI-PC,,datos\Stocks\CODI-PC.csv
-Stock,COF,,datos\Stocks\COF.csv
-Stock,COF-PJ,,datos\Stocks\COF-PJ.csv
-Stock,COF-PK,,datos\Stocks\COF-PK.csv
-Stock,COF-PL,,datos\Stocks\COF-PL.csv
-Stock,COF-PN,,datos\Stocks\COF-PN.csv
-Stock,COFS,,datos\Stocks\COFS.csv
-Stock,COHR,,datos\Stocks\COHR.csv
-Stock,COIN,,datos\Stocks\COIN.csv
-Stock,COKE,,datos\Stocks\COKE.csv
-Stock,COLB,,datos\Stocks\COLB.csv
-Stock,COLD,,datos\Stocks\COLD.csv
-Stock,COLM,,datos\Stocks\COLM.csv
-Stock,COMP,,datos\Stocks\COMP.csv
-Stock,COO,,datos\Stocks\COO.csv
-Stock,COOK,,datos\Stocks\COOK.csv
-Stock,COP,,datos\Stocks\COP.csv
-Stock,COR,,datos\Stocks\COR.csv
-Stock,COSM,,datos\Stocks\COSM.csv
-Stock,COST,,datos\Stocks\COST.csv
-Stock,COTY,,datos\Stocks\COTY.csv
-Stock,COYA,,datos\Stocks\COYA.csv
-Stock,CP,,datos\Stocks\CP.csv
-Stock,CPA,,datos\Stocks\CPA.csv
-Stock,CPAC,,datos\Stocks\CPAC.csv
-Stock,CPAY,,datos\Stocks\CPAY.csv
-Stock,CPF,,datos\Stocks\CPF.csv
-Stock,CPIX,,datos\Stocks\CPIX.csv
-Stock,CPK,,datos\Stocks\CPK.csv
-Stock,CPNG,,datos\Stocks\CPNG.csv
-Stock,CPOP,,datos\Stocks\CPOP.csv
-Stock,CPRT,,datos\Stocks\CPRT.csv
-Stock,CPS,,datos\Stocks\CPS.csv
-Stock,CPSH,,datos\Stocks\CPSH.csv
-Stock,CPSS,,datos\Stocks\CPSS.csv
-Stock,CPT,,datos\Stocks\CPT.csv
-Stock,CPZ,,datos\Stocks\CPZ.csv
-Stock,CR,,datos\Stocks\CR.csv
-Stock,CRAI,,datos\Stocks\CRAI.csv
-Stock,CRBG,,datos\Stocks\CRBG.csv
-Stock,CRBU,,datos\Stocks\CRBU.csv
-Stock,CRC,,datos\Stocks\CRC.csv
-Stock,CRCT,,datos\Stocks\CRCT.csv
-Stock,CRD-A,,datos\Stocks\CRD-A.csv
-Stock,CRD-B,,datos\Stocks\CRD-B.csv
-Stock,CRDF,,datos\Stocks\CRDF.csv
-Stock,CRDL,,datos\Stocks\CRDL.csv
-Stock,CRESY,,datos\Stocks\CRESY.csv
-Stock,CREX,,datos\Stocks\CREX.csv
-Stock,CRF,,datos\Stocks\CRF.csv
-Stock,CRGO,,datos\Stocks\CRGO.csv
-Stock,CRGY,,datos\Stocks\CRGY.csv
-Stock,CRI,,datos\Stocks\CRI.csv
-Stock,CRIS,,datos\Stocks\CRIS.csv
-Stock,CRK,,datos\Stocks\CRK.csv
-Stock,CRL,,datos\Stocks\CRL.csv
-Stock,CRM,,datos\Stocks\CRM.csv
-Stock,CRMT,,datos\Stocks\CRMT.csv
-Stock,CRNC,,datos\Stocks\CRNC.csv
-Stock,CRNT,,datos\Stocks\CRNT.csv
-Stock,CRON,,datos\Stocks\CRON.csv
-Stock,CROX,,datos\Stocks\CROX.csv
-Stock,CRSP,,datos\Stocks\CRSP.csv
-Stock,CRSR,,datos\Stocks\CRSR.csv
-Stock,CRUS,,datos\Stocks\CRUS.csv
-Stock,CRVO,,datos\Stocks\CRVO.csv
-Stock,CRVS,,datos\Stocks\CRVS.csv
-Stock,CRWD,,datos\Stocks\CRWD.csv
-Stock,CRWV,,datos\Stocks\CRWV.csv
-Stock,CSAI,,datos\Stocks\CSAI.csv
-Stock,CSAN,,datos\Stocks\CSAN.csv
-Stock,CSBR,,datos\Stocks\CSBR.csv
-Stock,CSCO,,datos\Stocks\CSCO.csv
-Stock,CSGP,,datos\Stocks\CSGP.csv
-Stock,CSGS,,datos\Stocks\CSGS.csv
-Stock,CSL,,datos\Stocks\CSL.csv
-Stock,CSPI,,datos\Stocks\CSPI.csv
-Stock,CSQ,,datos\Stocks\CSQ.csv
-Stock,CSR,,datos\Stocks\CSR.csv
-Stock,CSTE,,datos\Stocks\CSTE.csv
-Stock,CSTM,,datos\Stocks\CSTM.csv
-Stock,CSWC,,datos\Stocks\CSWC.csv
-Stock,CSX,,datos\Stocks\CSX.csv
-Stock,CTA-PA,,datos\Stocks\CTA-PA.csv
-Stock,CTA-PB,,datos\Stocks\CTA-PB.csv
-Stock,CTAS,,datos\Stocks\CTAS.csv
-Stock,CTBI,,datos\Stocks\CTBI.csv
-Stock,CTKB,,datos\Stocks\CTKB.csv
-Stock,CTMX,,datos\Stocks\CTMX.csv
-Stock,CTO,,datos\Stocks\CTO.csv
-Stock,CTO-PA,,datos\Stocks\CTO-PA.csv
-Stock,CTOS,,datos\Stocks\CTOS.csv
-Stock,CTRA,,datos\Stocks\CTRA.csv
-Stock,CTRE,,datos\Stocks\CTRE.csv
-Stock,CTRM,,datos\Stocks\CTRM.csv
-Stock,CTS,,datos\Stocks\CTS.csv
-Stock,CTSH,,datos\Stocks\CTSH.csv
-Stock,CTSO,,datos\Stocks\CTSO.csv
-Stock,CTVA,,datos\Stocks\CTVA.csv
-Stock,CTXR,,datos\Stocks\CTXR.csv
-Stock,CUBE,,datos\Stocks\CUBE.csv
-Stock,CUBI,,datos\Stocks\CUBI.csv
-Stock,CUE,,datos\Stocks\CUE.csv
-Stock,CULP,,datos\Stocks\CULP.csv
-Stock,CUPR,,datos\Stocks\CUPR.csv
-Stock,CURI,,datos\Stocks\CURI.csv
-Stock,CURV,,datos\Stocks\CURV.csv
-Stock,CUZ,,datos\Stocks\CUZ.csv
-Stock,CVE,,datos\Stocks\CVE.csv
-Stock,CVGI,,datos\Stocks\CVGI.csv
-Stock,CVI,,datos\Stocks\CVI.csv
-Stock,CVNA,,datos\Stocks\CVNA.csv
-Stock,CVRX,,datos\Stocks\CVRX.csv
-Stock,CVS,,datos\Stocks\CVS.csv
-Stock,CVV,,datos\Stocks\CVV.csv
-Stock,CVX,,datos\Stocks\CVX.csv
-Stock,CW,,datos\Stocks\CW.csv
-Stock,CWEN,,datos\Stocks\CWEN.csv
-Stock,CWEN-A,,datos\Stocks\CWEN-A.csv
-Stock,CX,,datos\Stocks\CX.csv
-Stock,CXAI,,datos\Stocks\CXAI.csv
-Stock,CXE,,datos\Stocks\CXE.csv
-Stock,CXH,,datos\Stocks\CXH.csv
-Stock,CXW,,datos\Stocks\CXW.csv
-Stock,CYCN,,datos\Stocks\CYCN.csv
-Stock,CYH,,datos\Stocks\CYH.csv
-Stock,CYN,,datos\Stocks\CYN.csv
-Stock,CYRX,,datos\Stocks\CYRX.csv
-Stock,CZFS,,datos\Stocks\CZFS.csv
-Stock,CZWI,,datos\Stocks\CZWI.csv
-Stock,D,,datos\Stocks\D.csv
-Stock,DAC,,datos\Stocks\DAC.csv
-Stock,DAIO,,datos\Stocks\DAIO.csv
-Stock,DAKT,,datos\Stocks\DAKT.csv
-Stock,DAL,,datos\Stocks\DAL.csv
-Stock,DAN,,datos\Stocks\DAN.csv
-Stock,DAO,,datos\Stocks\DAO.csv
-Stock,DAR,,datos\Stocks\DAR.csv
-Stock,DASH,,datos\Stocks\DASH.csv
-Stock,DAVA,,datos\Stocks\DAVA.csv
-Stock,DAVE,,datos\Stocks\DAVE.csv
-Stock,DAWN,,datos\Stocks\DAWN.csv
-Stock,DB,,datos\Stocks\DB.csv
-Stock,DBD,,datos\Stocks\DBD.csv
-Stock,DBI,,datos\Stocks\DBI.csv
-Stock,DBL,,datos\Stocks\DBL.csv
-Stock,DBRG,,datos\Stocks\DBRG.csv
-Stock,DBRG-PH,,datos\Stocks\DBRG-PH.csv
-Stock,DBRG-PI,,datos\Stocks\DBRG-PI.csv
-Stock,DBRG-PJ,,datos\Stocks\DBRG-PJ.csv
-Stock,DBVT,,datos\Stocks\DBVT.csv
-Stock,DBX,,datos\Stocks\DBX.csv
-Stock,DC,,datos\Stocks\DC.csv
-Stock,DCGO,,datos\Stocks\DCGO.csv
-Stock,DCI,,datos\Stocks\DCI.csv
-Stock,DD,,datos\Stocks\DD.csv
-Stock,DDC,,datos\Stocks\DDC.csv
-Stock,DDD,,datos\Stocks\DDD.csv
-Stock,DDI,,datos\Stocks\DDI.csv
-Stock,DDL,,datos\Stocks\DDL.csv
-Stock,DDOG,,datos\Stocks\DDOG.csv
-Stock,DDS,,datos\Stocks\DDS.csv
-Stock,DE,,datos\Stocks\DE.csv
-Stock,DECK,,datos\Stocks\DECK.csv
-Stock,DEI,,datos\Stocks\DEI.csv
-Stock,DELL,,datos\Stocks\DELL.csv
-Stock,DEO,,datos\Stocks\DEO.csv
-Stock,DERM,,datos\Stocks\DERM.csv
-Stock,DFH,,datos\Stocks\DFH.csv
-Stock,DFIN,,datos\Stocks\DFIN.csv
-Stock,DFP,,datos\Stocks\DFP.csv
-Stock,DG,,datos\Stocks\DG.csv
-Stock,DGICA,,datos\Stocks\DGICA.csv
-Stock,DGICB,,datos\Stocks\DGICB.csv
-Stock,DGII,,datos\Stocks\DGII.csv
-Stock,DGX,,datos\Stocks\DGX.csv
-Stock,DH,,datos\Stocks\DH.csv
-Stock,DHC,,datos\Stocks\DHC.csv
-Stock,DHF,,datos\Stocks\DHF.csv
-Stock,DHI,,datos\Stocks\DHI.csv
-Stock,DHIL,,datos\Stocks\DHIL.csv
-Stock,DHR,,datos\Stocks\DHR.csv
-Stock,DHT,,datos\Stocks\DHT.csv
-Stock,DHX,,datos\Stocks\DHX.csv
-Stock,DIAX,,datos\Stocks\DIAX.csv
-Stock,DIBS,,datos\Stocks\DIBS.csv
-Stock,DIN,,datos\Stocks\DIN.csv
-Stock,DINO,,datos\Stocks\DINO.csv
-Stock,DIS,,datos\Stocks\DIS.csv
-Stock,DJCO,,datos\Stocks\DJCO.csv
-Stock,DJT,,datos\Stocks\DJT.csv
-Stock,DK,,datos\Stocks\DK.csv
-Stock,DKNG,,datos\Stocks\DKNG.csv
-Stock,DKS,,datos\Stocks\DKS.csv
-Stock,DLB,,datos\Stocks\DLB.csv
-Stock,DLHC,,datos\Stocks\DLHC.csv
-Stock,DLNG-PA,,datos\Stocks\DLNG-PA.csv
-Stock,DLO,,datos\Stocks\DLO.csv
-Stock,DLR-PJ,,datos\Stocks\DLR-PJ.csv
-Stock,DLR-PK,,datos\Stocks\DLR-PK.csv
-Stock,DLR-PL,,datos\Stocks\DLR-PL.csv
-Stock,DLTH,,datos\Stocks\DLTH.csv
-Stock,DLTR,,datos\Stocks\DLTR.csv
-Stock,DLY,,datos\Stocks\DLY.csv
-Stock,DMA,,datos\Stocks\DMA.csv
-Stock,DMAC,,datos\Stocks\DMAC.csv
-Stock,DMO,,datos\Stocks\DMO.csv
-Stock,DMRC,,datos\Stocks\DMRC.csv
-Stock,DNLI,,datos\Stocks\DNLI.csv
-Stock,DNN,,datos\Stocks\DNN.csv
-Stock,DNP,,datos\Stocks\DNP.csv
-Stock,DNTH,,datos\Stocks\DNTH.csv
-Stock,DNUT,,datos\Stocks\DNUT.csv
-Stock,DOC,,datos\Stocks\DOC.csv
-Stock,DOCN,,datos\Stocks\DOCN.csv
-Stock,DOCS,,datos\Stocks\DOCS.csv
-Stock,DOCU,,datos\Stocks\DOCU.csv
-Stock,DOGZ,,datos\Stocks\DOGZ.csv
-Stock,DOLE,,datos\Stocks\DOLE.csv
-Stock,DOMH,,datos\Stocks\DOMH.csv
-Stock,DORM,,datos\Stocks\DORM.csv
-Stock,DOUG,,datos\Stocks\DOUG.csv
-Stock,DOV,,datos\Stocks\DOV.csv
-Stock,DOW,,datos\Stocks\DOW.csv
-Stock,DOX,,datos\Stocks\DOX.csv
-Stock,DPG,,datos\Stocks\DPG.csv
-Stock,DPRO,,datos\Stocks\DPRO.csv
-Stock,DPZ,,datos\Stocks\DPZ.csv
-Stock,DQ,,datos\Stocks\DQ.csv
-Stock,DRCT,,datos\Stocks\DRCT.csv
-Stock,DRD,,datos\Stocks\DRD.csv
-Stock,DRH,,datos\Stocks\DRH.csv
-Stock,DRI,,datos\Stocks\DRI.csv
-Stock,DRS,,datos\Stocks\DRS.csv
-Stock,DRTS,,datos\Stocks\DRTS.csv
-Stock,DRUG,,datos\Stocks\DRUG.csv
-Stock,DRVN,,datos\Stocks\DRVN.csv
-Stock,DSGN,,datos\Stocks\DSGN.csv
-Stock,DSGR,,datos\Stocks\DSGR.csv
-Stock,DSGX,,datos\Stocks\DSGX.csv
-Stock,DSL,,datos\Stocks\DSL.csv
-Stock,DSU,,datos\Stocks\DSU.csv
-Stock,DSWL,,datos\Stocks\DSWL.csv
-Stock,DSX,,datos\Stocks\DSX.csv
-Stock,DSX-PB,,datos\Stocks\DSX-PB.csv
-Stock,DT,,datos\Stocks\DT.csv
-Stock,DTE,,datos\Stocks\DTE.csv
-Stock,DTF,,datos\Stocks\DTF.csv
-Stock,DTI,,datos\Stocks\DTI.csv
-Stock,DTIL,,datos\Stocks\DTIL.csv
-Stock,DTM,,datos\Stocks\DTM.csv
-Stock,DTSS,,datos\Stocks\DTSS.csv
-Stock,DUK,,datos\Stocks\DUK.csv
-Stock,DUOL,,datos\Stocks\DUOL.csv
-Stock,DUOT,,datos\Stocks\DUOT.csv
-Stock,DVA,,datos\Stocks\DVA.csv
-Stock,DVN,,datos\Stocks\DVN.csv
-Stock,DWSN,,datos\Stocks\DWSN.csv
-Stock,DX,,datos\Stocks\DX.csv
-Stock,DX-PC,,datos\Stocks\DX-PC.csv
-Stock,DXC,,datos\Stocks\DXC.csv
-Stock,DXCM,,datos\Stocks\DXCM.csv
-Stock,DXLG,,datos\Stocks\DXLG.csv
-Stock,DXPE,,datos\Stocks\DXPE.csv
-Stock,DXST,,datos\Stocks\DXST.csv
-Stock,DXYN,,datos\Stocks\DXYN.csv
-Stock,DXYZ,,datos\Stocks\DXYZ.csv
-Stock,DY,,datos\Stocks\DY.csv
-Stock,DYAI,,datos\Stocks\DYAI.csv
-Stock,E,,datos\Stocks\E.csv
-Stock,EA,,datos\Stocks\EA.csv
-Stock,EAD,,datos\Stocks\EAD.csv
-Stock,EAT,,datos\Stocks\EAT.csv
-Stock,EBAY,,datos\Stocks\EBAY.csv
-Stock,EBF,,datos\Stocks\EBF.csv
-Stock,EBMT,,datos\Stocks\EBMT.csv
-Stock,EBON,,datos\Stocks\EBON.csv
-Stock,EC,,datos\Stocks\EC.csv
-Stock,ECAT,,datos\Stocks\ECAT.csv
-Stock,ECBK,,datos\Stocks\ECBK.csv
-Stock,ECC,,datos\Stocks\ECC.csv
-Stock,ECC-PD,,datos\Stocks\ECC-PD.csv
-Stock,ECCC,,datos\Stocks\ECCC.csv
-Stock,ECF,,datos\Stocks\ECF.csv
-Stock,ECF-PA,,datos\Stocks\ECF-PA.csv
-Stock,ECL,,datos\Stocks\ECL.csv
-Stock,ECO,,datos\Stocks\ECO.csv
-Stock,ECPG,,datos\Stocks\ECPG.csv
-Stock,ECVT,,datos\Stocks\ECVT.csv
-Stock,ECX,,datos\Stocks\ECX.csv
-Stock,ED,,datos\Stocks\ED.csv
-Stock,EDAP,,datos\Stocks\EDAP.csv
-Stock,EDD,,datos\Stocks\EDD.csv
-Stock,EDF,,datos\Stocks\EDF.csv
-Stock,EDHL,,datos\Stocks\EDHL.csv
-Stock,EDIT,,datos\Stocks\EDIT.csv
-Stock,EDN,,datos\Stocks\EDN.csv
-Stock,EDRY,,datos\Stocks\EDRY.csv
-Stock,EDSA,,datos\Stocks\EDSA.csv
-Stock,EDTK,,datos\Stocks\EDTK.csv
-Stock,EDUC,,datos\Stocks\EDUC.csv
-Stock,EE,,datos\Stocks\EE.csv
-Stock,EEA,,datos\Stocks\EEA.csv
-Stock,EEFT,,datos\Stocks\EEFT.csv
-Stock,EEIQ,,datos\Stocks\EEIQ.csv
-Stock,EEX,,datos\Stocks\EEX.csv
-Stock,EFC,,datos\Stocks\EFC.csv
-Stock,EFC-PB,,datos\Stocks\EFC-PB.csv
-Stock,EFC-PC,,datos\Stocks\EFC-PC.csv
-Stock,EFC-PD,,datos\Stocks\EFC-PD.csv
-Stock,EFOI,,datos\Stocks\EFOI.csv
-Stock,EFR,,datos\Stocks\EFR.csv
-Stock,EFSCP,,datos\Stocks\EFSCP.csv
-Stock,EFT,,datos\Stocks\EFT.csv
-Stock,EG,,datos\Stocks\EG.csv
-Stock,EGHT,,datos\Stocks\EGHT.csv
-Stock,EGO,,datos\Stocks\EGO.csv
-Stock,EGP,,datos\Stocks\EGP.csv
-Stock,EGY,,datos\Stocks\EGY.csv
-Stock,EH,,datos\Stocks\EH.csv
-Stock,EHAB,,datos\Stocks\EHAB.csv
-Stock,EHC,,datos\Stocks\EHC.csv
-Stock,EHI,,datos\Stocks\EHI.csv
-Stock,EHTH,,datos\Stocks\EHTH.csv
-Stock,EIC,,datos\Stocks\EIC.csv
-Stock,EICA,,datos\Stocks\EICA.csv
-Stock,EIG,,datos\Stocks\EIG.csv
-Stock,EIX,,datos\Stocks\EIX.csv
-Stock,EJH,,datos\Stocks\EJH.csv
-Stock,EL,,datos\Stocks\EL.csv
-Stock,ELAN,,datos\Stocks\ELAN.csv
-Stock,ELBM,,datos\Stocks\ELBM.csv
-Stock,ELDN,,datos\Stocks\ELDN.csv
-Stock,ELF,,datos\Stocks\ELF.csv
-Stock,ELLO,,datos\Stocks\ELLO.csv
-Stock,ELME,,datos\Stocks\ELME.csv
-Stock,ELPC,,datos\Stocks\ELPC.csv
-Stock,ELS,,datos\Stocks\ELS.csv
-Stock,ELUT,,datos\Stocks\ELUT.csv
-Stock,ELV,,datos\Stocks\ELV.csv
-Stock,ELVA,,datos\Stocks\ELVA.csv
-Stock,EM,,datos\Stocks\EM.csv
-Stock,EMBC,,datos\Stocks\EMBC.csv
-Stock,EMD,,datos\Stocks\EMD.csv
-Stock,EME,,datos\Stocks\EME.csv
-Stock,EMF,,datos\Stocks\EMF.csv
-Stock,EML,,datos\Stocks\EML.csv
-Stock,EMN,,datos\Stocks\EMN.csv
-Stock,EMO,,datos\Stocks\EMO.csv
-Stock,EMR,,datos\Stocks\EMR.csv
-Stock,ENB,,datos\Stocks\ENB.csv
-Stock,ENIC,,datos\Stocks\ENIC.csv
-Stock,ENLT,,datos\Stocks\ENLT.csv
-Stock,ENLV,,datos\Stocks\ENLV.csv
-Stock,ENOV,,datos\Stocks\ENOV.csv
-Stock,ENPH,,datos\Stocks\ENPH.csv
-Stock,ENR,,datos\Stocks\ENR.csv
-Stock,ENS,,datos\Stocks\ENS.csv
-Stock,ENSG,,datos\Stocks\ENSG.csv
-Stock,ENTA,,datos\Stocks\ENTA.csv
-Stock,ENTG,,datos\Stocks\ENTG.csv
-Stock,ENTX,,datos\Stocks\ENTX.csv
-Stock,EOD,,datos\Stocks\EOD.csv
-Stock,EOG,,datos\Stocks\EOG.csv
-Stock,EOI,,datos\Stocks\EOI.csv
-Stock,EOLS,,datos\Stocks\EOLS.csv
-Stock,EOS,,datos\Stocks\EOS.csv
-Stock,EOSE,,datos\Stocks\EOSE.csv
-Stock,EOT,,datos\Stocks\EOT.csv
-Stock,EP,,datos\Stocks\EP.csv
-Stock,EPAC,,datos\Stocks\EPAC.csv
-Stock,EPAM,,datos\Stocks\EPAM.csv
-Stock,EPC,,datos\Stocks\EPC.csv
-Stock,EPM,,datos\Stocks\EPM.csv
-Stock,EPOW,,datos\Stocks\EPOW.csv
-Stock,EPR,,datos\Stocks\EPR.csv
-Stock,EPR-PC,,datos\Stocks\EPR-PC.csv
-Stock,EPR-PE,,datos\Stocks\EPR-PE.csv
-Stock,EPR-PG,,datos\Stocks\EPR-PG.csv
-Stock,EPRT,,datos\Stocks\EPRT.csv
-Stock,EPSN,,datos\Stocks\EPSN.csv
-Stock,EQ,,datos\Stocks\EQ.csv
-Stock,EQBK,,datos\Stocks\EQBK.csv
-Stock,EQH,,datos\Stocks\EQH.csv
-Stock,EQH-PA,,datos\Stocks\EQH-PA.csv
-Stock,EQH-PC,,datos\Stocks\EQH-PC.csv
-Stock,EQIX,,datos\Stocks\EQIX.csv
-Stock,EQNR,,datos\Stocks\EQNR.csv
-Stock,EQR,,datos\Stocks\EQR.csv
-Stock,EQS,,datos\Stocks\EQS.csv
-Stock,EQT,,datos\Stocks\EQT.csv
-Stock,EQX,,datos\Stocks\EQX.csv
-Stock,ERAS,,datos\Stocks\ERAS.csv
-Stock,ERC,,datos\Stocks\ERC.csv
-Stock,ERH,,datos\Stocks\ERH.csv
-Stock,ERIE,,datos\Stocks\ERIE.csv
-Stock,ERII,,datos\Stocks\ERII.csv
-Stock,ERO,,datos\Stocks\ERO.csv
-Stock,ES,,datos\Stocks\ES.csv
-Stock,ESAB,,datos\Stocks\ESAB.csv
-Stock,ESCA,,datos\Stocks\ESCA.csv
-Stock,ESEA,,datos\Stocks\ESEA.csv
-Stock,ESHA,,datos\Stocks\ESHA.csv
-Stock,ESI,,datos\Stocks\ESI.csv
-Stock,ESLA,,datos\Stocks\ESLA.csv
-Stock,ESLT,,datos\Stocks\ESLT.csv
-Stock,ESNT,,datos\Stocks\ESNT.csv
-Stock,ESPR,,datos\Stocks\ESPR.csv
-Stock,ESQ,,datos\Stocks\ESQ.csv
-Stock,ESRT,,datos\Stocks\ESRT.csv
-Stock,ESTC,,datos\Stocks\ESTC.csv
-Stock,ET-PI,,datos\Stocks\ET-PI.csv
-Stock,ETB,,datos\Stocks\ETB.csv
-Stock,ETD,,datos\Stocks\ETD.csv
-Stock,ETG,,datos\Stocks\ETG.csv
-Stock,ETI-P,,datos\Stocks\ETI-P.csv
-Stock,ETJ,,datos\Stocks\ETJ.csv
-Stock,ETN,,datos\Stocks\ETN.csv
-Stock,ETO,,datos\Stocks\ETO.csv
-Stock,ETON,,datos\Stocks\ETON.csv
-Stock,ETR,,datos\Stocks\ETR.csv
-Stock,ETSY,,datos\Stocks\ETSY.csv
-Stock,ETV,,datos\Stocks\ETV.csv
-Stock,ETW,,datos\Stocks\ETW.csv
-Stock,ETX,,datos\Stocks\ETX.csv
-Stock,ETY,,datos\Stocks\ETY.csv
-Stock,EU,,datos\Stocks\EU.csv
-Stock,EUDA,,datos\Stocks\EUDA.csv
-Stock,EURK,,datos\Stocks\EURK.csv
-Stock,EVC,,datos\Stocks\EVC.csv
-Stock,EVCM,,datos\Stocks\EVCM.csv
-Stock,EVEX,,datos\Stocks\EVEX.csv
-Stock,EVF,,datos\Stocks\EVF.csv
-Stock,EVG,,datos\Stocks\EVG.csv
-Stock,EVGN,,datos\Stocks\EVGN.csv
-Stock,EVGO,,datos\Stocks\EVGO.csv
-Stock,EVH,,datos\Stocks\EVH.csv
-Stock,EVLV,,datos\Stocks\EVLV.csv
-Stock,EVN,,datos\Stocks\EVN.csv
-Stock,EVR,,datos\Stocks\EVR.csv
-Stock,EVRG,,datos\Stocks\EVRG.csv
-Stock,EVT,,datos\Stocks\EVT.csv
-Stock,EVTC,,datos\Stocks\EVTC.csv
-Stock,EVTL,,datos\Stocks\EVTL.csv
-Stock,EVTV,,datos\Stocks\EVTV.csv
-Stock,EVV,,datos\Stocks\EVV.csv
-Stock,EW,,datos\Stocks\EW.csv
-Stock,EWBC,,datos\Stocks\EWBC.csv
-Stock,EXC,,datos\Stocks\EXC.csv
-Stock,EXE,,datos\Stocks\EXE.csv
-Stock,EXEL,,datos\Stocks\EXEL.csv
-Stock,EXFY,,datos\Stocks\EXFY.csv
-Stock,EXG,,datos\Stocks\EXG.csv
-Stock,EXK,,datos\Stocks\EXK.csv
-Stock,EXP,,datos\Stocks\EXP.csv
-Stock,EXPD,,datos\Stocks\EXPD.csv
-Stock,EXPE,,datos\Stocks\EXPE.csv
-Stock,EXR,,datos\Stocks\EXR.csv
-Stock,EXTR,,datos\Stocks\EXTR.csv
-Stock,EZGO,,datos\Stocks\EZGO.csv
-Stock,EZPW,,datos\Stocks\EZPW.csv
-Stock,F,,datos\Stocks\F.csv
-Stock,FA,,datos\Stocks\FA.csv
-Stock,FAF,,datos\Stocks\FAF.csv
-Stock,FANG,,datos\Stocks\FANG.csv
-Stock,FARM,,datos\Stocks\FARM.csv
-Stock,FAST,,datos\Stocks\FAST.csv
-Stock,FATE,,datos\Stocks\FATE.csv
-Stock,FAX,,datos\Stocks\FAX.csv
-Stock,FBGL,,datos\Stocks\FBGL.csv
-Stock,FBIN,,datos\Stocks\FBIN.csv
-Stock,FBIO,,datos\Stocks\FBIO.csv
-Stock,FBIOP,,datos\Stocks\FBIOP.csv
-Stock,FBK,,datos\Stocks\FBK.csv
-Stock,FBLG,,datos\Stocks\FBLG.csv
-Stock,FBNC,,datos\Stocks\FBNC.csv
-Stock,FBP,,datos\Stocks\FBP.csv
-Stock,FBRT,,datos\Stocks\FBRT.csv
-Stock,FBRT-PE,,datos\Stocks\FBRT-PE.csv
-Stock,FBYD,,datos\Stocks\FBYD.csv
-Stock,FC,,datos\Stocks\FC.csv
-Stock,FCAP,,datos\Stocks\FCAP.csv
-Stock,FCCO,,datos\Stocks\FCCO.csv
-Stock,FCEL,,datos\Stocks\FCEL.csv
-Stock,FCF,,datos\Stocks\FCF.csv
-Stock,FCN,,datos\Stocks\FCN.csv
-Stock,FCNCA,,datos\Stocks\FCNCA.csv
-Stock,FCNCO,,datos\Stocks\FCNCO.csv
-Stock,FCNCP,,datos\Stocks\FCNCP.csv
-Stock,FCO,,datos\Stocks\FCO.csv
-Stock,FCPT,,datos\Stocks\FCPT.csv
-Stock,FCT,,datos\Stocks\FCT.csv
-Stock,FCX,,datos\Stocks\FCX.csv
-Stock,FDBC,,datos\Stocks\FDBC.csv
-Stock,FDP,,datos\Stocks\FDP.csv
-Stock,FDS,,datos\Stocks\FDS.csv
-Stock,FDUS,,datos\Stocks\FDUS.csv
-Stock,FDX,,datos\Stocks\FDX.csv
-Stock,FE,,datos\Stocks\FE.csv
-Stock,FEDU,,datos\Stocks\FEDU.csv
-Stock,FEIM,,datos\Stocks\FEIM.csv
-Stock,FEMY,,datos\Stocks\FEMY.csv
-Stock,FENC,,datos\Stocks\FENC.csv
-Stock,FENG,,datos\Stocks\FENG.csv
-Stock,FER,,datos\Stocks\FER.csv
-Stock,FET,,datos\Stocks\FET.csv
-Stock,FFC,,datos\Stocks\FFC.csv
-Stock,FFIV,,datos\Stocks\FFIV.csv
-Stock,FG,,datos\Stocks\FG.csv
-Stock,FGBIP,,datos\Stocks\FGBIP.csv
-Stock,FGI,,datos\Stocks\FGI.csv
-Stock,FHB,,datos\Stocks\FHB.csv
-Stock,FHI,,datos\Stocks\FHI.csv
-Stock,FHN,,datos\Stocks\FHN.csv
-Stock,FHN-PC,,datos\Stocks\FHN-PC.csv
-Stock,FHN-PE,,datos\Stocks\FHN-PE.csv
-Stock,FHN-PF,,datos\Stocks\FHN-PF.csv
-Stock,FICO,,datos\Stocks\FICO.csv
-Stock,FIGS,,datos\Stocks\FIGS.csv
-Stock,FIHL,,datos\Stocks\FIHL.csv
-Stock,FINS,,datos\Stocks\FINS.csv
-Stock,FINV,,datos\Stocks\FINV.csv
-Stock,FINW,,datos\Stocks\FINW.csv
-Stock,FIP,,datos\Stocks\FIP.csv
-Stock,FIS,,datos\Stocks\FIS.csv
-Stock,FISI,,datos\Stocks\FISI.csv
-Stock,FISV,,datos\Stocks\FISV.csv
-Stock,FITB,,datos\Stocks\FITB.csv
-Stock,FITBI,,datos\Stocks\FITBI.csv
-Stock,FITBO,,datos\Stocks\FITBO.csv
-Stock,FITBP,,datos\Stocks\FITBP.csv
-Stock,FIVE,,datos\Stocks\FIVE.csv
-Stock,FIVN,,datos\Stocks\FIVN.csv
-Stock,FIX,,datos\Stocks\FIX.csv
-Stock,FIZZ,,datos\Stocks\FIZZ.csv
-Stock,FKWL,,datos\Stocks\FKWL.csv
-Stock,FLC,,datos\Stocks\FLC.csv
-Stock,FLEX,,datos\Stocks\FLEX.csv
-Stock,FLG-PA,,datos\Stocks\FLG-PA.csv
-Stock,FLL,,datos\Stocks\FLL.csv
-Stock,FLNC,,datos\Stocks\FLNC.csv
-Stock,FLNG,,datos\Stocks\FLNG.csv
-Stock,FLO,,datos\Stocks\FLO.csv
-Stock,FLS,,datos\Stocks\FLS.csv
-Stock,FLUT,,datos\Stocks\FLUT.csv
-Stock,FLUX,,datos\Stocks\FLUX.csv
-Stock,FLWS,,datos\Stocks\FLWS.csv
-Stock,FLXS,,datos\Stocks\FLXS.csv
-Stock,FMBH,,datos\Stocks\FMBH.csv
-Stock,FMC,,datos\Stocks\FMC.csv
-Stock,FMN,,datos\Stocks\FMN.csv
-Stock,FMX,,datos\Stocks\FMX.csv
-Stock,FN,,datos\Stocks\FN.csv
-Stock,FNB,,datos\Stocks\FNB.csv
-Stock,FND,,datos\Stocks\FND.csv
-Stock,FNF,,datos\Stocks\FNF.csv
-Stock,FNGR,,datos\Stocks\FNGR.csv
-Stock,FNKO,,datos\Stocks\FNKO.csv
-Stock,FNLC,,datos\Stocks\FNLC.csv
-Stock,FNWD,,datos\Stocks\FNWD.csv
-Stock,FOF,,datos\Stocks\FOF.csv
-Stock,FONR,,datos\Stocks\FONR.csv
-Stock,FOR,,datos\Stocks\FOR.csv
-Stock,FORA,,datos\Stocks\FORA.csv
-Stock,FORTY,,datos\Stocks\FORTY.csv
-Stock,FOSL,,datos\Stocks\FOSL.csv
-Stock,FOUR-PA,,datos\Stocks\FOUR-PA.csv
-Stock,FOX,,datos\Stocks\FOX.csv
-Stock,FOXA,,datos\Stocks\FOXA.csv
-Stock,FOXF,,datos\Stocks\FOXF.csv
-Stock,FOXX,,datos\Stocks\FOXX.csv
-Stock,FPH,,datos\Stocks\FPH.csv
-Stock,FR,,datos\Stocks\FR.csv
-Stock,FRA,,datos\Stocks\FRA.csv
-Stock,FRAF,,datos\Stocks\FRAF.csv
-Stock,FRGT,,datos\Stocks\FRGT.csv
-Stock,FRMEP,,datos\Stocks\FRMEP.csv
-Stock,FROG,,datos\Stocks\FROG.csv
-Stock,FRPH,,datos\Stocks\FRPH.csv
-Stock,FRPT,,datos\Stocks\FRPT.csv
-Stock,FRT,,datos\Stocks\FRT.csv
-Stock,FRT-PC,,datos\Stocks\FRT-PC.csv
-Stock,FSBC,,datos\Stocks\FSBC.csv
-Stock,FSBW,,datos\Stocks\FSBW.csv
-Stock,FSCO,,datos\Stocks\FSCO.csv
-Stock,FSEA,,datos\Stocks\FSEA.csv
-Stock,FSI,,datos\Stocks\FSI.csv
-Stock,FSK,,datos\Stocks\FSK.csv
-Stock,FSLR,,datos\Stocks\FSLR.csv
-Stock,FSLY,,datos\Stocks\FSLY.csv
-Stock,FSM,,datos\Stocks\FSM.csv
-Stock,FSS,,datos\Stocks\FSS.csv
-Stock,FSTR,,datos\Stocks\FSTR.csv
-Stock,FSV,,datos\Stocks\FSV.csv
-Stock,FT,,datos\Stocks\FT.csv
-Stock,FTAI,,datos\Stocks\FTAI.csv
-Stock,FTAIM,,datos\Stocks\FTAIM.csv
-Stock,FTAIN,,datos\Stocks\FTAIN.csv
-Stock,FTDR,,datos\Stocks\FTDR.csv
-Stock,FTEK,,datos\Stocks\FTEK.csv
-Stock,FTF,,datos\Stocks\FTF.csv
-Stock,FTHM,,datos\Stocks\FTHM.csv
-Stock,FTHY,,datos\Stocks\FTHY.csv
-Stock,FTI,,datos\Stocks\FTI.csv
-Stock,FTNT,,datos\Stocks\FTNT.csv
-Stock,FTRE,,datos\Stocks\FTRE.csv
-Stock,FTS,,datos\Stocks\FTS.csv
-Stock,FTV,,datos\Stocks\FTV.csv
-Stock,FUBO,,datos\Stocks\FUBO.csv
-Stock,FUFU,,datos\Stocks\FUFU.csv
-Stock,FUL,,datos\Stocks\FUL.csv
-Stock,FULC,,datos\Stocks\FULC.csv
-Stock,FULTP,,datos\Stocks\FULTP.csv
-Stock,FUNC,,datos\Stocks\FUNC.csv
-Stock,FUND,,datos\Stocks\FUND.csv
-Stock,FURY,,datos\Stocks\FURY.csv
-Stock,FUSB,,datos\Stocks\FUSB.csv
-Stock,FUTU,,datos\Stocks\FUTU.csv
-Stock,FVCB,,datos\Stocks\FVCB.csv
-Stock,FVRR,,datos\Stocks\FVRR.csv
-Stock,FWONA,,datos\Stocks\FWONA.csv
-Stock,FWONK,,datos\Stocks\FWONK.csv
-Stock,FWRG,,datos\Stocks\FWRG.csv
-Stock,G,,datos\Stocks\G.csv
-Stock,GAB,,datos\Stocks\GAB.csv
-Stock,GAB-PG,,datos\Stocks\GAB-PG.csv
-Stock,GAB-PH,,datos\Stocks\GAB-PH.csv
-Stock,GAB-PK,,datos\Stocks\GAB-PK.csv
-Stock,GAIA,,datos\Stocks\GAIA.csv
-Stock,GAIN,,datos\Stocks\GAIN.csv
-Stock,GALT,,datos\Stocks\GALT.csv
-Stock,GAM,,datos\Stocks\GAM.csv
-Stock,GAM-PB,,datos\Stocks\GAM-PB.csv
-Stock,GAMB,,datos\Stocks\GAMB.csv
-Stock,GANX,,datos\Stocks\GANX.csv
-Stock,GAP,,datos\Stocks\GAP.csv
-Stock,GASS,,datos\Stocks\GASS.csv
-Stock,GATX,,datos\Stocks\GATX.csv
-Stock,GAU,,datos\Stocks\GAU.csv
-Stock,GBCI,,datos\Stocks\GBCI.csv
-Stock,GBR,,datos\Stocks\GBR.csv
-Stock,GBTG,,datos\Stocks\GBTG.csv
-Stock,GBX,,datos\Stocks\GBX.csv
-Stock,GCBC,,datos\Stocks\GCBC.csv
-Stock,GCMG,,datos\Stocks\GCMG.csv
-Stock,GCO,,datos\Stocks\GCO.csv
-Stock,GCV,,datos\Stocks\GCV.csv
-Stock,GD,,datos\Stocks\GD.csv
-Stock,GDC,,datos\Stocks\GDC.csv
-Stock,GDDY,,datos\Stocks\GDDY.csv
-Stock,GDEN,,datos\Stocks\GDEN.csv
-Stock,GDEV,,datos\Stocks\GDEV.csv
-Stock,GDHG,,datos\Stocks\GDHG.csv
-Stock,GDL,,datos\Stocks\GDL.csv
-Stock,GDOT,,datos\Stocks\GDOT.csv
-Stock,GDRX,,datos\Stocks\GDRX.csv
-Stock,GDS,,datos\Stocks\GDS.csv
-Stock,GDTC,,datos\Stocks\GDTC.csv
-Stock,GDV,,datos\Stocks\GDV.csv
-Stock,GDV-PH,,datos\Stocks\GDV-PH.csv
-Stock,GDV-PK,,datos\Stocks\GDV-PK.csv
-Stock,GDYN,,datos\Stocks\GDYN.csv
-Stock,GE,,datos\Stocks\GE.csv
-Stock,GEF-B,,datos\Stocks\GEF-B.csv
-Stock,GEG,,datos\Stocks\GEG.csv
-Stock,GEHC,,datos\Stocks\GEHC.csv
-Stock,GEN,,datos\Stocks\GEN.csv
-Stock,GENI,,datos\Stocks\GENI.csv
-Stock,GENK,,datos\Stocks\GENK.csv
-Stock,GEO,,datos\Stocks\GEO.csv
-Stock,GEOS,,datos\Stocks\GEOS.csv
-Stock,GERN,,datos\Stocks\GERN.csv
-Stock,GETY,,datos\Stocks\GETY.csv
-Stock,GEV,,datos\Stocks\GEV.csv
-Stock,GEVO,,datos\Stocks\GEVO.csv
-Stock,GF,,datos\Stocks\GF.csv
-Stock,GFAI,,datos\Stocks\GFAI.csv
-Stock,GFF,,datos\Stocks\GFF.csv
-Stock,GFI,,datos\Stocks\GFI.csv
-Stock,GFL,,datos\Stocks\GFL.csv
-Stock,GFR,,datos\Stocks\GFR.csv
-Stock,GGAL,,datos\Stocks\GGAL.csv
-Stock,GGB,,datos\Stocks\GGB.csv
-Stock,GGG,,datos\Stocks\GGG.csv
-Stock,GGN,,datos\Stocks\GGN.csv
-Stock,GGN-PB,,datos\Stocks\GGN-PB.csv
-Stock,GGR,,datos\Stocks\GGR.csv
-Stock,GGT,,datos\Stocks\GGT.csv
-Stock,GGT-PE,,datos\Stocks\GGT-PE.csv
-Stock,GGT-PG,,datos\Stocks\GGT-PG.csv
-Stock,GGZ,,datos\Stocks\GGZ.csv
-Stock,GH,,datos\Stocks\GH.csv
-Stock,GHC,,datos\Stocks\GHC.csv
-Stock,GHG,,datos\Stocks\GHG.csv
-Stock,GHM,,datos\Stocks\GHM.csv
-Stock,GHY,,datos\Stocks\GHY.csv
-Stock,GIB,,datos\Stocks\GIB.csv
-Stock,GIC,,datos\Stocks\GIC.csv
-Stock,GIGM,,datos\Stocks\GIGM.csv
-Stock,GIL,,datos\Stocks\GIL.csv
-Stock,GILD,,datos\Stocks\GILD.csv
-Stock,GIPR,,datos\Stocks\GIPR.csv
-Stock,GIS,,datos\Stocks\GIS.csv
-Stock,GKOS,,datos\Stocks\GKOS.csv
-Stock,GL,,datos\Stocks\GL.csv
-Stock,GLBS,,datos\Stocks\GLBS.csv
-Stock,GLDD,,datos\Stocks\GLDD.csv
-Stock,GLDG,,datos\Stocks\GLDG.csv
-Stock,GLMD,,datos\Stocks\GLMD.csv
-Stock,GLNG,,datos\Stocks\GLNG.csv
-Stock,GLO,,datos\Stocks\GLO.csv
-Stock,GLOB,,datos\Stocks\GLOB.csv
-Stock,GLOP-PA,,datos\Stocks\GLOP-PA.csv
-Stock,GLOP-PB,,datos\Stocks\GLOP-PB.csv
-Stock,GLOP-PC,,datos\Stocks\GLOP-PC.csv
-Stock,GLP-PB,,datos\Stocks\GLP-PB.csv
-Stock,GLPI,,datos\Stocks\GLPI.csv
-Stock,GLQ,,datos\Stocks\GLQ.csv
-Stock,GLRE,,datos\Stocks\GLRE.csv
-Stock,GLSI,,datos\Stocks\GLSI.csv
-Stock,GLTO,,datos\Stocks\GLTO.csv
-Stock,GLU,,datos\Stocks\GLU.csv
-Stock,GLU-PA,,datos\Stocks\GLU-PA.csv
-Stock,GLU-PB,,datos\Stocks\GLU-PB.csv
-Stock,GLV,,datos\Stocks\GLV.csv
-Stock,GLW,,datos\Stocks\GLW.csv
-Stock,GM,,datos\Stocks\GM.csv
-Stock,GMAB,,datos\Stocks\GMAB.csv
-Stock,GME,,datos\Stocks\GME.csv
-Stock,GMED,,datos\Stocks\GMED.csv
-Stock,GNRC,,datos\Stocks\GNRC.csv
-Stock,GNTX,,datos\Stocks\GNTX.csv
-Stock,GOOG,,datos\Stocks\GOOG.csv
-Stock,GOOGL,,datos\Stocks\GOOGL.csv
-Stock,GPC,,datos\Stocks\GPC.csv
-Stock,GPK,,datos\Stocks\GPK.csv
-Stock,GPN,,datos\Stocks\GPN.csv
-Stock,GS,,datos\Stocks\GS.csv
-Stock,GT,,datos\Stocks\GT.csv
-Stock,GTLS,,datos\Stocks\GTLS.csv
-Stock,GWRE,,datos\Stocks\GWRE.csv
-Stock,GWW,,datos\Stocks\GWW.csv
-Stock,H,,datos\Stocks\H.csv
-Stock,HAL,,datos\Stocks\HAL.csv
-Stock,HALO,,datos\Stocks\HALO.csv
-Stock,HAS,,datos\Stocks\HAS.csv
-Stock,HBAN,,datos\Stocks\HBAN.csv
-Stock,HCA,,datos\Stocks\HCA.csv
-Stock,HD,,datos\Stocks\HD.csv
-Stock,HEI,,datos\Stocks\HEI.csv
-Stock,HELE,,datos\Stocks\HELE.csv
-Stock,HIG,,datos\Stocks\HIG.csv
-Stock,HII,,datos\Stocks\HII.csv
-Stock,HLT,,datos\Stocks\HLT.csv
-Stock,HOG,,datos\Stocks\HOG.csv
-Stock,HOLX,,datos\Stocks\HOLX.csv
-Stock,HON,,datos\Stocks\HON.csv
-Stock,HPE,,datos\Stocks\HPE.csv
-Stock,HPQ,,datos\Stocks\HPQ.csv
-Stock,HQY,,datos\Stocks\HQY.csv
-Stock,HSIC,,datos\Stocks\HSIC.csv
-Stock,HUBB,,datos\Stocks\HUBB.csv
-Stock,HUBS,,datos\Stocks\HUBS.csv
-Stock,HUM,,datos\Stocks\HUM.csv
-Stock,HUN,,datos\Stocks\HUN.csv
-Stock,HWM,,datos\Stocks\HWM.csv
-Stock,HXL,,datos\Stocks\HXL.csv
-Stock,IBKR,,datos\Stocks\IBKR.csv
-Stock,IBM,,datos\Stocks\IBM.csv
-Stock,ICE,,datos\Stocks\ICE.csv
-Stock,IDXX,,datos\Stocks\IDXX.csv
-Stock,IEX,,datos\Stocks\IEX.csv
-Stock,IFF,,datos\Stocks\IFF.csv
-Stock,ILMN,,datos\Stocks\ILMN.csv
-Stock,INCY,,datos\Stocks\INCY.csv
-Stock,INGR,,datos\Stocks\INGR.csv
-Stock,INSP,,datos\Stocks\INSP.csv
-Stock,INTC,,datos\Stocks\INTC.csv
-Stock,INTU,,datos\Stocks\INTU.csv
-Stock,IONS,,datos\Stocks\IONS.csv
-Stock,IP,,datos\Stocks\IP.csv
-Stock,IPGP,,datos\Stocks\IPGP.csv
-Stock,IQV,,datos\Stocks\IQV.csv
-Stock,IR,,datos\Stocks\IR.csv
-Stock,IRDM,,datos\Stocks\IRDM.csv
-Stock,ISRG,,datos\Stocks\ISRG.csv
-Stock,IT,,datos\Stocks\IT.csv
-Stock,ITT,,datos\Stocks\ITT.csv
-Stock,ITW,,datos\Stocks\ITW.csv
-Stock,IVZ,,datos\Stocks\IVZ.csv
-Stock,J,,datos\Stocks\J.csv
-Stock,JBHT,,datos\Stocks\JBHT.csv
-Stock,JBL,,datos\Stocks\JBL.csv
-Stock,JCI,,datos\Stocks\JCI.csv
-Stock,JEF,,datos\Stocks\JEF.csv
-Stock,JKHY,,datos\Stocks\JKHY.csv
-Stock,JLL,,datos\Stocks\JLL.csv
-Stock,JNJ,,datos\Stocks\JNJ.csv
-Stock,JPM,,datos\Stocks\JPM.csv
-Stock,KBR,,datos\Stocks\KBR.csv
-Stock,KDP,,datos\Stocks\KDP.csv
-Stock,KEY,,datos\Stocks\KEY.csv
-Stock,KEYS,,datos\Stocks\KEYS.csv
-Stock,KHC,,datos\Stocks\KHC.csv
-Stock,KKR,,datos\Stocks\KKR.csv
-Stock,KLAC,,datos\Stocks\KLAC.csv
-Stock,KMB,,datos\Stocks\KMB.csv
-Stock,KMI,,datos\Stocks\KMI.csv
-Stock,KMX,,datos\Stocks\KMX.csv
-Stock,KNX,,datos\Stocks\KNX.csv
-Stock,KO,,datos\Stocks\KO.csv
-Stock,KR,,datos\Stocks\KR.csv
-Stock,KSS,,datos\Stocks\KSS.csv
-Stock,L,,datos\Stocks\L.csv
-Stock,LAD,,datos\Stocks\LAD.csv
-Stock,LDOS,,datos\Stocks\LDOS.csv
-Stock,LEA,,datos\Stocks\LEA.csv
-Stock,LEG,,datos\Stocks\LEG.csv
-Stock,LEN,,datos\Stocks\LEN.csv
-Stock,LEVI,,datos\Stocks\LEVI.csv
-Stock,LH,,datos\Stocks\LH.csv
-Stock,LHX,,datos\Stocks\LHX.csv
-Stock,LII,,datos\Stocks\LII.csv
-Stock,LITE,,datos\Stocks\LITE.csv
-Stock,LKQ,,datos\Stocks\LKQ.csv
-Stock,LLY,,datos\Stocks\LLY.csv
-Stock,LMT,,datos\Stocks\LMT.csv
-Stock,LNC,,datos\Stocks\LNC.csv
-Stock,LNT,,datos\Stocks\LNT.csv
-Stock,LOW,,datos\Stocks\LOW.csv
-Stock,LPLA,,datos\Stocks\LPLA.csv
-Stock,LPX,,datos\Stocks\LPX.csv
-Stock,LRCX,,datos\Stocks\LRCX.csv
-Stock,LSCC,,datos\Stocks\LSCC.csv
-Stock,LSTR,,datos\Stocks\LSTR.csv
-Stock,LUV,,datos\Stocks\LUV.csv
-Stock,LVS,,datos\Stocks\LVS.csv
-Stock,LW,,datos\Stocks\LW.csv
-Stock,LYB,,datos\Stocks\LYB.csv
-Stock,LYFT,,datos\Stocks\LYFT.csv
-Stock,LYV,,datos\Stocks\LYV.csv
-Stock,M,,datos\Stocks\M.csv
-Stock,MA,,datos\Stocks\MA.csv
-Stock,MAN,,datos\Stocks\MAN.csv
-Stock,MANH,,datos\Stocks\MANH.csv
-Stock,MAR,,datos\Stocks\MAR.csv
-Stock,MAS,,datos\Stocks\MAS.csv
-Stock,MASI,,datos\Stocks\MASI.csv
-Stock,MAT,,datos\Stocks\MAT.csv
-Stock,MCD,,datos\Stocks\MCD.csv
-Stock,MCHP,,datos\Stocks\MCHP.csv
-Stock,MCK,,datos\Stocks\MCK.csv
-Stock,MCO,,datos\Stocks\MCO.csv
-Stock,MDB,,datos\Stocks\MDB.csv
-Stock,MDLZ,,datos\Stocks\MDLZ.csv
-Stock,MDT,,datos\Stocks\MDT.csv
-Stock,MEDP,,datos\Stocks\MEDP.csv
-Stock,MET,,datos\Stocks\MET.csv
-Stock,META,,datos\Stocks\META.csv
-Stock,MGM,,datos\Stocks\MGM.csv
-Stock,MHK,,datos\Stocks\MHK.csv
-Stock,MIDD,,datos\Stocks\MIDD.csv
-Stock,MKL,,datos\Stocks\MKL.csv
-Stock,MKSI,,datos\Stocks\MKSI.csv
-Stock,MKTX,,datos\Stocks\MKTX.csv
-Stock,MLM,,datos\Stocks\MLM.csv
-Stock,MMM,,datos\Stocks\MMM.csv
-Stock,MNST,,datos\Stocks\MNST.csv
-Stock,MO,,datos\Stocks\MO.csv
-Stock,MOH,,datos\Stocks\MOH.csv
-Stock,MOS,,datos\Stocks\MOS.csv
-Stock,MPC,,datos\Stocks\MPC.csv
-Stock,MPWR,,datos\Stocks\MPWR.csv
-Stock,MRK,,datos\Stocks\MRK.csv
-Stock,MRNA,,datos\Stocks\MRNA.csv
-Stock,MRSH,,datos\Stocks\MRSH.csv
-Stock,MRVL,,datos\Stocks\MRVL.csv
-Stock,MS,,datos\Stocks\MS.csv
-Stock,MSCI,,datos\Stocks\MSCI.csv
-Stock,MSFT,,datos\Stocks\MSFT.csv
-Stock,MSI,,datos\Stocks\MSI.csv
-Stock,MSM,,datos\Stocks\MSM.csv
-Stock,MSTR,,datos\Stocks\MSTR.csv
-Stock,MTB,,datos\Stocks\MTB.csv
-Stock,MTD,,datos\Stocks\MTD.csv
-Stock,MTN,,datos\Stocks\MTN.csv
-Stock,MTZ,,datos\Stocks\MTZ.csv
-Stock,MU,,datos\Stocks\MU.csv
-Stock,NBIX,,datos\Stocks\NBIX.csv
-Stock,NCLH,,datos\Stocks\NCLH.csv
-Stock,NDAQ,,datos\Stocks\NDAQ.csv
-Stock,NDSN,,datos\Stocks\NDSN.csv
-Stock,NEE,,datos\Stocks\NEE.csv
-Stock,NEM,,datos\Stocks\NEM.csv
-Stock,NET,,datos\Stocks\NET.csv
-Stock,NI,,datos\Stocks\NI.csv
-Stock,NKE,,datos\Stocks\NKE.csv
-Stock,NOC,,datos\Stocks\NOC.csv
-Stock,NOV,,datos\Stocks\NOV.csv
-Stock,NOW,,datos\Stocks\NOW.csv
-Stock,NRG,,datos\Stocks\NRG.csv
-Stock,NSC,,datos\Stocks\NSC.csv
-Stock,NTAP,,datos\Stocks\NTAP.csv
-Stock,NTNX,,datos\Stocks\NTNX.csv
-Stock,NTRS,,datos\Stocks\NTRS.csv
-Stock,NUE,,datos\Stocks\NUE.csv
-Stock,NVDA,,datos\Stocks\NVDA.csv
-Stock,NVST,,datos\Stocks\NVST.csv
-Stock,NWL,,datos\Stocks\NWL.csv
-Stock,NWSA,,datos\Stocks\NWSA.csv
-Stock,NXST,,datos\Stocks\NXST.csv
-Stock,NYT,,datos\Stocks\NYT.csv
-Stock,OC,,datos\Stocks\OC.csv
-Stock,ODFL,,datos\Stocks\ODFL.csv
-Stock,OGE,,datos\Stocks\OGE.csv
-Stock,OKE,,datos\Stocks\OKE.csv
-Stock,OKTA,,datos\Stocks\OKTA.csv
-Stock,OLED,,datos\Stocks\OLED.csv
-Stock,OLLI,,datos\Stocks\OLLI.csv
-Stock,OLN,,datos\Stocks\OLN.csv
-Stock,OMC,,datos\Stocks\OMC.csv
-Stock,OMCL,,datos\Stocks\OMCL.csv
-Stock,OMF,,datos\Stocks\OMF.csv
-Stock,ON,,datos\Stocks\ON.csv
-Stock,ORCL,,datos\Stocks\ORCL.csv
-Stock,ORI,,datos\Stocks\ORI.csv
-Stock,ORLY,,datos\Stocks\ORLY.csv
-Stock,OSK,,datos\Stocks\OSK.csv
-Stock,OTIS,,datos\Stocks\OTIS.csv
-Stock,OXY,,datos\Stocks\OXY.csv
-Stock,OZK,,datos\Stocks\OZK.csv
-Stock,PANW,,datos\Stocks\PANW.csv
-Stock,PAYC,,datos\Stocks\PAYC.csv
-Stock,PAYX,,datos\Stocks\PAYX.csv
-Stock,PCAR,,datos\Stocks\PCAR.csv
-Stock,PCTY,,datos\Stocks\PCTY.csv
-Stock,PEG,,datos\Stocks\PEG.csv
-Stock,PEGA,,datos\Stocks\PEGA.csv
-Stock,PEN,,datos\Stocks\PEN.csv
-Stock,PENN,,datos\Stocks\PENN.csv
-Stock,PEP,,datos\Stocks\PEP.csv
-Stock,PFE,,datos\Stocks\PFE.csv
-Stock,PFG,,datos\Stocks\PFG.csv
-Stock,PFGC,,datos\Stocks\PFGC.csv
-Stock,PG,,datos\Stocks\PG.csv
-Stock,PGNY,,datos\Stocks\PGNY.csv
-Stock,PGR,,datos\Stocks\PGR.csv
-Stock,PH,,datos\Stocks\PH.csv
-Stock,PHM,,datos\Stocks\PHM.csv
-Stock,PII,,datos\Stocks\PII.csv
-Stock,PINS,,datos\Stocks\PINS.csv
-Stock,PKG,,datos\Stocks\PKG.csv
-Stock,PLD,,datos\Stocks\PLD.csv
-Stock,PLNT,,datos\Stocks\PLNT.csv
-Stock,PM,,datos\Stocks\PM.csv
-Stock,PNC,,datos\Stocks\PNC.csv
-Stock,PNFP,,datos\Stocks\PNFP.csv
-Stock,PNW,,datos\Stocks\PNW.csv
-Stock,PODD,,datos\Stocks\PODD.csv
-Stock,POOL,,datos\Stocks\POOL.csv
-Stock,POST,,datos\Stocks\POST.csv
-Stock,PPG,,datos\Stocks\PPG.csv
-Stock,PPL,,datos\Stocks\PPL.csv
-Stock,PRU,,datos\Stocks\PRU.csv
-Stock,PSA,,datos\Stocks\PSA.csv
-Stock,PSTG,,datos\Stocks\PSTG.csv
-Stock,PTC,,datos\Stocks\PTC.csv
-Stock,PVH,,datos\Stocks\PVH.csv
-Stock,PWR,,datos\Stocks\PWR.csv
-Stock,PYPL,,datos\Stocks\PYPL.csv
-Stock,QCOM,,datos\Stocks\QCOM.csv
-Stock,QRVO,,datos\Stocks\QRVO.csv
-Stock,QTWO,,datos\Stocks\QTWO.csv
-Stock,RARE,,datos\Stocks\RARE.csv
-Stock,RCL,,datos\Stocks\RCL.csv
-Stock,REGN,,datos\Stocks\REGN.csv
-Stock,RF,,datos\Stocks\RF.csv
-Stock,RGA,,datos\Stocks\RGA.csv
-Stock,RGEN,,datos\Stocks\RGEN.csv
-Stock,RGLD,,datos\Stocks\RGLD.csv
-Stock,RH,,datos\Stocks\RH.csv
-Stock,RHI,,datos\Stocks\RHI.csv
-Stock,RJF,,datos\Stocks\RJF.csv
-Stock,RL,,datos\Stocks\RL.csv
-Stock,RMD,,datos\Stocks\RMD.csv
-Stock,RNG,,datos\Stocks\RNG.csv
-Stock,ROK,,datos\Stocks\ROK.csv
-Stock,ROKU,,datos\Stocks\ROKU.csv
-Stock,ROL,,datos\Stocks\ROL.csv
-Stock,ROP,,datos\Stocks\ROP.csv
-Stock,ROST,,datos\Stocks\ROST.csv
-Stock,RPM,,datos\Stocks\RPM.csv
-Stock,RRR,,datos\Stocks\RRR.csv
-Stock,RRX,,datos\Stocks\RRX.csv
-Stock,RS,,datos\Stocks\RS.csv
-Stock,RSG,,datos\Stocks\RSG.csv
-Stock,RTX,,datos\Stocks\RTX.csv
-Stock,RVTY,,datos\Stocks\RVTY.csv
-Stock,SAIA,,datos\Stocks\SAIA.csv
-Stock,SAIC,,datos\Stocks\SAIC.csv
-Stock,SAM,,datos\Stocks\SAM.csv
-Stock,SBUX,,datos\Stocks\SBUX.csv
-Stock,SCHW,,datos\Stocks\SCHW.csv
-Stock,SCI,,datos\Stocks\SCI.csv
-Stock,SEE,,datos\Stocks\SEE.csv
-Stock,SF,,datos\Stocks\SF.csv
-Stock,SGI,,datos\Stocks\SGI.csv
-Stock,SHW,,datos\Stocks\SHW.csv
-Stock,SITE,,datos\Stocks\SITE.csv
-Stock,SJM,,datos\Stocks\SJM.csv
-Stock,SLAB,,datos\Stocks\SLAB.csv
-Stock,SLB,,datos\Stocks\SLB.csv
-Stock,SLM,,datos\Stocks\SLM.csv
-Stock,SMG,,datos\Stocks\SMG.csv
-Stock,SNA,,datos\Stocks\SNA.csv
-Stock,SNAP,,datos\Stocks\SNAP.csv
-Stock,SNPS,,datos\Stocks\SNPS.csv
-Stock,SNX,,datos\Stocks\SNX.csv
-Stock,SO,,datos\Stocks\SO.csv
-Stock,SPG,,datos\Stocks\SPG.csv
-Stock,SPGI,,datos\Stocks\SPGI.csv
-Stock,SRE,,datos\Stocks\SRE.csv
-Stock,SRPT,,datos\Stocks\SRPT.csv
-Stock,SSNC,,datos\Stocks\SSNC.csv
-Stock,ST,,datos\Stocks\ST.csv
-Stock,STE,,datos\Stocks\STE.csv
-Stock,STLD,,datos\Stocks\STLD.csv
-Stock,STT,,datos\Stocks\STT.csv
-Stock,STZ,,datos\Stocks\STZ.csv
-Stock,SWK,,datos\Stocks\SWK.csv
-Stock,SWKS,,datos\Stocks\SWKS.csv
-Stock,SYF,,datos\Stocks\SYF.csv
-Stock,SYK,,datos\Stocks\SYK.csv
-Stock,SYNA,,datos\Stocks\SYNA.csv
-Stock,SYY,,datos\Stocks\SYY.csv
-Stock,T,,datos\Stocks\T.csv
-Stock,TAP,,datos\Stocks\TAP.csv
-Stock,TDG,,datos\Stocks\TDG.csv
-Stock,TDOC,,datos\Stocks\TDOC.csv
-Stock,TDY,,datos\Stocks\TDY.csv
-Stock,TECH,,datos\Stocks\TECH.csv
-Stock,TER,,datos\Stocks\TER.csv
-Stock,TFC,,datos\Stocks\TFC.csv
-Stock,TGT,,datos\Stocks\TGT.csv
-Stock,THC,,datos\Stocks\THC.csv
-Stock,THO,,datos\Stocks\THO.csv
-Stock,TJX,,datos\Stocks\TJX.csv
-Stock,TKR,,datos\Stocks\TKR.csv
-Stock,TMO,,datos\Stocks\TMO.csv
-Stock,TMUS,,datos\Stocks\TMUS.csv
-Stock,TNDM,,datos\Stocks\TNDM.csv
-Stock,TNL,,datos\Stocks\TNL.csv
-Stock,TOL,,datos\Stocks\TOL.csv
-Stock,TPL,,datos\Stocks\TPL.csv
-Stock,TPR,,datos\Stocks\TPR.csv
-Stock,TREX,,datos\Stocks\TREX.csv
-Stock,TRGP,,datos\Stocks\TRGP.csv
-Stock,TRIP,,datos\Stocks\TRIP.csv
-Stock,TRMB,,datos\Stocks\TRMB.csv
-Stock,TROW,,datos\Stocks\TROW.csv
-Stock,TRU,,datos\Stocks\TRU.csv
-Stock,TRV,,datos\Stocks\TRV.csv
-Stock,TSCO,,datos\Stocks\TSCO.csv
-Stock,TSLA,,datos\Stocks\TSLA.csv
-Stock,TSN,,datos\Stocks\TSN.csv
-Stock,TTC,,datos\Stocks\TTC.csv
-Stock,TTD,,datos\Stocks\TTD.csv
-Stock,TTEK,,datos\Stocks\TTEK.csv
-Stock,TTWO,,datos\Stocks\TTWO.csv
-Stock,TWLO,,datos\Stocks\TWLO.csv
-Stock,TXG,,datos\Stocks\TXG.csv
-Stock,TXN,,datos\Stocks\TXN.csv
-Stock,TXRH,,datos\Stocks\TXRH.csv
-Stock,TXT,,datos\Stocks\TXT.csv
-Stock,TYL,,datos\Stocks\TYL.csv
-Stock,UAL,,datos\Stocks\UAL.csv
-Stock,UBER,,datos\Stocks\UBER.csv
-Stock,UGI,,datos\Stocks\UGI.csv
-Stock,UHS,,datos\Stocks\UHS.csv
-Stock,ULTA,,datos\Stocks\ULTA.csv
-Stock,UNH,,datos\Stocks\UNH.csv
-Stock,UNM,,datos\Stocks\UNM.csv
-Stock,UNP,,datos\Stocks\UNP.csv
-Stock,UPS,,datos\Stocks\UPS.csv
-Stock,URI,,datos\Stocks\URI.csv
-Stock,USB,,datos\Stocks\USB.csv
-Stock,USFD,,datos\Stocks\USFD.csv
-Stock,UTHR,,datos\Stocks\UTHR.csv
-Stock,V,,datos\Stocks\V.csv
-Stock,VAC,,datos\Stocks\VAC.csv
-Stock,VEEV,,datos\Stocks\VEEV.csv
-Stock,VFC,,datos\Stocks\VFC.csv
-Stock,VIR,,datos\Stocks\VIR.csv
-Stock,VIRT,,datos\Stocks\VIRT.csv
-Stock,VLO,,datos\Stocks\VLO.csv
-Stock,VMC,,datos\Stocks\VMC.csv
-Stock,VOYA,,datos\Stocks\VOYA.csv
-Stock,VRNS,,datos\Stocks\VRNS.csv
-Stock,VRSK,,datos\Stocks\VRSK.csv
-Stock,VRSN,,datos\Stocks\VRSN.csv
-Stock,VRTX,,datos\Stocks\VRTX.csv
-Stock,VST,,datos\Stocks\VST.csv
-Stock,VTRS,,datos\Stocks\VTRS.csv
-Stock,VVV,,datos\Stocks\VVV.csv
-Stock,VYX,,datos\Stocks\VYX.csv
-Stock,VZ,,datos\Stocks\VZ.csv
-Stock,W,,datos\Stocks\W.csv
-Stock,WAB,,datos\Stocks\WAB.csv
-Stock,WAL,,datos\Stocks\WAL.csv
-Stock,WAT,,datos\Stocks\WAT.csv
-Stock,WCC,,datos\Stocks\WCC.csv
-Stock,WDAY,,datos\Stocks\WDAY.csv
-Stock,WDC,,datos\Stocks\WDC.csv
-Stock,WEC,,datos\Stocks\WEC.csv
-Stock,WEX,,datos\Stocks\WEX.csv
-Stock,WFC,,datos\Stocks\WFC.csv
-Stock,WH,,datos\Stocks\WH.csv
-Stock,WHR,,datos\Stocks\WHR.csv
-Stock,WK,,datos\Stocks\WK.csv
-Stock,WM,,datos\Stocks\WM.csv
-Stock,WMB,,datos\Stocks\WMB.csv
-Stock,WMS,,datos\Stocks\WMS.csv
-Stock,WMT,,datos\Stocks\WMT.csv
-Stock,WRB,,datos\Stocks\WRB.csv
-Stock,WSM,,datos\Stocks\WSM.csv
-Stock,WSO,,datos\Stocks\WSO.csv
-Stock,WST,,datos\Stocks\WST.csv
-Stock,WTRG,,datos\Stocks\WTRG.csv
-Stock,WU,,datos\Stocks\WU.csv
-Stock,WWD,,datos\Stocks\WWD.csv
-Stock,WYNN,,datos\Stocks\WYNN.csv
-Stock,XEL,,datos\Stocks\XEL.csv
-Stock,XOM,,datos\Stocks\XOM.csv
-Stock,XPO,,datos\Stocks\XPO.csv
-Stock,XRAY,,datos\Stocks\XRAY.csv
-Stock,XYL,,datos\Stocks\XYL.csv
-Stock,XYZ,,datos\Stocks\XYZ.csv
-Stock,YETI,,datos\Stocks\YETI.csv
-Stock,YUM,,datos\Stocks\YUM.csv
-Stock,ZBH,,datos\Stocks\ZBH.csv
-Stock,ZBRA,,datos\Stocks\ZBRA.csv
-Stock,ZD,,datos\Stocks\ZD.csv
-Stock,ZG,,datos\Stocks\ZG.csv
-Stock,ZION,,datos\Stocks\ZION.csv
-Stock,ZM,,datos\Stocks\ZM.csv
-Stock,ZS,,datos\Stocks\ZS.csv
-Stock,ZTS,,datos\Stocks\ZTS.csv
-Stock,ZWS,,datos\Stocks\ZWS.csv
+ETF,AAXJ,iShares MSCI All Country Asia,ETFs\AAXJ
+ETF,ARKG,ARK Genomic Revolution ETF,ETFs\ARKG
+ETF,ARKK,ARK Innovation ETF,ETFs\ARKK
+ETF,ARKW,ARK Next Generation Internet E,ETFs\ARKW
+ETF,DGRO,iShares Core Dividend Growth E,ETFs\DGRO
+ETF,DIA,"State Street SPDR Dow Jones Industrial Average ETF
+Trust",ETFs\DIA
+ETF,DVY,iShares Select Dividend ETF,ETFs\DVY
+ETF,EEM,iShares MSCI Emerging Markets,ETFs\EEM
+ETF,EFA,iShares MSCI EAFE ETF,ETFs\EFA
+ETF,EFAV,iShares MSCI EAFE Min Vol Fact,ETFs\EFAV
+ETF,EFG,iShares MSCI EAFE Growth ETF,ETFs\EFG
+ETF,EFV,iShares MSCI EAFE Value ETF,ETFs\EFV
+ETF,EMB,iShares JP Morgan USD Emerging,ETFs\EMB
+ETF,ESGU,iShares ESG Aware MSCI USA ETF,ETFs\ESGU
+ETF,EWJ,iShares MSCI Japan ETF,ETFs\EWJ
+ETF,EWT,iShares MSCI Taiwan ETF,ETFs\EWT
+ETF,EWY,iShares MSCI South Korea ETF,ETFs\EWY
+ETF,EWZ,iShares MSCI Brazil ETF,ETFs\EWZ
+ETF,EZU,iShares MSCI Eurozone ETF,ETFs\EZU
+ETF,FDN,First Trust Dow Jones Internet,ETFs\FDN
+ETF,FTEC,Fidelity MSCI Information Tech,ETFs\FTEC
+ETF,FVD,First Trust Value Line Dividen,ETFs\FVD
+ETF,GDX,VanEck Vectors Gold Miners ETF,ETFs\GDX
+ETF,GDXJ,VanEck Vectors Junior Gold Min,ETFs\GDXJ
+ETF,GLD,SPDR Gold Shares,ETFs\GLD
+ETF,GSLC,Goldman Sachs ActiveBeta U.S.,ETFs\GSLC
+ETF,HDV,iShares Core High Dividend ETF,ETFs\HDV
+ETF,IBB,iShares Nasdaq Biotechnology E,ETFs\IBB
+ETF,ICLN,iShares Global Clean Energy ET,ETFs\ICLN
+ETF,IGV,iShares Expanded Tech-Software,ETFs\IGV
+ETF,IHI,iShares U.S. Medical Devices E,ETFs\IHI
+ETF,IJH,iShares Core S&P Mid-Cap ETF,ETFs\IJH
+ETF,IJR,iShares Core S&P Small-Cap ETF,ETFs\IJR
+ETF,IJS,iShares S&P Small-Cap 600 Valu,ETFs\IJS
+ETF,INDA,iShares MSCI India ETF,ETFs\INDA
+ETF,ITOT,iShares Core S&P Total US Stoc,ETFs\ITOT
+ETF,IUSG,iShares Core S&P U.S. Growth E,ETFs\IUSG
+ETF,IUSV,iShares Core S&P U.S. Value ET,ETFs\IUSV
+ETF,IVE,iShares S&P 500 Value ETF,ETFs\IVE
+ETF,IVW,iShares S&P 500 Growth ETF,ETFs\IVW
+ETF,IWB,iShares Russell 1000 ETF,ETFs\IWB
+ETF,IWD,iShares Russell 1000 Value ETF,ETFs\IWD
+ETF,IWF,iShares Russell 1000 Growth ET,ETFs\IWF
+ETF,IWM,iShares Russell 2000 ETF,ETFs\IWM
+ETF,IWN,iShares Russell 2000 Value ETF,ETFs\IWN
+ETF,IWO,iShares Russell 2000 Growth ET,ETFs\IWO
+ETF,IWS,iShares Russell Mid-Cap Value,ETFs\IWS
+ETF,IYR,iShares U.S. Real Estate ETF,ETFs\IYR
+ETF,IYW,iShares US Technology ETF,ETFs\IYW
+ETF,KRE,State Street SPDR S&P Regional Banking ETF,ETFs\KRE
+ETF,MCHI,iShares MSCI China ETF,ETFs\MCHI
+ETF,MDY,State Street SPDR S&P MidCap 400 ETF Trust,ETFs\MDY
+ETF,MTUM,iShares MSCI USA Momentum Fact,ETFs\MTUM
+ETF,NFLX,Netflix Inc,Stocks\US\Nasdaq\NFLX
+ETF,OEF,iShares S&P 100 ETF,ETFs\OEF
+ETF,PFF,iShares Preferred & Income Sec,ETFs\PFF
+ETF,QQQ,Invesco QQQ Trust Series 1,ETFs\QQQ
+ETF,QUAL,iShares MSCI USA Quality Facto,ETFs\QUAL
+ETF,RSP,Invesco S&P 500 Equal Weight E,ETFs\RSP
+ETF,SCHB,Schwab US Broad Market ETF,ETFs\SCHB
+ETF,SCHD,Schwab US Dividend Equity ETF,ETFs\SCHD
+ETF,SCHF,Schwab International Equity ET,ETFs\SCHF
+ETF,SCHG,Schwab U.S. Large-Cap Growth E,ETFs\SCHG
+ETF,SCHV,Schwab U.S. Large-Cap Value ET,ETFs\SCHV
+ETF,SCZ,iShares MSCI EAFE Small-Cap ET,ETFs\SCZ
+ETF,SKYY,First Trust Cloud Computing ET,ETFs\SKYY
+ETF,SLV,iShares Silver Trust,ETFs\SLV
+ETF,SMH,VanEck Vectors Semiconductor E,ETFs\SMH
+ETF,SOXX,iShares PHLX Semiconductor ETF,ETFs\SOXX
+ETF,SPDW,State Street SPDR Portfolio Developed World ex-US ETF,ETFs\SPDW
+ETF,SPLV,Invesco S&P 500 Low Volatility,ETFs\SPLV
+ETF,SPY,State Street SPDR S&P 500 ETF Trust,ETFs\SPY
+ETF,SPYG,State Street SPDR Portfolio S&P 500 Growth ETF,ETFs\SPYG
+ETF,SPYV,State Street SPDR Portfolio S&P 500 Value ETF,ETFs\SPYV
+ETF,USMV,iShares MSCI USA Min Vol Facto,ETFs\USMV
+ETF,VDE,Vanguard Energy ETF,ETFs\VDE
+ETF,VEA,Vanguard FTSE Developed Market,ETFs\VEA
+ETF,VGT,Vanguard Information Technolog,ETFs\VGT
+ETF,VHT,Vanguard Health Care ETF,ETFs\VHT
+ETF,VLUE,iShares MSCI USA Value Factor,ETFs\VLUE
+ETF,VNQ,Vanguard Real Estate ETF,ETFs\VNQ
+ETF,VOE,Vanguard Mid-Cap Value ETF,ETFs\VOE
+ETF,VPL,Vanguard FTSE Pacific ETF,ETFs\VPL
+ETF,VT,Vanguard Total World Stock ETF,ETFs\VT
+ETF,VTI,Vanguard Total Stock Market ET,ETFs\VTI
+ETF,VWO,Vanguard FTSE Emerging Markets,ETFs\VWO
+ETF,VXF,Vanguard Extended Market ETF,ETFs\VXF
+ETF,VXUS,Vanguard Total International S,ETFs\VXUS
+ETF,XBI,State Street SPDR S&P Biotech ETF,ETFs\XBI
+ETF,XLB,State Street Materials Select Sector SPDR,ETFs\XLB
+ETF,XLC,State Street Communication Services Select Sector SPDR,ETFs\XLC
+ETF,XLE,State Street Energy Select Sector SPDR,ETFs\XLE
+ETF,XLF,State Street Financial Select Sector SPDR,ETFs\XLF
+ETF,XLI,State Street Industrial Select Sector SPDR,ETFs\XLI
+ETF,XLK,State Street Technology Select Sector SPDR,ETFs\XLK
+ETF,XLP,State Street Consumer Staples Select Sector SPDR,ETFs\XLP
+ETF,XLU,State Street Utilities Select Sector SPDR,ETFs\XLU
+ETF,XLV,State Street Health Care Select Sector SPDR,ETFs\XLV
+ETF,XLY,State Street Consumer Discretionary Select Sector SPDR,ETFs\XLY
+Stock,A,Agilent Technologies Inc,Stocks\US\NYSE\A
+Stock,AA,Alcoa Corp,Stocks\US\NYSE\AA
+Stock,AAL,American Airlines Group Inc,Stocks\US\Nasdaq\AAL
+Stock,AAP,Advance Auto Parts Inc,Stocks\US\NYSE\AAP
+Stock,AAPL,Apple Inc,Stocks\US\DOW\AAPL
+Stock,ABBV,AbbVie Inc,Stocks\US\NYSE\ABBV
+Stock,ABT,Abbott Laboratories,Stocks\US\NYSE\ABT
+Stock,ACHC,Acadia Healthcare Co Inc,Stocks\US\Nasdaq\ACHC
+Stock,ACM,AECOM,Stocks\US\NYSE\ACM
+Stock,ACN,Accenture Plc,Stocks\US\NYSE\ACN
+Stock,ADBE,Adobe Inc,Stocks\US\Nasdaq\ADBE
+Stock,ADI,Analog Devices Inc,Stocks\US\Nasdaq\ADI
+Stock,ADM,Archer-Daniels-Midland Co,Stocks\US\NYSE\ADM
+Stock,ADP,Automatic Data Processing Inc,Stocks\US\Nasdaq\ADP
+Stock,ADSK,Autodesk Inc,Stocks\US\Nasdaq\ADSK
+Stock,AEP,American Electric Power Co Inc,Stocks\US\NYSE\AEP
+Stock,AES,AES Corp/The,Stocks\US\NYSE\AES
+Stock,AFG,American Financial Group Inc/O,Stocks\US\NYSE\AFG
+Stock,AFL,Aflac Inc,Stocks\US\NYSE\AFL
+Stock,AGCO,AGCO Corp,Stocks\US\NYSE\AGCO
+Stock,AIG,American International Group I,Stocks\US\NYSE\AIG
+Stock,AIZ,Assurant Inc,Stocks\US\NYSE\AIZ
+Stock,AJG,Arthur J Gallagher & Co,Stocks\US\NYSE\AJG
+Stock,AKAM,Akamai Technologies Inc,Stocks\US\Nasdaq\AKAM
+Stock,ALB,Albemarle Corp,Stocks\US\NYSE\ALB
+Stock,ALGN,Align Technology Inc,Stocks\US\Nasdaq\ALGN
+Stock,ALK,Alaska Air Group Inc,Stocks\US\NYSE\ALK
+Stock,ALL,Allstate Corp/The,Stocks\US\NYSE\ALL
+Stock,ALLY,Ally Financial Inc,Stocks\US\NYSE\ALLY
+Stock,ALNY,Alnylam Pharmaceuticals Inc,Stocks\US\Nasdaq\ALNY
+Stock,AMAT,Applied Materials Inc,Stocks\US\Nasdaq\AMAT
+Stock,AMD,Advanced Micro Devices Inc,Stocks\US\Nasdaq\AMD
+Stock,AME,AMETEK Inc,Stocks\US\NYSE\AME
+Stock,AMG,Affiliated Managers Group Inc,Stocks\US\NYSE\AMG
+Stock,AMGN,Amgen Inc,Stocks\US\Nasdaq\AMGN
+Stock,AMKR,Amkor Technology Inc,Stocks\US\Nasdaq\AMKR
+Stock,AMP,Ameriprise Financial Inc,Stocks\US\NYSE\AMP
+Stock,AMT,American Tower Corp,Stocks\US\NYSE\AMT
+Stock,AMZN,Amazon.com Inc,Stocks\US\Nasdaq\AMZN
+Stock,AN,AutoNation Inc,Stocks\US\NYSE\AN
+Stock,ANET,Arista Networks Inc,Stocks\US\NYSE\ANET
+Stock,AON,Aon PLC,Stocks\US\NYSE\AON
+Stock,AOS,A O Smith Corp,Stocks\US\NYSE\AOS
+Stock,APA,APA Corp,Stocks\US\Nasdaq\APA
+Stock,APD,Air Products and Chemicals Inc,Stocks\US\NYSE\APD
+Stock,APH,Amphenol Corp,Stocks\US\NYSE\APH
+Stock,APLS,Apellis Pharmaceuticals Inc,Stocks\US\Nasdaq\APLS
+Stock,ARCC,Ares Capital Corp,Stocks\US\Nasdaq\ARCC
+Stock,ARES,Ares Management Corp,Stocks\US\NYSE\ARES
+Stock,ARMK,Aramark,Stocks\US\NYSE\ARMK
+Stock,ARW,Arrow Electronics Inc,Stocks\US\NYSE\ARW
+Stock,ARWR,Arrowhead Pharmaceuticals Inc,Stocks\US\Nasdaq\ARWR
+Stock,ASH,Ashland Inc,Stocks\US\NYSE\ASH
+Stock,AVGO,Broadcom Inc,Stocks\US\Nasdaq\AVGO
+Stock,AVTR,Avantor Inc,Stocks\US\NYSE\AVTR
+Stock,AVY,Avery Dennison Corp,Stocks\US\NYSE\AVY
+Stock,AWI,Armstrong World Industries Inc,Stocks\US\NYSE\AWI
+Stock,AWK,American Water Works Co Inc,Stocks\US\NYSE\AWK
+Stock,AXON,Axon Enterprise Inc,Stocks\US\Nasdaq\AXON
+Stock,AXP,American Express Co,Stocks\US\DOW\AXP
+Stock,AXTA,Axalta Coating Systems Ltd,Stocks\US\NYSE\AXTA
+Stock,AYI,Acuity Inc,Stocks\US\NYSE\AYI
+Stock,AZO,AutoZone Inc,Stocks\US\NYSE\AZO
+Stock,AZTA,Azenta Inc,Stocks\US\Nasdaq\AZTA
+Stock,BA,Boeing Co/The,Stocks\US\DOW\BA
+Stock,BAC,Bank of America Corp,Stocks\US\NYSE\BAC
+Stock,BAH,Booz Allen Hamilton Holding Co,Stocks\US\NYSE\BAH
+Stock,BALL,Ball Corp,Stocks\US\NYSE\BALL
+Stock,BAX,Baxter International Inc,Stocks\US\NYSE\BAX
+Stock,BBY,Best Buy Co Inc,Stocks\US\NYSE\BBY
+Stock,BC,Brunswick Corp/DE,Stocks\US\NYSE\BC
+Stock,BDX,Becton Dickinson and Co,Stocks\US\NYSE\BDX
+Stock,BEN,Franklin Resources Inc,Stocks\US\NYSE\BEN
+Stock,BFAM,Bright Horizons Family Solutio,Stocks\US\NYSE\BFAM
+Stock,BIIB,Biogen Inc,Stocks\US\Nasdaq\BIIB
+Stock,BILL,Bill Holdings Inc,Stocks\US\NYSE\BILL
+Stock,BIO,Bio-Rad Laboratories Inc,Stocks\US\NYSE\BIO
+Stock,BJ,BJ's Wholesale Club Holdings I,Stocks\US\NYSE\BJ
+Stock,BK,Bank of New York Mellon Corp/T,Stocks\US\NYSE\BK
+Stock,BKNG,Booking Holdings Inc,Stocks\US\Nasdaq\BKNG
+Stock,BKR,Baker Hughes Co,Stocks\US\NYSE\BKR
+Stock,BL,Blackline Inc,Stocks\US\Nasdaq\BL
+Stock,BLD,TopBuild Corp,Stocks\US\NYSE\BLD
+Stock,BLDR,Builders FirstSource Inc,Stocks\US\Nasdaq\BLDR
+Stock,BLK,BlackRock Inc,Stocks\US\Nasdaq\BLK
+Stock,BMRN,BioMarin Pharmaceutical Inc,Stocks\US\Nasdaq\BMRN
+Stock,BMY,Bristol-Myers Squibb Co,Stocks\US\NYSE\BMY
+Stock,BR,Broadridge Financial Solutions,Stocks\US\NYSE\BR
+Stock,BRKR,Bruker Corp,Stocks\US\Nasdaq\BRKR
+Stock,BRO,Brown & Brown Inc,Stocks\US\NYSE\BRO
+Stock,BRSL,Brightstar Lottery,Stocks\US\NYSE\BRSL
+Stock,BSX,Boston Scientific Corp,Stocks\US\NYSE\BSX
+Stock,BURL,Burlington Stores Inc,Stocks\US\NYSE\BURL
+Stock,BWA,BorgWarner Inc,Stocks\US\NYSE\BWA
+Stock,BX,Blackstone Group Inc/The,Stocks\US\NYSE\BX
+Stock,BYD,Boyd Gaming Corp,Stocks\US\NYSE\BYD
+Stock,C,Citigroup Inc,Stocks\US\NYSE\C
+Stock,CABO,Cable One Inc,Stocks\US\NYSE\CABO
+Stock,CACC,Credit Acceptance Corp,Stocks\US\Nasdaq\CACC
+Stock,CACI,CACI International Inc,Stocks\US\NYSE\CACI
+Stock,CAG,Conagra Brands Inc,Stocks\US\NYSE\CAG
+Stock,CAH,Cardinal Health Inc,Stocks\US\NYSE\CAH
+Stock,CAR,Avis Budget Group Inc,Stocks\US\Nasdaq\CAR
+Stock,CARR,Carrier Global Corp,Stocks\US\NYSE\CARR
+Stock,CASY,Casey's General Stores Inc,Stocks\US\Nasdaq\CASY
+Stock,CAT,Caterpillar Inc,Stocks\US\DOW\CAT
+Stock,CB,Chubb Ltd,Stocks\US\NYSE\CB
+Stock,CBRE,CBRE Group Inc,Stocks\US\NYSE\CBRE
+Stock,CC,Chemours Co/The,Stocks\US\NYSE\CC
+Stock,CCI,Crown Castle Inc,Stocks\US\NYSE\CCI
+Stock,CCK,Crown Holdings Inc,Stocks\US\NYSE\CCK
+Stock,CCL,Carnival Corp Ltd,Stocks\US\NYSE\CCL
+Stock,CDNS,Cadence Design Systems Inc,Stocks\US\Nasdaq\CDNS
+Stock,CDW,CDW Corp/DE,Stocks\US\Nasdaq\CDW
+Stock,CE,Celanese Corp,Stocks\US\NYSE\CE
+Stock,CF,CF Industries Holdings Inc,Stocks\US\NYSE\CF
+Stock,CFG,Citizens Financial Group Inc,Stocks\US\NYSE\CFG
+Stock,CFR,Cullen/Frost Bankers Inc,Stocks\US\NYSE\CFR
+Stock,CG,Carlyle Group Inc/The,Stocks\US\Nasdaq\CG
+Stock,CGNX,Cognex Corp,Stocks\US\Nasdaq\CGNX
+Stock,CHD,Church & Dwight Co Inc,Stocks\US\NYSE\CHD
+Stock,CHDN,Churchill Downs Inc,Stocks\US\Nasdaq\CHDN
+Stock,CHE,Chemed Corp,Stocks\US\NYSE\CHE
+Stock,CHRW,CH Robinson Worldwide Inc,Stocks\US\Nasdaq\CHRW
+Stock,CHTR,Charter Communications Inc,Stocks\US\Nasdaq\CHTR
+Stock,CHWY,Chewy Inc,Stocks\US\NYSE\CHWY
+Stock,CI,Cigna Group,Stocks\US\NYSE\CI
+Stock,CIEN,Ciena Corp,Stocks\US\NYSE\CIEN
+Stock,CINF,Cincinnati Financial Corp,Stocks\US\Nasdaq\CINF
+Stock,CL,Colgate-Palmolive Co,Stocks\US\NYSE\CL
+Stock,CLF,Cleveland-Cliffs Inc,Stocks\US\NYSE\CLF
+Stock,CLX,Clorox Co/The,Stocks\US\NYSE\CLX
+Stock,CMCSA,Comcast Corp,Stocks\US\Nasdaq\CMCSA
+Stock,CME,CME Group Inc,Stocks\US\Nasdaq\CME
+Stock,CMG,Chipotle Mexican Grill Inc,Stocks\US\NYSE\CMG
+Stock,CMI,Cummins Inc,Stocks\US\NYSE\CMI
+Stock,CMS,CMS Energy Corp,Stocks\US\NYSE\CMS
+Stock,CNC,Centene Corp,Stocks\US\NYSE\CNC
+Stock,CNP,CenterPoint Energy Inc,Stocks\US\NYSE\CNP
+Stock,COF,Capital One Financial Corp,Stocks\US\NYSE\COF
+Stock,COHR,Coherent Inc,Stocks\US\NYSE\COHR
+Stock,COIN,Coinbase Global Inc,Stocks\US\Nasdaq\COIN
+Stock,COLM,Columbia Sportswear Co,Stocks\US\Nasdaq\COLM
+Stock,COO,Cooper Cos Inc/The,Stocks\US\NYSE\COO
+Stock,COP,ConocoPhillips,Stocks\US\NYSE\COP
+Stock,COR,Cencora Inc,Stocks\US\NYSE\COR
+Stock,COST,Costco Wholesale Corp,Stocks\US\Nasdaq\COST
+Stock,COTY,Coty Inc,Stocks\US\NYSE\COTY
+Stock,CPAY,Corpay Inc,Stocks\US\NYSE\CPAY
+Stock,CPRT,Copart Inc,Stocks\US\Nasdaq\CPRT
+Stock,CRL,Charles River Laboratories Int,Stocks\US\NYSE\CRL
+Stock,CRM,salesforce.com Inc,Stocks\US\NYSE\CRM
+Stock,CROX,Crocs Inc,Stocks\US\Nasdaq\CROX
+Stock,CRWD,Crowdstrike Holdings Inc,Stocks\US\Nasdaq\CRWD
+Stock,CSCO,Cisco Systems Inc/Delaware,Stocks\US\DOW\CSCO
+Stock,CSGP,CoStar Group Inc,Stocks\US\Nasdaq\CSGP
+Stock,CSL,Carlisle Cos Inc,Stocks\US\NYSE\CSL
+Stock,CSX,CSX Corp,Stocks\US\NYSE\CSX
+Stock,CTAS,Cintas Corp,Stocks\US\Nasdaq\CTAS
+Stock,CTSH,Cognizant Technology Solutions,Stocks\US\Nasdaq\CTSH
+Stock,CTVA,Corteva Inc,Stocks\US\NYSE\CTVA
+Stock,CVNA,Carvana Co,Stocks\US\NYSE\CVNA
+Stock,CVS,CVS Health Corp,Stocks\US\NYSE\CVS
+Stock,CVX,Chevron Corp,Stocks\US\DOW\CVX
+Stock,D,Dominion Energy Inc,Stocks\US\NYSE\D
+Stock,DAL,Delta Air Lines Inc,Stocks\US\NYSE\DAL
+Stock,DAR,Darling Ingredients Inc,Stocks\US\NYSE\DAR
+Stock,DBX,Dropbox Inc,Stocks\US\Nasdaq\DBX
+Stock,DD,DuPont de Nemours Inc,Stocks\US\NYSE\DD
+Stock,DDOG,Datadog Inc,Stocks\US\Nasdaq\DDOG
+Stock,DE,Deere & Co,Stocks\US\NYSE\DE
+Stock,DECK,Deckers Outdoor Corp,Stocks\US\NYSE\DECK
+Stock,DELL,Dell Technologies Inc,Stocks\US\NYSE\DELL
+Stock,DG,Dollar General Corp,Stocks\US\NYSE\DG
+Stock,DGX,Quest Diagnostics Inc,Stocks\US\NYSE\DGX
+Stock,DHI,DR Horton Inc,Stocks\US\NYSE\DHI
+Stock,DHR,Danaher Corp,Stocks\US\NYSE\DHR
+Stock,DIS,Walt Disney Co/The,Stocks\US\DOW\DIS
+Stock,DKS,Dick's Sporting Goods Inc,Stocks\US\NYSE\DKS
+Stock,DLB,Dolby Laboratories Inc,Stocks\US\NYSE\DLB
+Stock,DLTR,Dollar Tree Inc,Stocks\US\Nasdaq\DLTR
+Stock,DNLI,Denali Therapeutics Inc,Stocks\US\Nasdaq\DNLI
+Stock,DOCU,DocuSign Inc,Stocks\US\Nasdaq\DOCU
+Stock,DOV,Dover Corp,Stocks\US\NYSE\DOV
+Stock,DOW,Dow Inc,Stocks\US\DOW\DOW
+Stock,DOX,Amdocs Ltd,Stocks\US\Nasdaq\DOX
+Stock,DPZ,Domino's Pizza Inc,Stocks\US\NYSE\DPZ
+Stock,DRI,Darden Restaurants Inc,Stocks\US\NYSE\DRI
+Stock,DT,Dynatrace Inc,Stocks\US\NYSE\DT
+Stock,DTE,DTE Energy Co,Stocks\US\NYSE\DTE
+Stock,DUK,Duke Energy Corp,Stocks\US\NYSE\DUK
+Stock,DVA,DaVita Inc,Stocks\US\NYSE\DVA
+Stock,DVN,Devon Energy Corp,Stocks\US\NYSE\DVN
+Stock,DXC,DXC Technology Co,Stocks\US\NYSE\DXC
+Stock,DXCM,Dexcom Inc,Stocks\US\Nasdaq\DXCM
+Stock,EA,Electronic Arts Inc,Stocks\US\Nasdaq\EA
+Stock,EBAY,eBay Inc,Stocks\US\Nasdaq\EBAY
+Stock,ECL,Ecolab Inc,Stocks\US\NYSE\ECL
+Stock,EEFT,Euronet Worldwide Inc,Stocks\US\Nasdaq\EEFT
+Stock,EHC,Encompass Health Corp,Stocks\US\NYSE\EHC
+Stock,EIX,Edison International,Stocks\US\NYSE\EIX
+Stock,EL,Estee Lauder Cos Inc/The,Stocks\US\NYSE\EL
+Stock,ELAN,Elanco Animal Health Inc,Stocks\US\NYSE\ELAN
+Stock,ELV,Elevance Health Inc,Stocks\US\NYSE\ELV
+Stock,EME,EMCOR Group Inc,Stocks\US\NYSE\EME
+Stock,EMN,Eastman Chemical Co,Stocks\US\NYSE\EMN
+Stock,EMR,Emerson Electric Co,Stocks\US\NYSE\EMR
+Stock,ENOV,Enovis Corp,Stocks\US\NYSE\ENOV
+Stock,ENPH,Enphase Energy Inc,Stocks\US\Nasdaq\ENPH
+Stock,ENTG,Entegris Inc,Stocks\US\Nasdaq\ENTG
+Stock,EOG,EOG Resources Inc,Stocks\US\NYSE\EOG
+Stock,EPAM,EPAM Systems Inc,Stocks\US\NYSE\EPAM
+Stock,EQH,Equitable Holdings Inc,Stocks\US\NYSE\EQH
+Stock,EQT,EQT Corp,Stocks\US\NYSE\EQT
+Stock,ES,Eversource Energy,Stocks\US\NYSE\ES
+Stock,ESI,Element Solutions Inc,Stocks\US\NYSE\ESI
+Stock,ESNT,Essent Group Ltd,Stocks\US\NYSE\ESNT
+Stock,ESTC,Elastic NV,Stocks\US\NYSE\ESTC
+Stock,ETN,Eaton Corp PLC,Stocks\US\NYSE\ETN
+Stock,ETR,Entergy Corp,Stocks\US\NYSE\ETR
+Stock,ETSY,Etsy Inc,Stocks\US\NYSE\ETSY
+Stock,EVR,Evercore Inc,Stocks\US\NYSE\EVR
+Stock,EVRG,Evergy Inc,Stocks\US\NYSE\EVRG
+Stock,EW,Edwards Lifesciences Corp,Stocks\US\NYSE\EW
+Stock,EWBC,East West Bancorp Inc,Stocks\US\Nasdaq\EWBC
+Stock,EXC,Exelon Corp,Stocks\US\NYSE\EXC
+Stock,EXEL,Exelixis Inc,Stocks\US\Nasdaq\EXEL
+Stock,EXP,Eagle Materials Inc,Stocks\US\NYSE\EXP
+Stock,EXPD,Expeditors International of Wa,Stocks\US\NYSE\EXPD
+Stock,EXPE,Expedia Group Inc,Stocks\US\Nasdaq\EXPE
+Stock,F,Ford Motor Co,Stocks\US\NYSE\F
+Stock,FAF,First American Financial Corp,Stocks\US\NYSE\FAF
+Stock,FANG,Diamondback Energy Inc,Stocks\US\Nasdaq\FANG
+Stock,FAST,Fastenal Co,Stocks\US\Nasdaq\FAST
+Stock,FBIN,Fortune Innovations Inc,Stocks\US\NYSE\FBIN
+Stock,FCX,Freeport-McMoRan Inc,Stocks\US\NYSE\FCX
+Stock,FDS,FactSet Research Systems Inc,Stocks\US\NYSE\FDS
+Stock,FDX,FedEx Corp,Stocks\US\NYSE\FDX
+Stock,FE,FirstEnergy Corp,Stocks\US\NYSE\FE
+Stock,FFIV,F5 Networks Inc,Stocks\US\Nasdaq\FFIV
+Stock,FHN,First Horizon Corp,Stocks\US\NYSE\FHN
+Stock,FICO,Fair Isaac Corp,Stocks\US\NYSE\FICO
+Stock,FIS,Fidelity National Information,Stocks\US\NYSE\FIS
+Stock,FISV,Fiserv Inc,Stocks\US\Nasdaq\FISV
+Stock,FITB,Fifth Third Bancorp,Stocks\US\Nasdaq\FITB
+Stock,FIVE,Five Below Inc,Stocks\US\Nasdaq\FIVE
+Stock,FIVN,Five9 Inc,Stocks\US\Nasdaq\FIVN
+Stock,FLEX,Flex Ltd,Stocks\US\Nasdaq\FLEX
+Stock,FLS,Flowserve Corp,Stocks\US\NYSE\FLS
+Stock,FMC,FMC Corp,Stocks\US\NYSE\FMC
+Stock,FND,Floor & Decor Holdings Inc,Stocks\US\NYSE\FND
+Stock,FNF,Fidelity National Financial In,Stocks\US\NYSE\FNF
+Stock,FOX,Twenty-First Century Fox Inc Class B,Stocks\US\Nasdaq\FOX
+Stock,FOXA,Fox Corp,Stocks\US\Nasdaq\FOXA
+Stock,FOXF,Fox Factory Holding Corp,Stocks\US\Nasdaq\FOXF
+Stock,FRPT,Freshpet Inc,Stocks\US\Nasdaq\FRPT
+Stock,FSLR,First Solar Inc,Stocks\US\Nasdaq\FSLR
+Stock,FTNT,Fortinet Inc,Stocks\US\Nasdaq\FTNT
+Stock,FTV,Fortive Corp,Stocks\US\NYSE\FTV
+Stock,G,Genpact Ltd,Stocks\US\NYSE\G
+Stock,GAP,Gap Inc/The,Stocks\US\NYSE\GAP
+Stock,GD,General Dynamics Corp,Stocks\US\NYSE\GD
+Stock,GDDY,GoDaddy Inc,Stocks\US\NYSE\GDDY
+Stock,GE,General Electric Co,Stocks\US\DOW\GE
+Stock,GEN,Gen Digital Inc,Stocks\US\Nasdaq\GEN
+Stock,GGG,Graco Inc,Stocks\US\NYSE\GGG
+Stock,GH,Guardant Health Inc,Stocks\US\Nasdaq\GH
+Stock,GILD,Gilead Sciences Inc,Stocks\US\Nasdaq\GILD
+Stock,GIS,General Mills Inc,Stocks\US\NYSE\GIS
+Stock,GL,Globe Life Inc,Stocks\US\NYSE\GL
+Stock,GLW,Corning Inc,Stocks\US\NYSE\GLW
+Stock,GM,General Motors Co,Stocks\US\NYSE\GM
+Stock,GMED,Globus Medical Inc,Stocks\US\NYSE\GMED
+Stock,GNRC,Generac Holdings Inc,Stocks\US\NYSE\GNRC
+Stock,GNTX,Gentex Corp,Stocks\US\Nasdaq\GNTX
+Stock,GOOG,Alphabet Inc Class C,Stocks\US\Nasdaq\GOOG
+Stock,GOOGL,Alphabet Inc,Stocks\US\Nasdaq\GOOGL
+Stock,GPC,Genuine Parts Co,Stocks\US\NYSE\GPC
+Stock,GPK,Graphic Packaging Holding Co,Stocks\US\NYSE\GPK
+Stock,GPN,Global Payments Inc,Stocks\US\NYSE\GPN
+Stock,GS,Goldman Sachs Group Inc/The,Stocks\US\DOW\GS
+Stock,GT,Goodyear Tire & Rubber Co/The,Stocks\US\NYSE\GT
+Stock,GTLS,Chart Industries Inc,Stocks\US\NYSE\GTLS
+Stock,GWRE,Guidewire Software Inc,Stocks\US\NYSE\GWRE
+Stock,GWW,WW Grainger Inc,Stocks\US\NYSE\GWW
+Stock,H,Hyatt Hotels Corp,Stocks\US\NYSE\H
+Stock,HAL,Halliburton Co,Stocks\US\NYSE\HAL
+Stock,HALO,Halozyme Therapeutics Inc,Stocks\US\Nasdaq\HALO
+Stock,HAS,Hasbro Inc,Stocks\US\Nasdaq\HAS
+Stock,HBAN,Huntington Bancshares Inc/OH,Stocks\US\Nasdaq\HBAN
+Stock,HCA,HCA Healthcare Inc,Stocks\US\NYSE\HCA
+Stock,HD,Home Depot Inc/The,Stocks\US\DOW\HD
+Stock,HEI,HEICO Corp,Stocks\US\NYSE\HEI
+Stock,HELE,Helen of Troy Ltd,Stocks\US\Nasdaq\HELE
+Stock,HIG,Hartford Insurance Group Inc,Stocks\US\NYSE\HIG
+Stock,HII,Huntington Ingalls Industries,Stocks\US\NYSE\HII
+Stock,HLT,Hilton Worldwide Holdings Inc,Stocks\US\NYSE\HLT
+Stock,HOG,Harley-Davidson Inc,Stocks\US\NYSE\HOG
+Stock,HON,Honeywell International Inc,Stocks\US\Nasdaq\HON
+Stock,HPE,Hewlett Packard Enterprise Co,Stocks\US\NYSE\HPE
+Stock,HPQ,HP Inc,Stocks\US\NYSE\HPQ
+Stock,HQY,HealthEquity Inc,Stocks\US\Nasdaq\HQY
+Stock,HSIC,Henry Schein Inc,Stocks\US\Nasdaq\HSIC
+Stock,HUBB,Hubbell Inc,Stocks\US\NYSE\HUBB
+Stock,HUBS,HubSpot Inc,Stocks\US\NYSE\HUBS
+Stock,HUM,Humana Inc,Stocks\US\NYSE\HUM
+Stock,HUN,Huntsman Corp,Stocks\US\NYSE\HUN
+Stock,HWM,Howmet Aerospace Inc,Stocks\US\NYSE\HWM
+Stock,HXL,Hexcel Corp,Stocks\US\NYSE\HXL
+Stock,IBKR,Interactive Brokers Group Inc,Stocks\US\Nasdaq\IBKR
+Stock,IBM,International Business Machine,Stocks\US\DOW\IBM
+Stock,ICE,Intercontinental Exchange Inc,Stocks\US\NYSE\ICE
+Stock,IDXX,IDEXX Laboratories Inc,Stocks\US\Nasdaq\IDXX
+Stock,IEX,IDEX Corp,Stocks\US\NYSE\IEX
+Stock,IFF,International Flavors & Fragra,Stocks\US\NYSE\IFF
+Stock,ILMN,Illumina Inc,Stocks\US\Nasdaq\ILMN
+Stock,INCY,Incyte Corp,Stocks\US\Nasdaq\INCY
+Stock,INGR,Ingredion Inc,Stocks\US\NYSE\INGR
+Stock,INSP,Inspire Medical Systems Inc,Stocks\US\NYSE\INSP
+Stock,INTC,Intel Corp,Stocks\US\DOW\INTC
+Stock,INTU,Intuit Inc,Stocks\US\Nasdaq\INTU
+Stock,IONS,Ionis Pharmaceuticals Inc,Stocks\US\Nasdaq\IONS
+Stock,IP,International Paper Co,Stocks\US\NYSE\IP
+Stock,IPGP,IPG Photonics Corp,Stocks\US\Nasdaq\IPGP
+Stock,IQV,IQVIA Holdings Inc,Stocks\US\NYSE\IQV
+Stock,IR,Ingersoll Rand Inc,Stocks\US\NYSE\IR
+Stock,IRDM,Iridium Communications Inc,Stocks\US\Nasdaq\IRDM
+Stock,ISRG,Intuitive Surgical Inc,Stocks\US\Nasdaq\ISRG
+Stock,IT,Gartner Inc,Stocks\US\NYSE\IT
+Stock,ITT,ITT Inc,Stocks\US\NYSE\ITT
+Stock,ITW,Illinois Tool Works Inc,Stocks\US\NYSE\ITW
+Stock,IVZ,Invesco Ltd,Stocks\US\NYSE\IVZ
+Stock,J,Jacobs Solutions Inc,Stocks\US\NYSE\J
+Stock,JBHT,JB Hunt Transport Services Inc,Stocks\US\Nasdaq\JBHT
+Stock,JBL,Jabil Inc,Stocks\US\NYSE\JBL
+Stock,JCI,Johnson Controls International,Stocks\US\NYSE\JCI
+Stock,JEF,Jefferies Financial Group Inc,Stocks\US\NYSE\JEF
+Stock,JKHY,Jack Henry & Associates Inc,Stocks\US\Nasdaq\JKHY
+Stock,JLL,Jones Lang LaSalle Inc,Stocks\US\NYSE\JLL
+Stock,JNJ,Johnson & Johnson,Stocks\US\DOW\JNJ
+Stock,JPM,JPMorgan Chase & Co,Stocks\US\DOW\JPM
+Stock,KBR,KBR Inc,Stocks\US\NYSE\KBR
+Stock,KDP,Keurig Dr Pepper Inc,Stocks\US\NYSE\KDP
+Stock,KEY,KeyCorp,Stocks\US\NYSE\KEY
+Stock,KEYS,Keysight Technologies Inc,Stocks\US\NYSE\KEYS
+Stock,KHC,Kraft Heinz Co/The,Stocks\US\Nasdaq\KHC
+Stock,KKR,KKR & Co Inc,Stocks\US\NYSE\KKR
+Stock,KLAC,KLA Corp,Stocks\US\Nasdaq\KLAC
+Stock,KMB,Kimberly-Clark Corp,Stocks\US\NYSE\KMB
+Stock,KMI,Kinder Morgan Inc,Stocks\US\NYSE\KMI
+Stock,KMX,CarMax Inc,Stocks\US\NYSE\KMX
+Stock,KNX,Knight-Swift Transportation Ho,Stocks\US\NYSE\KNX
+Stock,KO,Coca-Cola Co/The,Stocks\US\DOW\KO
+Stock,KR,Kroger Co/The,Stocks\US\NYSE\KR
+Stock,KSS,Kohl's Corp,Stocks\US\NYSE\KSS
+Stock,L,Loews Corp,Stocks\US\NYSE\L
+Stock,LAD,Lithia Motors Inc,Stocks\US\NYSE\LAD
+Stock,LDOS,Leidos Holdings Inc,Stocks\US\NYSE\LDOS
+Stock,LEA,Lear Corp,Stocks\US\NYSE\LEA
+Stock,LEG,Leggett & Platt Inc,Stocks\US\NYSE\LEG
+Stock,LEN,Lennar Corp,Stocks\US\NYSE\LEN
+Stock,LEVI,Levi Strauss & Co,Stocks\US\NYSE\LEVI
+Stock,LH,Labcorp Holdings Inc,Stocks\US\NYSE\LH
+Stock,LHX,L3Harris Technologies Inc,Stocks\US\NYSE\LHX
+Stock,LII,Lennox International Inc,Stocks\US\NYSE\LII
+Stock,LITE,Lumentum Holdings Inc,Stocks\US\Nasdaq\LITE
+Stock,LKQ,LKQ Corp,Stocks\US\Nasdaq\LKQ
+Stock,LLY,Eli Lilly & Co,Stocks\US\NYSE\LLY
+Stock,LMT,Lockheed Martin Corp,Stocks\US\NYSE\LMT
+Stock,LNC,Lincoln National Corp,Stocks\US\NYSE\LNC
+Stock,LNT,Alliant Energy Corp,Stocks\US\Nasdaq\LNT
+Stock,LOW,Lowe's Cos Inc,Stocks\US\NYSE\LOW
+Stock,LPLA,LPL Financial Holdings Inc,Stocks\US\Nasdaq\LPLA
+Stock,LPX,Louisiana-Pacific Corp,Stocks\US\NYSE\LPX
+Stock,LRCX,Lam Research Corp,Stocks\US\Nasdaq\LRCX
+Stock,LSCC,Lattice Semiconductor Corp,Stocks\US\Nasdaq\LSCC
+Stock,LSTR,Landstar System Inc,Stocks\US\Nasdaq\LSTR
+Stock,LUV,Southwest Airlines Co,Stocks\US\NYSE\LUV
+Stock,LVS,Las Vegas Sands Corp,Stocks\US\NYSE\LVS
+Stock,LW,Lamb Weston Holdings Inc,Stocks\US\NYSE\LW
+Stock,LYB,LyondellBasell Industries NV,Stocks\US\NYSE\LYB
+Stock,LYFT,Lyft Inc,Stocks\US\Nasdaq\LYFT
+Stock,LYV,Live Nation Entertainment Inc,Stocks\US\NYSE\LYV
+Stock,M,Macy's Inc,Stocks\US\NYSE\M
+Stock,MA,Mastercard Inc,Stocks\US\NYSE\MA
+Stock,MAN,ManpowerGroup Inc,Stocks\US\NYSE\MAN
+Stock,MANH,Manhattan Associates Inc,Stocks\US\Nasdaq\MANH
+Stock,MAR,Marriott International Inc/MD,Stocks\US\Nasdaq\MAR
+Stock,MAS,Masco Corp,Stocks\US\NYSE\MAS
+Stock,MASI,Masimo Corp,Stocks\US\Nasdaq\MASI
+Stock,MAT,Mattel Inc,Stocks\US\Nasdaq\MAT
+Stock,MCD,McDonald's Corp,Stocks\US\DOW\MCD
+Stock,MCHP,Microchip Technology Inc,Stocks\US\Nasdaq\MCHP
+Stock,MCK,McKesson Corp,Stocks\US\NYSE\MCK
+Stock,MCO,Moody's Corp,Stocks\US\NYSE\MCO
+Stock,MDB,MongoDB Inc,Stocks\US\Nasdaq\MDB
+Stock,MDLZ,Mondelez International Inc,Stocks\US\Nasdaq\MDLZ
+Stock,MDT,Medtronic Plc,Stocks\US\NYSE\MDT
+Stock,MEDP,Medpace Holdings Inc,Stocks\US\Nasdaq\MEDP
+Stock,MET,MetLife Inc,Stocks\US\NYSE\MET
+Stock,META,Meta Platforms Inc,Stocks\US\Nasdaq\META
+Stock,MGM,MGM Resorts International,Stocks\US\NYSE\MGM
+Stock,MHK,Mohawk Industries Inc,Stocks\US\NYSE\MHK
+Stock,MIDD,Middleby Corp/The,Stocks\US\Nasdaq\MIDD
+Stock,MKL,Markel Group Inc,Stocks\US\NYSE\MKL
+Stock,MKSI,MKS Inc,Stocks\US\Nasdaq\MKSI
+Stock,MKTX,MarketAxess Holdings Inc,Stocks\US\Nasdaq\MKTX
+Stock,MLM,Martin Marietta Materials Inc,Stocks\US\NYSE\MLM
+Stock,MMM,3M Co,Stocks\US\DOW\MMM
+Stock,MNST,Monster Beverage Corp,Stocks\US\Nasdaq\MNST
+Stock,MO,Altria Group Inc,Stocks\US\NYSE\MO
+Stock,MOH,Molina Healthcare Inc,Stocks\US\NYSE\MOH
+Stock,MOS,Mosaic Co/The,Stocks\US\NYSE\MOS
+Stock,MPC,Marathon Petroleum Corp,Stocks\US\NYSE\MPC
+Stock,MPWR,Monolithic Power Systems Inc,Stocks\US\Nasdaq\MPWR
+Stock,MRK,Merck & Co Inc,Stocks\US\DOW\MRK
+Stock,MRNA,Moderna Inc,Stocks\US\Nasdaq\MRNA
+Stock,MRSH,Marsh,Stocks\US\NYSE\MRSH
+Stock,MRVL,Marvell Technology Inc,Stocks\US\Nasdaq\MRVL
+Stock,MS,Morgan Stanley,Stocks\US\NYSE\MS
+Stock,MSCI,MSCI Inc,Stocks\US\NYSE\MSCI
+Stock,MSFT,Microsoft Corp,Stocks\US\DOW\MSFT
+Stock,MSI,Motorola Solutions Inc,Stocks\US\NYSE\MSI
+Stock,MSM,MSC Industrial Direct Co Inc,Stocks\US\NYSE\MSM
+Stock,MSTR,Strategy Inc,Stocks\US\Nasdaq\MSTR
+Stock,MTB,M&T Bank Corp,Stocks\US\NYSE\MTB
+Stock,MTD,Mettler-Toledo International I,Stocks\US\NYSE\MTD
+Stock,MTN,Vail Resorts Inc,Stocks\US\NYSE\MTN
+Stock,MTZ,MasTec Inc,Stocks\US\NYSE\MTZ
+Stock,MU,Micron Technology Inc,Stocks\US\Nasdaq\MU
+Stock,NBIX,Neurocrine Biosciences Inc,Stocks\US\Nasdaq\NBIX
+Stock,NCLH,Norwegian Cruise Line Holdings,Stocks\US\NYSE\NCLH
+Stock,NDAQ,Nasdaq Inc,Stocks\US\Nasdaq\NDAQ
+Stock,NDSN,Nordson Corp,Stocks\US\Nasdaq\NDSN
+Stock,NEE,NextEra Energy Inc,Stocks\US\NYSE\NEE
+Stock,NEM,Newmont Corp,Stocks\US\NYSE\NEM
+Stock,NET,Cloudflare Inc,Stocks\US\NYSE\NET
+Stock,NI,NiSource Inc,Stocks\US\NYSE\NI
+Stock,NKE,NIKE Inc,Stocks\US\DOW\NKE
+Stock,NOC,Northrop Grumman Corp,Stocks\US\NYSE\NOC
+Stock,NOV,NOV Inc,Stocks\US\NYSE\NOV
+Stock,NOW,ServiceNow Inc,Stocks\US\NYSE\NOW
+Stock,NRG,NRG Energy Inc,Stocks\US\NYSE\NRG
+Stock,NSC,Norfolk Southern Corp,Stocks\US\NYSE\NSC
+Stock,NTAP,NetApp Inc,Stocks\US\Nasdaq\NTAP
+Stock,NTNX,Nutanix Inc,Stocks\US\Nasdaq\NTNX
+Stock,NTRS,Northern Trust Corp,Stocks\US\Nasdaq\NTRS
+Stock,NUE,Nucor Corp,Stocks\US\NYSE\NUE
+Stock,NVDA,NVIDIA Corp,Stocks\US\Nasdaq\NVDA
+Stock,NVST,Envista Holdings Corp,Stocks\US\NYSE\NVST
+Stock,NWL,Newell Brands Inc,Stocks\US\Nasdaq\NWL
+Stock,NWSA,News Corp,Stocks\US\Nasdaq\NWSA
+Stock,NXST,Nexstar Media Group Inc,Stocks\US\Nasdaq\NXST
+Stock,NYT,New York Times Co/The,Stocks\US\NYSE\NYT
+Stock,OC,Owens Corning,Stocks\US\NYSE\OC
+Stock,ODFL,Old Dominion Freight Line Inc,Stocks\US\Nasdaq\ODFL
+Stock,OGE,OGE Energy Corp,Stocks\US\NYSE\OGE
+Stock,OKE,ONEOK Inc,Stocks\US\NYSE\OKE
+Stock,OKTA,Okta Inc,Stocks\US\Nasdaq\OKTA
+Stock,OLED,Universal Display Corp,Stocks\US\Nasdaq\OLED
+Stock,OLLI,Ollie's Bargain Outlet Holding,Stocks\US\Nasdaq\OLLI
+Stock,OLN,Olin Corp,Stocks\US\NYSE\OLN
+Stock,OMC,Omnicom Group Inc,Stocks\US\NYSE\OMC
+Stock,OMCL,Omnicell Inc,Stocks\US\Nasdaq\OMCL
+Stock,OMF,OneMain Holdings Inc,Stocks\US\NYSE\OMF
+Stock,ON,ON Semiconductor Corp,Stocks\US\Nasdaq\ON
+Stock,ORCL,Oracle Corp,Stocks\US\NYSE\ORCL
+Stock,ORI,Old Republic International Cor,Stocks\US\NYSE\ORI
+Stock,ORLY,O'Reilly Automotive Inc,Stocks\US\Nasdaq\ORLY
+Stock,OSK,Oshkosh Corp,Stocks\US\NYSE\OSK
+Stock,OTIS,Otis Worldwide Corp,Stocks\US\NYSE\OTIS
+Stock,OXY,Occidental Petroleum Corp,Stocks\US\NYSE\OXY
+Stock,OZK,Bank OZK,Stocks\US\Nasdaq\OZK
+Stock,P,Everpure Inc,Stocks\US\NYSE\P
+Stock,PANW,Palo Alto Networks Inc,Stocks\US\NYSE\PANW
+Stock,PAYC,Paycom Software Inc,Stocks\US\NYSE\PAYC
+Stock,PAYX,Paychex Inc,Stocks\US\Nasdaq\PAYX
+Stock,PCAR,PACCAR Inc,Stocks\US\Nasdaq\PCAR
+Stock,PCTY,Paylocity Holding Corp,Stocks\US\Nasdaq\PCTY
+Stock,PEG,Public Service Enterprise Grou,Stocks\US\NYSE\PEG
+Stock,PEGA,Pegasystems Inc,Stocks\US\Nasdaq\PEGA
+Stock,PEN,Penumbra Inc,Stocks\US\NYSE\PEN
+Stock,PENN,Penn Entertainment Inc,Stocks\US\Nasdaq\PENN
+Stock,PEP,PepsiCo Inc,Stocks\US\Nasdaq\PEP
+Stock,PFE,Pfizer Inc,Stocks\US\DOW\PFE
+Stock,PFG,Principal Financial Group Inc,Stocks\US\Nasdaq\PFG
+Stock,PFGC,Performance Food Group Co,Stocks\US\NYSE\PFGC
+Stock,PG,Procter & Gamble Co/The,Stocks\US\DOW\PG
+Stock,PGNY,Progyny Inc,Stocks\US\Nasdaq\PGNY
+Stock,PGR,Progressive Corp/The,Stocks\US\NYSE\PGR
+Stock,PH,Parker-Hannifin Corp,Stocks\US\NYSE\PH
+Stock,PHM,PulteGroup Inc,Stocks\US\NYSE\PHM
+Stock,PII,Polaris Inc,Stocks\US\NYSE\PII
+Stock,PINS,Pinterest Inc,Stocks\US\NYSE\PINS
+Stock,PKG,Packaging Corp of America,Stocks\US\NYSE\PKG
+Stock,PLD,Prologis Inc,Stocks\US\NYSE\PLD
+Stock,PLNT,Planet Fitness Inc,Stocks\US\NYSE\PLNT
+Stock,PM,Philip Morris International In,Stocks\US\NYSE\PM
+Stock,PNC,PNC Financial Services Group I,Stocks\US\NYSE\PNC
+Stock,PNFP,Pinnacle Financial Partners In,Stocks\US\NYSE\PNFP
+Stock,PNW,Pinnacle West Capital Corp,Stocks\US\NYSE\PNW
+Stock,PODD,Insulet Corp,Stocks\US\Nasdaq\PODD
+Stock,POOL,Pool Corp,Stocks\US\Nasdaq\POOL
+Stock,POST,Post Holdings Inc,Stocks\US\NYSE\POST
+Stock,PPG,PPG Industries Inc,Stocks\US\NYSE\PPG
+Stock,PPL,PPL Corp,Stocks\US\NYSE\PPL
+Stock,PRU,Prudential Financial Inc,Stocks\US\NYSE\PRU
+Stock,PSA,Public Storage,Stocks\US\NYSE\PSA
+Stock,PSTG,Everpure Inc,Stocks\US\NYSE\PSTG
+Stock,PTC,PTC Inc,Stocks\US\Nasdaq\PTC
+Stock,PVH,PVH Corp,Stocks\US\NYSE\PVH
+Stock,PWR,Quanta Services Inc,Stocks\US\NYSE\PWR
+Stock,PYPL,PayPal Holdings Inc,Stocks\US\Nasdaq\PYPL
+Stock,QCOM,QUALCOMM Inc,Stocks\US\Nasdaq\QCOM
+Stock,QRVO,Qorvo Inc,Stocks\US\Nasdaq\QRVO
+Stock,QTWO,Q2 Holdings Inc,Stocks\US\NYSE\QTWO
+Stock,RARE,Ultragenyx Pharmaceutical Inc,Stocks\US\Nasdaq\RARE
+Stock,RCL,Royal Caribbean Cruises Ltd,Stocks\US\NYSE\RCL
+Stock,REGN,Regeneron Pharmaceuticals Inc,Stocks\US\Nasdaq\REGN
+Stock,RF,Regions Financial Corp,Stocks\US\NYSE\RF
+Stock,RGA,Reinsurance Group of America I,Stocks\US\NYSE\RGA
+Stock,RGEN,Repligen Corp,Stocks\US\Nasdaq\RGEN
+Stock,RGLD,Royal Gold Inc,Stocks\US\Nasdaq\RGLD
+Stock,RH,RH,Stocks\US\NYSE\RH
+Stock,RHI,Robert Half Inc,Stocks\US\NYSE\RHI
+Stock,RJF,Raymond James Financial Inc,Stocks\US\NYSE\RJF
+Stock,RL,Ralph Lauren Corp,Stocks\US\NYSE\RL
+Stock,RMD,ResMed Inc,Stocks\US\NYSE\RMD
+Stock,RNG,RingCentral Inc,Stocks\US\NYSE\RNG
+Stock,ROK,Rockwell Automation Inc,Stocks\US\NYSE\ROK
+Stock,ROKU,Roku Inc,Stocks\US\Nasdaq\ROKU
+Stock,ROL,Rollins Inc,Stocks\US\NYSE\ROL
+Stock,ROP,Roper Technologies Inc,Stocks\US\NYSE\ROP
+Stock,ROST,Ross Stores Inc,Stocks\US\Nasdaq\ROST
+Stock,RPM,RPM International Inc,Stocks\US\NYSE\RPM
+Stock,RRR,Red Rock Resorts Inc,Stocks\US\Nasdaq\RRR
+Stock,RRX,Regal Rexnord Corp,Stocks\US\NYSE\RRX
+Stock,RS,Reliance Inc,Stocks\US\NYSE\RS
+Stock,RSG,Republic Services Inc,Stocks\US\NYSE\RSG
+Stock,RTX,RTX Corp,Stocks\US\NYSE\RTX
+Stock,RVTY,Revvity Inc,Stocks\US\NYSE\RVTY
+Stock,SAIA,Saia Inc,Stocks\US\Nasdaq\SAIA
+Stock,SAIC,Science Applications Internati,Stocks\US\Nasdaq\SAIC
+Stock,SAM,Boston Beer Co Inc/The,Stocks\US\NYSE\SAM
+Stock,SBUX,Starbucks Corp,Stocks\US\Nasdaq\SBUX
+Stock,SCHW,Charles Schwab Corp/The,Stocks\US\NYSE\SCHW
+Stock,SCI,Service Corp International/US,Stocks\US\NYSE\SCI
+Stock,SF,Stifel Financial Corp,Stocks\US\NYSE\SF
+Stock,SGI,Somnigroup International Inc,Stocks\US\NYSE\SGI
+Stock,SHW,Sherwin-Williams Co/The,Stocks\US\NYSE\SHW
+Stock,SITE,SiteOne Landscape Supply Inc,Stocks\US\NYSE\SITE
+Stock,SJM,J M Smucker Co/The,Stocks\US\NYSE\SJM
+Stock,SLAB,Silicon Laboratories Inc,Stocks\US\Nasdaq\SLAB
+Stock,SLB,SLB Ltd,Stocks\US\NYSE\SLB
+Stock,SLM,SLM Corp,Stocks\US\Nasdaq\SLM
+Stock,SMG,Scotts Miracle-Gro Co/The,Stocks\US\NYSE\SMG
+Stock,SNA,Snap-on Inc,Stocks\US\NYSE\SNA
+Stock,SNAP,Snap Inc,Stocks\US\NYSE\SNAP
+Stock,SNPS,Synopsys Inc,Stocks\US\Nasdaq\SNPS
+Stock,SNX,SYNNEX Corp,Stocks\US\NYSE\SNX
+Stock,SO,Southern Co/The,Stocks\US\NYSE\SO
+Stock,SPG,Simon Property Group Inc,Stocks\US\NYSE\SPG
+Stock,SPGI,S&P Global Inc,Stocks\US\NYSE\SPGI
+Stock,SRE,Sempra Energy,Stocks\US\NYSE\SRE
+Stock,SRPT,Sarepta Therapeutics Inc,Stocks\US\Nasdaq\SRPT
+Stock,SSNC,SS&C Technologies Holdings Inc,Stocks\US\Nasdaq\SSNC
+Stock,ST,Sensata Technologies Holding P,Stocks\US\NYSE\ST
+Stock,STE,STERIS PLC,Stocks\US\NYSE\STE
+Stock,STLD,Steel Dynamics Inc,Stocks\US\Nasdaq\STLD
+Stock,STT,State Street Corp,Stocks\US\NYSE\STT
+Stock,STZ,Constellation Brands Inc,Stocks\US\NYSE\STZ
+Stock,SWK,Stanley Black & Decker Inc,Stocks\US\NYSE\SWK
+Stock,SWKS,Skyworks Solutions Inc,Stocks\US\Nasdaq\SWKS
+Stock,SYF,Synchrony Financial,Stocks\US\NYSE\SYF
+Stock,SYK,Stryker Corp,Stocks\US\NYSE\SYK
+Stock,SYNA,Synaptics Inc,Stocks\US\Nasdaq\SYNA
+Stock,SYY,Sysco Corp,Stocks\US\NYSE\SYY
+Stock,T,AT&T Inc,Stocks\US\NYSE\T
+Stock,TAP,Molson Coors Beverage Co,Stocks\US\NYSE\TAP
+Stock,TDG,TransDigm Group Inc,Stocks\US\NYSE\TDG
+Stock,TDOC,Teladoc Health Inc,Stocks\US\NYSE\TDOC
+Stock,TDY,Teledyne Technologies Inc,Stocks\US\NYSE\TDY
+Stock,TECH,Bio-Techne Corp,Stocks\US\Nasdaq\TECH
+Stock,TER,Teradyne Inc,Stocks\US\Nasdaq\TER
+Stock,TFC,Truist Financial Corp,Stocks\US\NYSE\TFC
+Stock,TGT,Target Corp,Stocks\US\NYSE\TGT
+Stock,THC,Tenet Healthcare Corp,Stocks\US\NYSE\THC
+Stock,THO,Thor Industries Inc,Stocks\US\NYSE\THO
+Stock,TJX,TJX Cos Inc/The,Stocks\US\NYSE\TJX
+Stock,TKR,Timken Co/The,Stocks\US\NYSE\TKR
+Stock,TMO,Thermo Fisher Scientific Inc,Stocks\US\NYSE\TMO
+Stock,TMUS,T-Mobile US Inc,Stocks\US\Nasdaq\TMUS
+Stock,TNDM,Tandem Diabetes Care Inc,Stocks\US\Nasdaq\TNDM
+Stock,TNL,Travel + Leisure Co,Stocks\US\NYSE\TNL
+Stock,TOL,Toll Brothers Inc,Stocks\US\NYSE\TOL
+Stock,TPL,Texas Pacific Land Corp,Stocks\US\NYSE\TPL
+Stock,TPR,Tapestry Inc,Stocks\US\NYSE\TPR
+Stock,TREX,Trex Co Inc,Stocks\US\NYSE\TREX
+Stock,TRGP,Targa Resources Corp,Stocks\US\NYSE\TRGP
+Stock,TRIP,TripAdvisor Inc,Stocks\US\Nasdaq\TRIP
+Stock,TRMB,Trimble Inc,Stocks\US\Nasdaq\TRMB
+Stock,TROW,T Rowe Price Group Inc,Stocks\US\Nasdaq\TROW
+Stock,TRU,TransUnion,Stocks\US\NYSE\TRU
+Stock,TRV,Travelers Cos Inc/The,Stocks\US\DOW\TRV
+Stock,TSCO,Tractor Supply Co,Stocks\US\Nasdaq\TSCO
+Stock,TSLA,Tesla Inc,Stocks\US\Nasdaq\TSLA
+Stock,TSN,Tyson Foods Inc,Stocks\US\NYSE\TSN
+Stock,TTC,Toro Co/The,Stocks\US\NYSE\TTC
+Stock,TTD,Trade Desk Inc/The,Stocks\US\Nasdaq\TTD
+Stock,TTEK,Tetra Tech Inc,Stocks\US\Nasdaq\TTEK
+Stock,TTWO,Take-Two Interactive Software,Stocks\US\Nasdaq\TTWO
+Stock,TWLO,Twilio Inc,Stocks\US\NYSE\TWLO
+Stock,TXG,10X Genomics Inc,Stocks\US\Nasdaq\TXG
+Stock,TXN,Texas Instruments Inc,Stocks\US\Nasdaq\TXN
+Stock,TXRH,Texas Roadhouse Inc,Stocks\US\Nasdaq\TXRH
+Stock,TXT,Textron Inc,Stocks\US\NYSE\TXT
+Stock,TYL,Tyler Technologies Inc,Stocks\US\NYSE\TYL
+Stock,UAL,United Airlines Holdings Inc,Stocks\US\NYSE\UAL
+Stock,UBER,Uber Technologies Inc,Stocks\US\NYSE\UBER
+Stock,UGI,UGI Corp,Stocks\US\NYSE\UGI
+Stock,UHS,Universal Health Services Inc,Stocks\US\NYSE\UHS
+Stock,ULTA,Ulta Beauty Inc,Stocks\US\Nasdaq\ULTA
+Stock,UNH,UnitedHealth Group Inc,Stocks\US\DOW\UNH
+Stock,UNM,Unum Group,Stocks\US\NYSE\UNM
+Stock,UNP,Union Pacific Corp,Stocks\US\NYSE\UNP
+Stock,UPS,United Parcel Service Inc,Stocks\US\NYSE\UPS
+Stock,URI,United Rentals Inc,Stocks\US\NYSE\URI
+Stock,USB,US Bancorp,Stocks\US\NYSE\USB
+Stock,USFD,US Foods Holding Corp,Stocks\US\NYSE\USFD
+Stock,UTHR,United Therapeutics Corp,Stocks\US\Nasdaq\UTHR
+Stock,V,Visa Inc,Stocks\US\DOW\V
+Stock,VAC,Marriott Vacations Worldwide C,Stocks\US\NYSE\VAC
+Stock,VEEV,Veeva Systems Inc,Stocks\US\NYSE\VEEV
+Stock,VFC,VF Corp,Stocks\US\NYSE\VFC
+Stock,VIR,Vir Biotechnology Inc,Stocks\US\Nasdaq\VIR
+Stock,VIRT,Virtu Financial Inc,Stocks\US\NYSE\VIRT
+Stock,VLO,Valero Energy Corp,Stocks\US\NYSE\VLO
+Stock,VMC,Vulcan Materials Co,Stocks\US\NYSE\VMC
+Stock,VOYA,Voya Financial Inc,Stocks\US\NYSE\VOYA
+Stock,VRNS,Varonis Systems Inc,Stocks\US\Nasdaq\VRNS
+Stock,VRSK,Verisk Analytics Inc,Stocks\US\Nasdaq\VRSK
+Stock,VRSN,VeriSign Inc,Stocks\US\Nasdaq\VRSN
+Stock,VRTX,Vertex Pharmaceuticals Inc,Stocks\US\Nasdaq\VRTX
+Stock,VST,Vistra Corp,Stocks\US\NYSE\VST
+Stock,VTRS,Viatris Inc,Stocks\US\Nasdaq\VTRS
+Stock,VVV,Valvoline Inc,Stocks\US\NYSE\VVV
+Stock,VYX,NCR Voyix Corp,Stocks\US\NYSE\VYX
+Stock,VZ,Verizon Communications Inc,Stocks\US\DOW\VZ
+Stock,W,Wayfair Inc,Stocks\US\NYSE\W
+Stock,WAB,Westinghouse Air Brake Technol,Stocks\US\NYSE\WAB
+Stock,WAL,Western Alliance Bancorp,Stocks\US\NYSE\WAL
+Stock,WAT,Waters Corp,Stocks\US\NYSE\WAT
+Stock,WCC,WESCO International Inc,Stocks\US\NYSE\WCC
+Stock,WDAY,Workday Inc,Stocks\US\NYSE\WDAY
+Stock,WDC,Western Digital Corp,Stocks\US\Nasdaq\WDC
+Stock,WEC,WEC Energy Group Inc,Stocks\US\NYSE\WEC
+Stock,WEX,WEX Inc,Stocks\US\NYSE\WEX
+Stock,WFC,Wells Fargo & Co,Stocks\US\NYSE\WFC
+Stock,WH,Wyndham Hotels & Resorts Inc,Stocks\US\NYSE\WH
+Stock,WHR,Whirlpool Corp,Stocks\US\NYSE\WHR
+Stock,WK,Workiva Inc,Stocks\US\NYSE\WK
+Stock,WM,Waste Management Inc,Stocks\US\NYSE\WM
+Stock,WMB,Williams Cos Inc/The,Stocks\US\NYSE\WMB
+Stock,WMS,Advanced Drainage Systems Inc,Stocks\US\NYSE\WMS
+Stock,WMT,Walmart Inc,Stocks\US\DOW\WMT
+Stock,WRB,W R Berkley Corp,Stocks\US\NYSE\WRB
+Stock,WSM,Williams-Sonoma Inc,Stocks\US\NYSE\WSM
+Stock,WSO,Watsco Inc,Stocks\US\NYSE\WSO
+Stock,WST,West Pharmaceutical Services I,Stocks\US\NYSE\WST
+Stock,WTRG,Essential Utilities Inc,Stocks\US\NYSE\WTRG
+Stock,WU,Western Union Co/The,Stocks\US\NYSE\WU
+Stock,WWD,Woodward Inc,Stocks\US\Nasdaq\WWD
+Stock,WYNN,Wynn Resorts Ltd,Stocks\US\Nasdaq\WYNN
+Stock,XEL,Xcel Energy Inc,Stocks\US\NYSE\XEL
+Stock,XOM,Exxon Mobil Corp,Stocks\US\DOW\XOM
+Stock,XPO,XPO Inc,Stocks\US\NYSE\XPO
+Stock,XRAY,DENTSPLY SIRONA Inc,Stocks\US\Nasdaq\XRAY
+Stock,XYL,Xylem Inc/NY,Stocks\US\NYSE\XYL
+Stock,XYZ,Block Inc,Stocks\US\NYSE\XYZ
+Stock,YETI,YETI Holdings Inc,Stocks\US\NYSE\YETI
+Stock,YUM,Yum! Brands Inc,Stocks\US\NYSE\YUM
+Stock,ZBH,Zimmer Biomet Holdings Inc,Stocks\US\NYSE\ZBH
+Stock,ZBRA,Zebra Technologies Corp,Stocks\US\Nasdaq\ZBRA
+Stock,ZD,Ziff Davis Inc,Stocks\US\Nasdaq\ZD
+Stock,ZG,Zillow Group Inc,Stocks\US\Nasdaq\ZG
+Stock,ZION,Zions Bancorp NA,Stocks\US\Nasdaq\ZION
+Stock,ZM,Zoom Communications Inc,Stocks\US\Nasdaq\ZM
+Stock,ZS,Zscaler Inc,Stocks\US\Nasdaq\ZS
+Stock,ZTS,Zoetis Inc,Stocks\US\NYSE\ZTS
+Stock,ZWS,Zurn Water Solutions Corp,Stocks\US\NYSE\ZWS

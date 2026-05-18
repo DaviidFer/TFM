@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import random
+from time import perf_counter
 from typing import Dict, List, Mapping, Tuple
 from uuid import uuid4
 
@@ -79,6 +80,7 @@ def _collect_rules(
     Dict[str, Mapping[str, pd.DataFrame]],
     List[Dict[str, object]],
     Dict[str, Dict[str, int]],
+    str,
 ]:
     """Bucle iterativo de generación con deduplicación.
 
@@ -95,6 +97,7 @@ def _collect_rules(
     last_candidates_by_family: Dict[str, Mapping[str, pd.DataFrame]] = {}
     iteration_summaries: List[Dict[str, object]] = []
     accumulated: Dict[str, Dict[str, int]] = {}
+    stop_reason = "max_iterations"
 
     target_with_rule_target = set(FAMILIES_WITH_RULE_TARGET)
 
@@ -102,6 +105,7 @@ def _collect_rules(
         remaining_long = max(0, target_long - len(selected_long))
         remaining_short = max(0, target_short - len(selected_short))
         if remaining_long <= 0 and remaining_short <= 0:
+            stop_reason = "targets_reached"
             break
 
         batch_target = max(12, min(48, remaining_long + remaining_short))
@@ -112,6 +116,7 @@ def _collect_rules(
             if fam in iter_params:
                 iter_params[fam]["target_n_rules"] = int(batch_target)
 
+        iteration_started = perf_counter()
         candidates_by_family = generate_candidate_rules(
             data_is=blocks["data_is"],
             families=families,
@@ -128,6 +133,8 @@ def _collect_rules(
             slot["long"] += n_long
             slot["short"] += n_short
 
+        new_unique_long = 0
+        new_unique_short = 0
         iteration_summaries.append(
             {
                 "iteration": iteration,
@@ -141,14 +148,24 @@ def _collect_rules(
                 if rule in seen_long:
                     continue
                 seen_long.add(rule)
+                new_unique_long += 1
                 if len(selected_long) < target_long:
                     selected_long.append(rule)
             for rule in safe_rules_from_df(grp.get("short", pd.DataFrame())):
                 if rule in seen_short:
                     continue
                 seen_short.add(rule)
+                new_unique_short += 1
                 if len(selected_short) < target_short:
                     selected_short.append(rule)
+
+        iteration_summaries[-1]["new_unique_long"] = int(new_unique_long)
+        iteration_summaries[-1]["new_unique_short"] = int(new_unique_short)
+        iteration_summaries[-1]["elapsed_ms"] = int((perf_counter() - iteration_started) * 1000)
+        if new_unique_long == 0 and new_unique_short == 0:
+            iteration_summaries[-1]["stop_reason"] = "no_new_rules"
+            stop_reason = "no_new_rules"
+            break
 
     return (
         selected_long,
@@ -156,6 +173,7 @@ def _collect_rules(
         last_candidates_by_family,
         iteration_summaries,
         accumulated,
+        stop_reason,
     )
 
 
@@ -208,7 +226,10 @@ class DeveloperAgent:
             correlation_id=dataset.dataset_id,
         )
 
+        develop_started = perf_counter()
+        split_started = perf_counter()
         blocks = _prepare_blocks(dataset, split_cfg)
+        split_elapsed_ms = int((perf_counter() - split_started) * 1000)
         split_detail = {
             "is_pct": split_cfg["is_pct"],
             "oos_pct": split_cfg["oos_pct"],
@@ -270,6 +291,7 @@ class DeveloperAgent:
             last_candidates_by_family,
             iteration_summaries,
             accumulated_family_counts,
+            generation_stop_reason,
         ) = _collect_rules(
             blocks=blocks,
             families=families,
@@ -278,6 +300,12 @@ class DeveloperAgent:
             target_short=target_short,
             max_iterations=max_iterations,
         )
+        generation_elapsed_ms = int((perf_counter() - develop_started) * 1000) - split_elapsed_ms
+        timing_ms = {
+            "split_and_target": max(split_elapsed_ms, 0),
+            "rule_generation": max(generation_elapsed_ms, 0),
+            "total": int((perf_counter() - develop_started) * 1000),
+        }
 
         emit_log(
             self.agent_id,
@@ -286,6 +314,8 @@ class DeveloperAgent:
             family_rule_counts=accumulated_family_counts,
             family_params=dict(family_params or {}),
             iterations=iteration_summaries,
+            stop_reason=generation_stop_reason,
+            timing_ms=timing_ms,
         )
 
         candidates = CandidateRules(
@@ -305,6 +335,8 @@ class DeveloperAgent:
                 "iterations": len(iteration_summaries),
                 "iteration_summaries": iteration_summaries,
                 "family_rule_counts_accumulated": accumulated_family_counts,
+                "generation_stop_reason": generation_stop_reason,
+                "timing_ms": timing_ms,
             },
         )
 

@@ -62,7 +62,7 @@ En términos funcionales, la secuencia extremo a extremo es:
 4. El `ValidationAgent` valida esas reglas y, si procede, crea un `PromotedTraderSpec`.
 5. El `TraderAgent` activa el trader promovido y lo pone en estado `LIVE`.
 6. El supervisor recalcula el backtest del trader promovido y persiste artefactos reutilizables (curvas, máscaras de actividad, retornos semanales).
-7. El `PortfolioManagerProcess` sincroniza el universo promovido y, en cada rebalanceo semanal, ejecuta el optimizador híbrido GA + PSO para asignar pesos.
+ 7. El `PortfolioManagerProcess` sincroniza el universo promovido y, en cada rebalanceo semanal, optimiza solo sobre el subconjunto de traders con señal activa y con histórico válido para asignar pesos.
 8. El `LiveTradingRuntime` procesa nuevas velas D1, detecta señales, consulta al `PortfolioManagerProcess` cuando toca rebalancear y ejecuta órdenes.
 9. El `TraderAgent` envía órdenes y cierres a través de `ExecutionRouter`.
 10. Asíncronamente, el `HumanResourcesProcess` evalúa la salud de cada trader promovido (mensual o forzado) y, si detecta deterioro, emite un `RetrainRequest`.
@@ -341,7 +341,7 @@ El bucle iterativo interno del `DeveloperAgent` (`_collect_rules`) reparte cupos
 
 En el **supervisor operativo** (`DevelopmentOperationalSupervisor`), cada ciclo de desarrollo elige **una sola familia al azar** entre `decision_tree`, `rulefit`, `genetico` y `quantile`. No existe un modo «subgrupo» ni una selección paralela de varios modelos de reglas por iteración: se rota el generador para diversificar el experimento.
 
-En **tests y smoke checks** (`phase4_check`, `phase5_check`, etc.) a menudo se pasan **varias familias en una sola** llamada a `develop(...)` para ejercitar el encadenamiento completo.
+En **tests y checks de integración** (por ejemplo `phase5_check`) a menudo se pasan **varias familias en una sola** llamada a `develop(...)` para ejercitar el encadenamiento completo.
 
 ### 6.5. `ValidationAgent`
 
@@ -365,13 +365,13 @@ En **tests y smoke checks** (`phase4_check`, `phase5_check`, etc.) a menudo se p
 
 Importante: la validación **no inserta** al trader en `trader_states`. La fila aparece solo cuando `TraderAgent.activate(...)` lo pone `LIVE`. Mientras tanto el trader vive en el evento `TRADER_PROMOTED` y en `_promoted_registry`.
 
-#### 6.5.4. Fallback defensivo
+#### 6.5.4. Promoción estricta
 
-Si la selección de estabilidad devuelve cero reglas, el agente activa un fallback que toma hasta cinco reglas long y cinco short desde los dataframes decorrelacionados (`decor_long`, `decor_short`). La validación ideal busca estabilidad; el fallback es un mecanismo de continuidad.
+Si la selección de estabilidad devuelve cero reglas, el trader no promociona. El `ValidationAgent` persiste `VALIDATION_COMPLETED` con `promoted=False` y devuelve `promoted_spec=None`. No existe fallback desde `decor_long` o `decor_short`: ninguna regla puede saltarse la validación multicapa.
 
-#### 6.5.5. Promoción permisiva vs estricta
+#### 6.5.5. Consecuencia operativa
 
-`validate_and_promote(...)` admite el parámetro `promote_if_empty`. La vía estricta (`promote_if_empty=False`) es la que utiliza el supervisor de desarrollo en sus rutas operativas habituales.
+El supervisor continúa con el siguiente activo o iteración de desarrollo. Si cuesta más alcanzar el cupo objetivo de traders, el sistema simplemente tarda más; no rellena huecos con reglas no validadas.
 
 ## 7. Servicios cuantitativos reutilizables
 
@@ -393,7 +393,7 @@ Si la selección de estabilidad devuelve cero reglas, el agente activa un fallba
 
 | Archivo | Finalidad |
 |---|---|
-| `app/services/portfolio_optimizer.py` | Optimizador híbrido GA + PSO: configuración (`PortfolioOptimizerConfig`), métricas, fitness única, GA binario, PSO de pesos y orquestador `optimize_portfolio_ga_pso`. |
+| `app/services/portfolio_optimizer.py` | Optimizador híbrido GA + PSO: configuración fija (`PortfolioOptimizerConfig`), métricas, fitness única, GA sobre cromosomas como listas variables de traders activos válidos, PSO de pesos y orquestador `optimize_portfolio_ga_pso`. |
 | `app/services/portfolio_support/data_refresh.py` | `PortfolioOHLCRefreshService` para refrescar OHLC de los activos del universo promovido (servicio auxiliar usado por el supervisor). |
 | `app/services/portfolio_support/universe_registry.py` | `UniverseRegistry` para persistir el universo elegible. |
 
@@ -491,13 +491,18 @@ El `PortfolioManagerProcess` es por eso un **proceso**, no un agente: no aprende
    ```
    Fitness = Sharpe_neto - λ_dd · MDD - λ_corr · CorrMedia
    ```
-3. **Algoritmo Genético (GA)** sobre cromosoma binario que selecciona subconjuntos de traders, con reparación de cardinalidad para respetar `min_selected_traders` y `max_selected_traders`.
-4. **Particle Swarm Optimization (PSO)** que asigna pesos dentro del subconjunto elegido (incluido el peso de cash), con proyección/reparación para cumplir `max_weight_per_trader` y `max_cash_weight`.
-5. **Orquestador `optimize_portfolio_ga_pso`** que combina GA + PSO sobre los `top_k_subsets_for_pso` mejores cromosomas.
+3. **Algoritmo Genético (GA)** sobre cromosomas como **listas variables de traders** del universo activo válido de la semana, con reparación de cardinalidad, mutación estructural y poda opcional por correlación.
+4. **Evaluación rápida de subconjuntos durante el GA**: equal weight, inverse volatility si aplica y varias simulaciones aleatorias de pesos reparados (`ga_weight_simulations`) para estimar la fitness sin lanzar un PSO completo por individuo.
+5. **Particle Swarm Optimization (PSO)** que asigna pesos dentro de cada subconjunto finalista (incluido el peso de cash), con proyección/reparación para cumplir `max_weight_per_trader` y `max_cash_weight`.
+6. **Orquestador `optimize_portfolio_ga_pso`** que:
+   - devuelve `no_active_traders` si no hay universo activo;
+   - devuelve `not_enough_valid_traders` si no hay suficientes traders activos válidos;
+   - optimiza directamente con PSO si el universo activo válido completo cabe entre `min_selected_traders` y `max_selected_traders`;
+   - en otro caso combina GA + PSO sobre los `top_k_subsets_for_pso` mejores subconjuntos.
 
 ### 9.4. Configuración (`PortfolioOptimizerConfig`)
 
-Hiperparámetros principales con sus valores por defecto:
+Parámetros principales con sus valores por defecto. Son **fijos y explícitos**: no existe ninguna capa de tuning automático, grid search, random search, Optuna ni carga de `best_params` externos.
 
 #### Modo y datos
 - `portfolio_manager_mode = "ga_pso"`;
@@ -508,7 +513,7 @@ Hiperparámetros principales con sus valores por defecto:
 - `min_selected_traders = 5`, `max_selected_traders = 20`;
 - `max_weight_per_trader = 0.15`;
 - `min_live_weight = 0.01`;
-- `max_cash_weight = 0.50`.
+- `max_cash_weight = 0.25`.
 
 #### Penalizaciones de la fitness
 - `lambda_dd = 1.0`;
@@ -516,42 +521,72 @@ Hiperparámetros principales con sus valores por defecto:
 
 #### Algoritmo Genético
 - `ga_population_size = 80`;
-- `ga_generations = 50`;
+- `ga_generations = 80`;
 - `ga_tournament_size = 3`;
-- `ga_crossover_rate = 0.80`;
-- `ga_mutation_rate = 0.02`;
+- `ga_crossover_rate = 0.85`;
 - `ga_elitism = 4`;
-- `ga_early_stopping_generations = 10`.
+- `ga_early_stopping_generations = 20`;
+- `ga_weight_simulations = 20`;
+- `ga_mutation_probability = 0.75`;
+- `ga_mutation_new_traders_min = 1`;
+- `ga_mutation_new_traders_max = 3`;
+- `ga_mutation_remove_max = 2`;
+- `ga_correlation_prune_threshold = 0.75`.
 
 #### Particle Swarm Optimization
-- `top_k_subsets_for_pso = 8`;
-- `pso_swarm_size = 50`;
+- `top_k_subsets_for_pso = 10`;
+- `pso_swarm_size = 40`;
 - `pso_iterations = 80`;
-- `pso_inertia_start = 0.90`, `pso_inertia_end = 0.40`;
-- `pso_cognitive_coef = 1.5`;
-- `pso_social_coef = 1.5`;
+- `pso_inertia_start = 0.85`, `pso_inertia_end = 0.35`;
+- `pso_cognitive_coef = 1.6`;
+- `pso_social_coef = 1.4`;
 - `pso_early_stopping_iterations = 15`.
 
 #### Reproducibilidad
 - `random_seed = 42`.
 
-### 9.5. Universo y matriz de retornos
+### 9.5. Universo semanal de decisión y matriz de retornos
 
-El proceso recibe el universo elegible vía `sync_universe(promoted_specs)`. Internamente, antes de optimizar, construye la matriz de retornos `(T × N)` semanal usando los artefactos persistidos por trader (`trader_weekly_returns`, `trader_weekly_signal_mask`). Esta matriz es la única entrada del optimizador.
+Esta es la parte arquitectónicamente más importante del `PortfolioManagerProcess`: **no optimiza sobre todos los traders promovidos del sistema**, sino sobre el universo activo de la semana.
 
-Si faltan algunas piezas, el sistema puede recurrir a una máscara proxy. Esto significa que el optimizador intenta apoyarse preferentemente en actividad histórica real, pero conserva una vía de degradación controlada cuando el material persistido aún no es completo.
+La secuencia real es:
+
+1. El runtime o el supervisor entrega al PM el conjunto `active_signals` de traders con señal activa en ese rebalanceo semanal.
+2. `discover_active_systems(...)` normaliza esas señales.
+3. `load_system_returns(...)` intenta construir una serie semanal de retornos por trader activo.
+4. El universo de optimización queda definido como:
+   - `active_traders`: traders con señal activa esa semana;
+   - `valid_active_traders`: traders activos con histórico suficiente, alineable y sin datos inválidos.
+5. El GA + PSO opera **solo** sobre `valid_active_traders`.
+
+En consecuencia:
+
+- puede haber cientos de traders promovidos en el sistema;
+- el rebalanceo semanal se resuelve solo sobre los que están activos y son válidos en ese momento;
+- no hay universo fijo, no hay entrenamiento persistente y no existe PPO.
+
+No se aplica ninguna preselección por ranking sobre el universo activo. Las únicas exclusiones permitidas son:
+
+- trader activo sin histórico;
+- histórico insuficiente;
+- histórico inválido o imposible de alinear.
+
+Estas exclusiones se registran en metadata mediante `excluded_traders`, `excluded_traders_count` y `excluded_reasons`.
 
 ### 9.6. Inferencia live
 
 `rebalance_active_signals(...)` es la API utilizada por el runtime en vivo. Su secuencia es:
 
-1. descubrir los traders activos a partir de `sync_universe`;
-2. si no hay señales activas, devolver estado vacío;
-3. construir la matriz de retornos histórica;
-4. ejecutar `optimize_portfolio_ga_pso(...)` con la `PortfolioOptimizerConfig` configurada;
-5. construir un `PortfolioDecision` con `selected_traders`, `weights`, `target_cash_weight`, `fitness`, `sharpe_neto`, `mdd`, `corr_media`, `optimizer_mode = "ga_pso"` y la `metadata` completa de diagnóstico (parámetros GA/PSO usados, baselines, traders excluidos);
-6. persistir un `PortfolioRebalanceSnapshot` y emitir el evento `PORTFOLIO_REBALANCE_SNAPSHOT`;
-7. devolver al runtime la decisión, la asignación en euros, las comparativas y figuras para UI, y la metadata.
+1. normalizar el conjunto de señales activas;
+2. si no hay traders activos, devolver `status = "no_active_traders"`;
+3. construir la matriz histórica de retornos semanales solo para activos;
+4. identificar el subconjunto `valid_active_traders`;
+5. si `valid_active_traders < min_selected_traders`, devolver `status = "not_enough_valid_traders"`;
+6. si el universo activo válido completo cabe en el rango `[min_selected_traders, max_selected_traders]`, optimizarlo directamente con PSO;
+7. si es más grande, ejecutar `optimize_portfolio_ga_pso(...)` con GA + PSO;
+8. construir un `PortfolioDecision` con `selected_traders`, `weights`, `target_cash_weight`, `fitness`, `sharpe_neto`, `mdd`, `corr_media`, `optimizer_mode = "ga_pso"` y metadata completa (configuración fija, universo activo, exclusiones, cromosoma y baseline);
+9. persistir un `PortfolioRebalanceSnapshot` y emitir `PORTFOLIO_REBALANCE_SNAPSHOT`;
+10. devolver al runtime la decisión, la asignación en euros, la curva de cartera, el baseline equal weight y el snapshot para UI.
 
 ### 9.7. Persistencia
 
@@ -559,13 +594,30 @@ El proceso persiste:
 
 - `portfolio_universe_registry`: universo elegible canónico.
 - `portfolio_rebalance_snapshots`: histórico de cada rebalanceo semanal (con `optimizer_mode`, `fitness`, `sharpe_neto`, `mdd`, `corr_media`, `target_weights`, `target_cash_weight`, `diagnostics`, `forward_metrics` y `metadata`).
+- en `metadata`, además de la configuración GA/PSO, también:
+  - `active_universe_size`;
+  - `valid_active_universe_size`;
+  - `selected_universe_size`;
+  - `excluded_traders_count`;
+  - `excluded_reasons`;
+  - `chromosome_representation = "variable_length_list"`;
+  - `no_preselection = true`.
 - Eventos `PORTFOLIO_DECISION` y `PORTFOLIO_REBALANCE_SNAPSHOT` en la tabla `events`.
 
 Las antiguas tablas PPO (`portfolio_training_runs`, `portfolio_training_metrics`, `portfolio_model_registry`, `portfolio_forward_evaluations`) ya **no se escriben**. Solo se borran de forma defensiva en `clear_all` para BBDD heredadas.
 
-### 9.8. Nada de "modo legacy"
+### 9.8. Decisiones de degradación y simplificación
 
-A diferencia de la versión PPO, el `PortfolioManagerProcess` **no tiene modo `legacy`**. Solo existe el modo `ga_pso`. Si el optimizador no encuentra solución factible (por ejemplo, universo vacío), devuelve una decisión equivalente a "todo a cash" en lugar de degradarse a un baseline alternativo.
+A diferencia de la versión PPO, el `PortfolioManagerProcess` **no tiene modo `legacy`**. Solo existe el modo `ga_pso`.
+
+Los casos borde se resuelven así:
+
+- `no_active_traders`: no había señales activas en la semana;
+- `not_enough_valid_traders`: hay activos, pero menos de `min_selected_traders` con histórico válido;
+- universo activo válido pequeño (`<= max_selected_traders`): optimización directa con PSO sobre todo el conjunto;
+- universo activo válido grande: GA + PSO completo.
+
+Se mantiene `equal_weight_all_valid` como baseline simple de comparación para auditoría y UI, pero no como ruta alternativa de producción.
 
 ## 10. `HumanResourcesProcess` (supervisión de plantilla)
 
@@ -952,10 +1004,10 @@ La UI principal está en `app/ui/dashboard.py` y `app/ui/dashboard_data.py`:
 
 ### 16.2. Secciones del dashboard
 
-La barra lateral selecciona una de cinco secciones:
+La barra lateral selecciona una de cuatro secciones:
 
 ```
-section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
+section_options = ["Desarrollo", "Backtest", "Portfolio manager", "Recursos Humanos"]
 ```
 
 #### `Desarrollo`
@@ -964,14 +1016,18 @@ Controles de desarrollo, estado del ciclo actual, reporte por activo y traders d
 #### `Backtest`
 Reglas long y short, curvas históricas y métricas cuantitativas compactas.
 
-#### `Operativa`
-Estado de MT5, operativa activa, órdenes pendientes, posiciones y reintentos, detalle de órdenes y motivos de rechazo.
-
 #### `Portfolio manager`
 - modo del optimizador (`ga_pso`);
+- traders promovidos totales si están disponibles;
+- traders activos y activos válidos en la semana;
+- número de traders seleccionados;
 - histórico de rebalanceos semanales con `fitness`, `sharpe_neto`, `mdd`, `corr_media`;
 - pesos asignados y peso de cash;
 - asignación en euros;
+- configuración fija de GA y configuración fija de PSO;
+- cromosoma como lista variable y ausencia de preselección previa;
+- motivos de exclusión de traders activos inválidos;
+- curva histórica de la cartera seleccionada comparada contra equal weight;
 - señales seleccionadas, descartadas y ejecutadas;
 - acciones manuales de refresh y rebalanceo.
 
@@ -985,7 +1041,7 @@ Esta es la sección que sustituye al antiguo "Risk Agent". Muestra:
 - `RetrainRequest` pendientes y procesados.
 - Botones manuales: "Forzar revisión de salud ahora", "Forzar backtest forward de todos los traders", "Procesar RetrainRequests pendientes".
 
-> Lo que **ya no aparece** en el dashboard: ningún bloque de "Portfolio Risk Checks", ningún panel de "Risk Adjusted Portfolio Decision", ninguna tabla de pesos clipados o de cash forzado por riesgo.
+> Lo que **ya no aparece** en el dashboard: ningún bloque de "Portfolio Risk Checks", ningún panel de "Risk Adjusted Portfolio Decision", ninguna tabla de pesos clipados o de cash forzado por riesgo y ninguna interfaz de tuning/calibración automática del PM.
 
 ### 16.3. Importancia para la memoria
 
@@ -1068,11 +1124,11 @@ Para que el documento sea útil como base de memoria, conviene dejar explícitas
 
 1. El `quality_score` del dataset existe contractual y estructuralmente, pero hoy no representa una auditoría sofisticada del dato.
 2. El `DeveloperAgent` relee el CSV aunque el `DataProcess` ya haya normalizado el dataset.
-3. El fallback del `ValidationAgent` puede promocionar reglas decorrelacionadas aunque no existan ganadores estables.
-4. El `PortfolioManagerProcess` solo opera en modo `ga_pso`. No mantiene un baseline alternativo (HRP, equal weight, etc.) como ruta de degradación; si el optimizador no encuentra solución factible, devuelve "todo a cash". Esto es deliberado pero conviene documentarlo.
+3. Si el `ValidationAgent` no obtiene ganadores estables, el trader no promociona.
+4. El `PortfolioManagerProcess` solo opera en modo `ga_pso`. El baseline equal weight se usa solo para comparación y auditoría, no como ruta automática de decisión.
 5. El `HumanResourcesProcess` reconstruye su universo a partir de eventos `TRADER_PROMOTED` persistidos. Si esos eventos no se emiten correctamente, la revisión opera sobre un universo incompleto.
 6. El `trader_signal_audit` mantiene columnas `ppo_*` y `risk_approved` por compatibilidad, aunque el código nuevo no las consume. Una migración mayor podría eliminarlas en el futuro.
-7. Existen diferencias entre rutas de simulación (`SimulationRuntime`, `phase*_check`) y el flujo operativo principal del `LiveTradingRuntime`. No conviene describirlas como idénticas.
+7. Existen diferencias entre los checks históricos/integración y el flujo operativo principal del `LiveTradingRuntime`. No conviene describirlos como idénticos.
 8. La memoria técnica histórica `docs/risk_agent_memoria_tecnica.md` se conserva como documento de archivo de la versión anterior. La memoria del componente actual (`HumanResourcesProcess`) debe redactarse como documento separado para no mezclar épocas.
 
 ## 21. Archivos más importantes para entender el sistema
@@ -1096,7 +1152,7 @@ Si hubiera que estudiar el proyecto leyendo un conjunto limitado de archivos, lo
 15. `app/ui/dashboard.py`
 16. `app/contracts/models.py`
 17. `app/contracts/enums.py`
-18. `docs/human_resources_process_refactor_report.md`
+18. `scripts/cloud/README_CLOUD_SCRIPTS.md`
 
 ## 22. Resumen final
 

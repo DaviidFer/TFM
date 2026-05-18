@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from queue import Queue
-from time import sleep
+from time import perf_counter, sleep
 from typing import Dict
 from uuid import uuid4
 from contextlib import redirect_stdout
@@ -62,11 +62,12 @@ def _utc_now_iso() -> str:
 
 
 class DevelopmentOperationalSupervisor:
-    _LOG_SEPARATOR = "═" * 54
+    _LOG_SEPARATOR = "=" * 54
+    _MIN_TRADERS_FOR_RUNTIME = 5
     # Versión del esquema del snapshot que el supervisor expone al dashboard.
     # Subir este número fuerza al dashboard a recrear la instancia tras un
     # hot-reload cuando cambia el contrato de los reportes.
-    _DASHBOARD_SNAPSHOT_SCHEMA_VERSION = 10
+    _DASHBOARD_SNAPSHOT_SCHEMA_VERSION = 11
 
     """
     Supervisor no bloqueante para Streamlit:
@@ -95,16 +96,21 @@ class DevelopmentOperationalSupervisor:
             "develop_enabled": False,
             "current_asset": None,
             "current_stage": "idle",
+            "current_stage_detail": None,
             "current_cycle_steps": [],
             "developed_traders": 0,
             "target_traders": 8,
+            "min_traders_for_runtime": self._MIN_TRADERS_FOR_RUNTIME,
             "mt5_connected": False,
             "operational_runtime_started": False,
             "operational_runtime_mode": self.execution_router.mode.value,
+            "operational_runtime_last_error": None,
             "development_session_started_at": None,
             "last_cycle_completed_at": None,
             "last_cycle_asset": None,
             "last_cycle_trader_id": None,
+            "last_cycle_result": None,
+            "last_cycle_timings_ms": {},
             "portfolio_last_refresh_month": None,
             "portfolio_last_refresh_at": None,
             "portfolio_last_refresh_cutoff_date": None,
@@ -148,7 +154,11 @@ class DevelopmentOperationalSupervisor:
             return False
         if self._develop_enabled.is_set():
             self._develop_enabled.clear()
-            self._set_status(develop_enabled=False, current_stage="idle")
+            self._set_status(
+                develop_enabled=False,
+                current_stage="idle",
+                current_stage_detail="Objetivo de traders alcanzado.",
+            )
             emit_log(
                 "supervisor",
                 "target_traders_reached",
@@ -200,6 +210,74 @@ class DevelopmentOperationalSupervisor:
     def get_backtest_registry(self) -> Dict[str, Dict[str, object]]:
         with self._status_lock:
             return {k: dict(v) for k, v in self._backtest_registry.items()}
+
+    def _build_backtest_entry_from_store(self, trader_id: str) -> Dict[str, object]:
+        latest_run = self.ctx.store.get_latest_trader_backtest_run(str(trader_id))
+        if latest_run is None:
+            return {}
+
+        run_id = str(latest_run.get("run_id") or "")
+        artifacts = self.ctx.store.get_trader_backtest_artifacts(run_id) if run_id else None
+        summary = dict(latest_run.get("summary") or {})
+        trade_stats = dict(summary.get("trade_stats") or {})
+        chart_rows: list[Dict[str, object]] = []
+        metadata = dict((artifacts or {}).get("metadata") or {})
+        spec = self.get_all_promoted_specs().get(str(trader_id))
+
+        pnl_path = str((artifacts or {}).get("historical_pnl_path") or "")
+        if pnl_path and Path(pnl_path).exists():
+            try:
+                pnl_df = pd.read_csv(pnl_path)
+                pnl_norm = self._normalize_pnl_frame(pnl_df)
+                for _, row in pnl_norm.iterrows():
+                    chart_rows.append(
+                        {
+                            "date": str(row["date"]),
+                            "balance": float(row["balance"]) if "balance" in pnl_norm.columns else None,
+                            "equity": float(row["equity"]) if "equity" in pnl_norm.columns else None,
+                        }
+                    )
+            except Exception:
+                chart_rows = []
+
+        run_status = str(latest_run.get("status") or "completed")
+        entry_status = "ready" if run_status == "completed" else run_status
+        return {
+            "status": entry_status,
+            "asset": str(latest_run.get("asset") or getattr(spec, "asset", "")).upper(),
+            "timeframe": str(latest_run.get("timeframe") or getattr(spec, "timeframe", "D1")),
+            "long_rules": list(getattr(spec, "long_rules", []) or []),
+            "short_rules": list(getattr(spec, "short_rules", []) or []),
+            "start_date": latest_run.get("start_date"),
+            "end_date": latest_run.get("end_date"),
+            "final_balance": summary.get("final_balance"),
+            "final_equity": summary.get("final_equity"),
+            "n_trades": int(summary.get("n_trades") or 0),
+            "initial_capital": summary.get("initial_capital"),
+            "trade_stats": trade_stats,
+            "chart_rows": chart_rows,
+            "run_id": run_id,
+            "cutoff_date": latest_run.get("cutoff_date"),
+            "mask_source": str(metadata.get("mask_source") or "real_backtest"),
+            "historical_pnl_path": pnl_path,
+            "historical_trades_path": str((artifacts or {}).get("historical_trades_path") or ""),
+            "weekly_signal_mask_path": str((artifacts or {}).get("weekly_signal_mask_path") or ""),
+            "weekly_returns_path": str((artifacts or {}).get("weekly_returns_path") or ""),
+            "updated_at": latest_run.get("updated_at"),
+        }
+
+    def get_backtest_entry(self, trader_id: str) -> Dict[str, object]:
+        trader_key = str(trader_id)
+        with self._status_lock:
+            cached = dict(self._backtest_registry.get(trader_key, {}))
+        if cached:
+            return cached
+
+        hydrated = self._build_backtest_entry_from_store(trader_key)
+        if hydrated:
+            self._set_backtest_entry(trader_key, hydrated)
+            return dict(hydrated)
+        return {}
 
     def get_pending_orders(self) -> list[Dict[str, object]]:
         if self._runtime is not None and hasattr(self._runtime, "get_pending_orders"):
@@ -415,12 +493,27 @@ class DevelopmentOperationalSupervisor:
         if pnl_df.empty:
             return pd.DataFrame(columns=["date", "balance", "equity"])
         work = cls._drop_duplicate_columns(pnl_df.copy())
-        if work.index.name and str(work.index.name) in {str(col) for col in work.columns}:
-            work.index = work.index.rename("__index_date__")
-        work = work.reset_index()
-        work = cls._drop_duplicate_columns(work)
-        date_col = str(work.columns[0])
-        work = work.rename(columns={date_col: "date", "BALANCE": "balance", "EQUITY": "equity"})
+        norm_cols = {str(c).lower(): c for c in work.columns}
+        if "date" in norm_cols:
+            if str(work.index.name or "").lower() == "date":
+                work = work.reset_index(drop=True)
+            date_col = norm_cols["date"]
+        else:
+            if work.index.name and str(work.index.name) in {str(col) for col in work.columns}:
+                work.index = work.index.rename("__index_date__")
+            work = work.reset_index()
+            work = cls._drop_duplicate_columns(work)
+            date_col = str(work.columns[0])
+        rename_map = {date_col: "date"}
+        if "balance" in norm_cols:
+            rename_map[norm_cols["balance"]] = "balance"
+        elif "BALANCE" in work.columns:
+            rename_map["BALANCE"] = "balance"
+        if "equity" in norm_cols:
+            rename_map[norm_cols["equity"]] = "equity"
+        elif "EQUITY" in work.columns:
+            rename_map["EQUITY"] = "equity"
+        work = work.rename(columns=rename_map)
         work = cls._drop_duplicate_columns(work)
         work["date"] = pd.to_datetime(work["date"], errors="coerce")
         if "balance" not in work.columns:
@@ -471,6 +564,30 @@ class DevelopmentOperationalSupervisor:
         else:
             work["exit_time"] = work["entry_time"]
         return work[["entry_time", "exit_time", "profit", "side"]].copy()
+
+    @staticmethod
+    def _compute_trade_streaks(profits: list[float]) -> tuple[int, int]:
+        """Rachas consecutivas de operaciones ganadoras / perdedoras.
+
+        Los PnL en cero (empates o filas de relleno en el export) no cuentan como
+        victoria ni derrota y **no reinician** la racha: el motor de backtest a
+        menudo intercala muchos ceros y antes eso forzaba máximos artificiales de 1.
+        """
+        streak_win = 0
+        streak_lose = 0
+        max_streak_win = 0
+        max_streak_lose = 0
+        for p in profits:
+            if p > 0:
+                streak_win += 1
+                streak_lose = 0
+                max_streak_win = max(max_streak_win, streak_win)
+            elif p < 0:
+                streak_lose += 1
+                streak_win = 0
+                max_streak_lose = max(max_streak_lose, streak_lose)
+            # p == 0: no amplía ni corta la racha actual
+        return int(max_streak_win), int(max_streak_lose)
 
     def _build_weekly_returns_rows(self, pnl_df: pd.DataFrame) -> list[Dict[str, object]]:
         work = self._normalize_pnl_frame(pnl_df)
@@ -652,6 +769,7 @@ class DevelopmentOperationalSupervisor:
             },
         )
 
+        backtest_started = perf_counter()
         try:
             initial_capital = 10000.0
             asset_df = pd.read_csv(csv_path)
@@ -703,67 +821,60 @@ class DevelopmentOperationalSupervisor:
             trade_stats: Dict[str, object] = {}
             trades_df = bt.trades.copy() if hasattr(bt, "trades") and isinstance(bt.trades, pd.DataFrame) else pd.DataFrame()
             if not trades_df.empty:
+                normalized_trades = self._normalize_trades_frame(trades_df)
                 norm_cols = {str(c).lower(): c for c in trades_df.columns}
                 profit_col = None
                 for name in ("pnl", "gross_profit", "profit"):
                     if name in norm_cols:
                         profit_col = norm_cols[name]
                         break
-                if profit_col is not None:
+                if not normalized_trades.empty:
+                    profits = pd.to_numeric(normalized_trades["profit"], errors="coerce").dropna()
+                elif profit_col is not None:
                     profits = pd.to_numeric(trades_df[profit_col], errors="coerce").dropna()
-                    if not profits.empty:
-                        wins = profits[profits > 0]
-                        losses = profits[profits < 0]
-                        total = int(len(profits))
-                        trade_stats["total_trades"] = total
-                        trade_stats["winning_trades"] = int((profits > 0).sum())
-                        trade_stats["losing_trades"] = int((profits < 0).sum())
-                        trade_stats["win_rate_pct"] = float((trade_stats["winning_trades"] / total) * 100.0) if total else None
-                        trade_stats["avg_win"] = float(wins.mean()) if not wins.empty else 0.0
-                        trade_stats["avg_loss"] = float(losses.mean()) if not losses.empty else 0.0
-                        trade_stats["profit_factor"] = (
-                            float(wins.sum() / abs(losses.sum()))
-                            if (not wins.empty and not losses.empty and float(losses.sum()) != 0.0)
-                            else None
-                        )
-                        trade_stats["payoff_ratio"] = (
-                            float(wins.mean() / abs(losses.mean()))
-                            if (not wins.empty and not losses.empty and abs(float(losses.mean())) > 0.0)
-                            else None
-                        )
-                        trade_stats["expectancy"] = float(profits.mean())
-                        trade_stats["max_win_trade"] = float(profits.max())
-                        trade_stats["max_loss_trade"] = float(profits.min())
-                        streak_win = 0
-                        streak_lose = 0
-                        max_streak_win = 0
-                        max_streak_lose = 0
-                        for p in profits.tolist():
-                            if p > 0:
-                                streak_win += 1
-                                streak_lose = 0
-                            elif p < 0:
-                                streak_lose += 1
-                                streak_win = 0
-                            else:
-                                streak_win = 0
-                                streak_lose = 0
-                            max_streak_win = max(max_streak_win, streak_win)
-                            max_streak_lose = max(max_streak_lose, streak_lose)
-                        trade_stats["max_winning_streak"] = int(max_streak_win)
-                        trade_stats["max_losing_streak"] = int(max_streak_lose)
+                else:
+                    profits = pd.Series(dtype=float)
+                if not profits.empty:
+                    profit_values = profits.tolist()
+                    max_streak_win, max_streak_lose = self._compute_trade_streaks(profit_values)
+                    wins = profits[profits > 0]
+                    losses = profits[profits < 0]
+                    total = int(len(profits))
+                    trade_stats["total_trades"] = total
+                    trade_stats["winning_trades"] = int((profits > 0).sum())
+                    trade_stats["losing_trades"] = int((profits < 0).sum())
+                    trade_stats["win_rate_pct"] = float((trade_stats["winning_trades"] / total) * 100.0) if total else None
+                    trade_stats["avg_win"] = float(wins.mean()) if not wins.empty else 0.0
+                    trade_stats["avg_loss"] = float(losses.mean()) if not losses.empty else 0.0
+                    trade_stats["profit_factor"] = (
+                        float(wins.sum() / abs(losses.sum()))
+                        if (not wins.empty and not losses.empty and float(losses.sum()) != 0.0)
+                        else None
+                    )
+                    trade_stats["payoff_ratio"] = (
+                        float(wins.mean() / abs(losses.mean()))
+                        if (not wins.empty and not losses.empty and abs(float(losses.mean())) > 0.0)
+                        else None
+                    )
+                    trade_stats["expectancy"] = float(profits.mean())
+                    trade_stats["max_win_trade"] = float(profits.max())
+                    trade_stats["max_loss_trade"] = float(profits.min())
+                    trade_stats["max_winning_streak"] = max_streak_win
+                    trade_stats["max_losing_streak"] = max_streak_lose
 
-                entry_col = next((norm_cols[k] for k in ("time_entry", "entry_time", "open_time") if k in norm_cols), None)
-                exit_col = next((norm_cols[k] for k in ("time_exit", "exit_time", "close_time") if k in norm_cols), None)
-                if entry_col and exit_col:
-                    entry_ts = pd.to_datetime(trades_df[entry_col], errors="coerce")
-                    exit_ts = pd.to_datetime(trades_df[exit_col], errors="coerce")
-                    dur_days = (exit_ts - entry_ts).dt.total_seconds() / 86400.0
+                if not normalized_trades.empty:
+                    dur_days = (
+                        normalized_trades["exit_time"] - normalized_trades["entry_time"]
+                    ).dt.total_seconds() / 86400.0
                     dur_days = pd.to_numeric(dur_days, errors="coerce").dropna()
                     if not dur_days.empty:
                         trade_stats["avg_trade_duration_days"] = float(dur_days.mean())
                         trade_stats["min_trade_duration_days"] = float(dur_days.min())
                         trade_stats["max_trade_duration_days"] = float(dur_days.max())
+                elif profit_col is not None:
+                    profits = pd.to_numeric(trades_df[profit_col], errors="coerce").dropna()
+                    if not profits.empty:
+                        trade_stats["total_trades"] = int(len(profits))
             if not pnl_df.empty:
                 pnl_norm = self._normalize_pnl_frame(pnl_df)
                 if not pnl_norm.empty:
@@ -847,6 +958,15 @@ class DevelopmentOperationalSupervisor:
                     "updated_at": _utc_now_iso(),
                 },
             )
+            emit_log(
+                "supervisor",
+                "backtest_completed",
+                console=False,
+                trader_id=trader_id,
+                asset=asset,
+                n_trades=n_trades,
+                elapsed_ms=int((perf_counter() - backtest_started) * 1000),
+            )
         except Exception as exc:
             self._set_backtest_entry(
                 trader_id,
@@ -860,6 +980,15 @@ class DevelopmentOperationalSupervisor:
                     "updated_at": _utc_now_iso(),
                 },
             )
+            emit_log(
+                "supervisor",
+                "backtest_failed",
+                console=False,
+                trader_id=trader_id,
+                asset=asset,
+                error=str(exc),
+                elapsed_ms=int((perf_counter() - backtest_started) * 1000),
+            )
 
     def set_target_traders(self, target_traders: int) -> None:
         target = max(1, int(target_traders))
@@ -872,7 +1001,11 @@ class DevelopmentOperationalSupervisor:
         current = len(self.get_all_promoted_specs())
         if current >= target:
             self._develop_enabled.clear()
-            self._set_status(develop_enabled=False, current_stage="idle")
+            self._set_status(
+                develop_enabled=False,
+                current_stage="idle",
+                current_stage_detail="Objetivo de traders alcanzado.",
+            )
         emit_log("supervisor", "target_traders_updated", console=False, target_traders=target)
 
     @staticmethod
@@ -1070,12 +1203,12 @@ class DevelopmentOperationalSupervisor:
         validation = {
             "split_assumption": {"holdout_year": 2025},
             "monkey_is": {
-                "n_monkeys": random.randint(200, 400),
+                "n_monkeys": random.randint(50, 100),
                 "is_pass_pct": float(random.randint(85, 95)),
                 "n_jobs": 1,
             },
             "monkey_oos": {
-                "n_monkeys": random.randint(200, 400),
+                "n_monkeys": random.randint(50, 100),
                 "oos_pass_pct": float(random.randint(75, 85)),
                 "min_coverage_oos": random.randint(50, 75),
                 "n_jobs": 1,
@@ -1107,29 +1240,42 @@ class DevelopmentOperationalSupervisor:
             return
         strategy = self._build_strategy(asset)
         chosen = str(strategy["chosen_family"])
+        cycle_started = perf_counter()
+        cycle_timings_ms: Dict[str, int] = {}
         self._set_status(
             current_asset=asset,
             current_stage="data_process",
+            current_stage_detail=f"Preparando dataset D1 para `{asset}`.",
             current_cycle_steps=["data_process"],
         )
         sink = StringIO()
         with redirect_stdout(sink):
+            stage_started = perf_counter()
             dataset = self.data_process.prepare_dataset(asset=asset, timeframe="D1", asset_csv_path=csv_path)
+            cycle_timings_ms["data_process"] = int((perf_counter() - stage_started) * 1000)
             if self._cycle_should_abort():
-                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._set_status(current_stage="idle", current_stage_detail="Desarrollo cancelado.", current_cycle_steps=[])
                 return
-            self._set_status(current_stage="developer_agent")
+            self._set_status(
+                current_stage="developer_agent",
+                current_stage_detail=f"Generando reglas con familia `{chosen}`.",
+            )
             self._append_cycle_step("developer_agent")
+            stage_started = perf_counter()
             dev = self.developer_agent.develop(
                 dataset=dataset,
                 families=(chosen,),
                 family_params=strategy["params"],
                 split_config=strategy["split"],
             )
+            cycle_timings_ms["developer_agent"] = int((perf_counter() - stage_started) * 1000)
             if self._cycle_should_abort():
-                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._set_status(current_stage="idle", current_stage_detail="Desarrollo cancelado.", current_cycle_steps=[])
                 return
-            self._set_status(current_stage="validation_agent")
+            self._set_status(
+                current_stage="validation_agent",
+                current_stage_detail="Validando reglas candidatas en IS/OOS/forward/estabilidad.",
+            )
             self._append_cycle_step("validation_agent")
             self._sync_developed_traders_from_history()
             target_cap = max(1, int(self.get_status().get("target_traders", 8)))
@@ -1141,16 +1287,18 @@ class DevelopmentOperationalSupervisor:
                     asset=str(asset),
                     target_traders=target_cap,
                 )
-                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._set_status(current_stage="idle", current_stage_detail="Objetivo de traders alcanzado.", current_cycle_steps=[])
                 self._halt_development_if_quota_met()
                 return
+            stage_started = perf_counter()
             val = self.validation_agent.validate_and_promote(
                 dev,
                 validation_profile=strategy["validation"],
                 promote_if_empty=False,
             )
+            cycle_timings_ms["validation_agent"] = int((perf_counter() - stage_started) * 1000)
             if self._cycle_should_abort():
-                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._set_status(current_stage="idle", current_stage_detail="Desarrollo cancelado.", current_cycle_steps=[])
                 return
 
         generated_long = len(dev.candidate_rules.long_rules)
@@ -1161,25 +1309,36 @@ class DevelopmentOperationalSupervisor:
         trader_id: str | None = None
         backtest_status: str | None = None
         if val.promoted_spec is not None and (passed_long + passed_short) > 0:
-            self._set_status(current_stage="trader_agent")
+            self._set_status(
+                current_stage="trader_agent",
+                current_stage_detail=f"Activando trader promovido para `{asset}`.",
+            )
             self._append_cycle_step("trader_agent")
+            stage_started = perf_counter()
             with redirect_stdout(sink):
                 self.trader_agent.activate(val.promoted_spec)
+            cycle_timings_ms["trader_agent"] = int((perf_counter() - stage_started) * 1000)
             if self._cycle_should_abort():
-                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._set_status(current_stage="idle", current_stage_detail="Desarrollo cancelado.", current_cycle_steps=[])
                 return
             self._promoted_registry[val.promoted_spec.trader_id] = val.promoted_spec
             trader_id = val.promoted_spec.trader_id
-            self._set_status(current_stage="backtest_agent")
+            self._set_status(
+                current_stage="backtest_agent",
+                current_stage_detail="Ejecutando backtest historico sincronizado del trader promovido.",
+            )
             self._append_cycle_step("backtest_agent")
+            stage_started = perf_counter()
             self._run_backtest_for_promoted(val.promoted_spec)
+            cycle_timings_ms["backtest_agent"] = int((perf_counter() - stage_started) * 1000)
             if self._cycle_should_abort():
-                self._set_status(current_stage="idle", current_cycle_steps=[])
+                self._set_status(current_stage="idle", current_stage_detail="Desarrollo cancelado.", current_cycle_steps=[])
                 return
             backtest_status = str(self.get_backtest_registry().get(trader_id, {}).get("status", "pending"))
             if self._runtime is not None:
                 self._runtime.upsert_trader(val.promoted_spec)
                 self.mt5.ensure_symbols_in_marketwatch([val.promoted_spec.asset])
+        cycle_timings_ms["total"] = int((perf_counter() - cycle_started) * 1000)
 
         self._print_cycle_report(
             asset=asset,
@@ -1194,13 +1353,32 @@ class DevelopmentOperationalSupervisor:
             trader_id=trader_id,
             backtest_status=backtest_status,
         )
+        cycle_result = "promoted" if trader_id else "no_promotion"
+        emit_log(
+            "supervisor",
+            "development_cycle_completed",
+            console=False,
+            asset=asset,
+            chosen_family=chosen,
+            result=cycle_result,
+            generated_long=generated_long,
+            generated_short=generated_short,
+            passed_long=passed_long,
+            passed_short=passed_short,
+            timings_ms=cycle_timings_ms,
+            backtest_status=backtest_status,
+        )
         self._set_status(
             current_stage="idle",
+            current_stage_detail="Desarrollo activo: esperando siguiente activo." if self._develop_enabled.is_set() else "Sin desarrollo en curso.",
+            current_asset=None,
             current_cycle_steps=[],
             developed_traders=len(self.get_all_promoted_specs()),
             last_cycle_completed_at=_utc_now_iso(),
             last_cycle_asset=asset,
             last_cycle_trader_id=trader_id,
+            last_cycle_result=cycle_result,
+            last_cycle_timings_ms=cycle_timings_ms,
         )
         self._halt_development_if_quota_met()
 
@@ -1267,13 +1445,11 @@ class DevelopmentOperationalSupervisor:
         status = self.get_status()
         try:
             developed = int(status.get("developed_traders") or 0)
-            target = int(status.get("target_traders") or 0)
+            min_required = int(status.get("min_traders_for_runtime") or self._MIN_TRADERS_FOR_RUNTIME)
         except Exception:
             developed = 0
-            target = 0
-        if target <= 0:
-            return True
-        return developed >= target and not bool(status.get("develop_enabled"))
+            min_required = self._MIN_TRADERS_FOR_RUNTIME
+        return developed >= max(1, min_required) and not bool(status.get("develop_enabled"))
 
     def _bootstrap_runtime_after_target_reached(self) -> None:
         started = self._ensure_operational_runtime(force_start=True)
@@ -1299,13 +1475,13 @@ class DevelopmentOperationalSupervisor:
                             return df[keep_cols].copy()
                 except Exception:
                     pass
-        bt = self.get_backtest_registry().get(str(trader_id), {})
+        bt = self.get_backtest_entry(str(trader_id))
         if not bt or str(bt.get("status")) != "ready":
             spec = self.get_all_promoted_specs().get(str(trader_id))
             if spec is None:
                 return None
             self._run_backtest_for_promoted(spec)
-            bt = self.get_backtest_registry().get(str(trader_id), {})
+            bt = self.get_backtest_entry(str(trader_id))
         chart_rows = bt.get("chart_rows", []) or []
         if not chart_rows:
             return None
@@ -1572,41 +1748,62 @@ class DevelopmentOperationalSupervisor:
     def _ensure_operational_runtime(self, *, force_start: bool = False) -> bool:
         if self._runtime is not None:
             return True
-        if (len(self._promoted_registry) < 5) and (not force_start):
+        if (not force_start) and self._develop_enabled.is_set():
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=self.execution_router.mode.value,
+                operational_runtime_last_error=None,
+            )
             return False
         operational_specs = self._build_operational_registry()
-        if len(operational_specs) == 0:
+        min_required = self._MIN_TRADERS_FOR_RUNTIME
+        if len(operational_specs) < min_required:
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=self.execution_router.mode.value,
+                mt5_connected=False,
+                operational_runtime_last_error=None,
+            )
+            return False
+        if (not force_start) and str(self.get_status().get("operational_runtime_last_error") or "").strip():
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=ExecutionMode.LIVE_MT5.value,
+                mt5_connected=False,
+            )
             return False
         emit_log(
             "supervisor",
             "minimum_traders_reached",
             console=False,
-            developed_traders=len(self._promoted_registry),
+            developed_traders=len(operational_specs),
+            min_traders_required=min_required,
         )
         symbols = sorted({spec.asset for spec in operational_specs.values()})
         ready = self.ensure_mt5_execution_ready(symbols=symbols)
-        queue = Queue()
         runtime_mode = ExecutionMode.LIVE_MT5
-        if bool(ready.get("connected")):
-            provider = MT5DataProvider(events_queue=queue, symbol_list=symbols, timeframe="1d")
-            self.execution_router.mode = ExecutionMode.LIVE_MT5
-        else:
+        if not bool(ready.get("connected")):
+            reason = str(ready.get("reason") or "mt5_connect_failed")
             emit_log("supervisor", "mt5_connect_failed_after_threshold")
             emit_log(
                 "supervisor",
-                "operational_runtime_paper_fallback",
+                "operational_runtime_mt5_required",
                 console=False,
-                requested_mode=self.execution_mode.value,
-                reason=str(ready.get("reason") or "mt5_connect_failed"),
+                requested_mode=ExecutionMode.LIVE_MT5.value,
+                reason=reason,
                 symbols=symbols,
             )
-            self.execution_router.mode = ExecutionMode.PAPER
-            runtime_mode = ExecutionMode.PAPER
-            provider = LocalD1DataProvider(
-                events_queue=queue,
-                market_data=self.local_market_data,
-                symbol_list=symbols,
+            self.execution_router.mode = ExecutionMode.LIVE_MT5
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=ExecutionMode.LIVE_MT5.value,
+                mt5_connected=False,
+                operational_runtime_last_error=reason,
             )
+            return False
+        queue = Queue()
+        provider = MT5DataProvider(events_queue=queue, symbol_list=symbols, timeframe="1d")
+        self.execution_router.mode = ExecutionMode.LIVE_MT5
         self._runtime = LiveTradingRuntime(
             trader_agent=self.trader_agent,
             portfolio_manager=self.portfolio_manager_process,
@@ -1622,6 +1819,7 @@ class DevelopmentOperationalSupervisor:
             operational_runtime_started=True,
             operational_runtime_mode=runtime_mode.value,
             mt5_connected=bool(ready.get("connected")),
+            operational_runtime_last_error=None,
         )
         ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
         print(f"{ts} - STARTUP_SNAPSHOT total={len(operational_specs)} attributed={len(operational_specs)} unattributed=0")
@@ -1650,14 +1848,33 @@ class DevelopmentOperationalSupervisor:
             self._thread.start()
         operational_specs = self._build_operational_registry()
         if len(operational_specs) == 0:
-            mt5_probe = self.ensure_mt5_execution_ready()
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=self.execution_router.mode.value,
+                mt5_connected=False,
+            )
             return {
                 "started": False,
                 "reason": "no_promoted_traders",
                 "n_traders": 0,
                 "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
-                "mt5_connected": bool(mt5_probe.get("connected")),
-                "mt5_reason": str(mt5_probe.get("reason") or ""),
+                "mt5_connected": False,
+                "mt5_reason": "",
+            }
+        if len(operational_specs) < self._MIN_TRADERS_FOR_RUNTIME:
+            self._set_status(
+                operational_runtime_started=False,
+                operational_runtime_mode=self.execution_router.mode.value,
+                mt5_connected=False,
+            )
+            return {
+                "started": False,
+                "reason": "minimum_traders_not_reached",
+                "n_traders": len(operational_specs),
+                "min_traders_required": self._MIN_TRADERS_FOR_RUNTIME,
+                "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
+                "mt5_connected": False,
+                "mt5_reason": "",
             }
         if self._runtime is not None:
             # Reinicio explícito para reconstruir símbolos/traders con el estado actual completo.
@@ -1679,8 +1896,17 @@ class DevelopmentOperationalSupervisor:
                 "reason": "runtime_started",
                 "n_traders": len(operational_specs),
                 "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
+                "mt5_connected": bool(self.get_status().get("mt5_connected")),
+                "mt5_reason": "",
             }
-        return {"started": False, "reason": "runtime_not_started"}
+        return {
+            "started": False,
+            "reason": "mt5_not_ready",
+            "n_traders": len(operational_specs),
+            "runtime_mode": str(self.get_status().get("operational_runtime_mode") or self.execution_router.mode.value),
+            "mt5_connected": bool(self.get_status().get("mt5_connected")),
+            "mt5_reason": str(self.get_status().get("operational_runtime_last_error") or ""),
+        }
 
     def _loop(self) -> None:
         self._set_status(running=True)
@@ -1698,10 +1924,10 @@ class DevelopmentOperationalSupervisor:
                     self._runtime.poll_once()
                 sleep(1)
             except Exception as exc:
-                self._set_status(current_stage="error")
+                self._set_status(current_stage="error", current_stage_detail=str(exc))
                 emit_log("supervisor", "loop_error", console=False, error=str(exc))
                 sleep(2)
-        self._set_status(running=False, current_stage="stopped")
+        self._set_status(running=False, current_stage="stopped", current_stage_detail="Supervisor detenido.")
         emit_log("supervisor", "thread_stopped", console=False)
 
     def start(self) -> bool:
@@ -1713,6 +1939,7 @@ class DevelopmentOperationalSupervisor:
             self._set_status(
                 develop_enabled=False,
                 current_stage="idle",
+                current_stage_detail="Objetivo de traders alcanzado.",
                 current_asset=None,
                 current_cycle_steps=[],
             )
@@ -1733,6 +1960,7 @@ class DevelopmentOperationalSupervisor:
             develop_enabled=True,
             development_session_started_at=_utc_now_iso(),
             current_stage="idle",
+            current_stage_detail="Desarrollo activo: esperando siguiente activo.",
             current_asset=None,
             current_cycle_steps=[],
         )
@@ -1744,6 +1972,7 @@ class DevelopmentOperationalSupervisor:
         self._set_status(
             develop_enabled=False,
             current_stage="idle",
+            current_stage_detail="Desarrollo detenido manualmente.",
             current_asset=None,
             current_cycle_steps=[],
         )
@@ -1753,6 +1982,7 @@ class DevelopmentOperationalSupervisor:
         self._set_status(
             develop_enabled=False,
             current_stage="resetting",
+            current_stage_detail="Reiniciando supervisor y limpiando estado.",
             current_asset=None,
             current_cycle_steps=[],
         )
@@ -1792,16 +2022,20 @@ class DevelopmentOperationalSupervisor:
             develop_enabled=False,
             current_asset=None,
             current_stage="idle",
+            current_stage_detail="Sin desarrollo en curso.",
             current_cycle_steps=[],
             developed_traders=0,
             target_traders=int(self._status.get("target_traders", 8)),
             mt5_connected=False,
             operational_runtime_started=False,
             operational_runtime_mode=self.execution_router.mode.value,
+            operational_runtime_last_error=None,
             development_session_started_at=None,
             last_cycle_completed_at=None,
             last_cycle_asset=None,
             last_cycle_trader_id=None,
+            last_cycle_result=None,
+            last_cycle_timings_ms={},
             portfolio_last_refresh_month=None,
             portfolio_last_refresh_at=None,
             portfolio_last_refresh_cutoff_date=None,

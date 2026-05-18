@@ -1,9 +1,11 @@
+import os
 from pathlib import Path
 import sys
 import subprocess
 import time
 from datetime import timedelta
 import warnings
+import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -18,14 +20,21 @@ UNIVERSE_DIR = DATA_ROOT / "_universe"
 # Fecha inicial para activos nuevos
 DEFAULT_START_DATE = "2000-01-01"
 
-# El universo invertible del proyecto sale de los CSV ya presentes
-# en datos/Stocks y datos/ETFs. MT5 no debe redefinirlo.
-REBUILD_UNIVERSE_FROM_MT5 = False
+# El universo invertible del proyecto se alinea con los símbolos operables de
+# la cuenta MT5 actual (Darwinex Zero). Los CSV locales son una caché histórica
+# descargada desde Yahoo solo para aquellos símbolos que comparten nombre.
+REBUILD_UNIVERSE_FROM_MT5 = True
 
 # Opcional: si MT5 no se detecta automáticamente, pon aquí la ruta al terminal64.exe
 # Ejemplo:
 # MT5_PATH = r"C:\Program Files\Darwinex MetaTrader 5\terminal64.exe"
-MT5_PATH = None
+try:
+    from dotenv import find_dotenv, load_dotenv  # type: ignore
+
+    load_dotenv(find_dotenv(".env") or ".env")
+except Exception:
+    pass
+MT5_PATH = os.getenv("MT5_PATH") or None
 
 # Pausas / reintentos para Yahoo
 SLEEP_BETWEEN_SYMBOLS = 0.25
@@ -88,6 +97,35 @@ def write_txt_list(path, items):
     with open(path, "w", encoding="utf-8") as f:
         for x in items:
             f.write(f"{x}\n")
+
+
+def write_universe_snapshot(df, stocks_txt, etfs_txt, universe_csv):
+    work = df.copy() if df is not None else pd.DataFrame()
+    if work.empty:
+        write_txt_list(stocks_txt, [])
+        write_txt_list(etfs_txt, [])
+        work = pd.DataFrame(columns=["asset_type", "symbol", "description", "path"])
+        work.to_csv(universe_csv, index=False, encoding="utf-8-sig")
+        return [], [], work
+
+    work["asset_type"] = work["asset_type"].astype(str)
+    work["symbol"] = work["symbol"].astype(str).str.upper()
+    if "description" not in work.columns:
+        work["description"] = ""
+    if "path" not in work.columns:
+        work["path"] = ""
+    work = (
+        work[["asset_type", "symbol", "description", "path"]]
+        .drop_duplicates(subset=["asset_type", "symbol"])
+        .sort_values(["asset_type", "symbol"])
+        .reset_index(drop=True)
+    )
+    stocks = work.loc[work["asset_type"] == "Stock", "symbol"].tolist()
+    etfs = work.loc[work["asset_type"] == "ETF", "symbol"].tolist()
+    write_txt_list(stocks_txt, stocks)
+    write_txt_list(etfs_txt, etfs)
+    work.to_csv(universe_csv, index=False, encoding="utf-8-sig")
+    return stocks, etfs, work
 
 
 def safe_filename(symbol):
@@ -264,15 +302,7 @@ def build_universe_from_mt5(pd, mt5, stocks_txt, etfs_txt, universe_csv, mt5_raw
             "y ajustar la heurística."
         )
 
-    df = df.sort_values(["asset_type", "symbol"]).reset_index(drop=True)
-
-    stocks = df.loc[df["asset_type"] == "Stock", "symbol"].tolist()
-    etfs = df.loc[df["asset_type"] == "ETF", "symbol"].tolist()
-
-    write_txt_list(stocks_txt, stocks)
-    write_txt_list(etfs_txt, etfs)
-    df.to_csv(universe_csv, index=False, encoding="utf-8-sig")
-
+    stocks, etfs, df = write_universe_snapshot(df, stocks_txt, etfs_txt, universe_csv)
     return stocks, etfs, df
 
 
@@ -280,9 +310,6 @@ def load_or_build_universe(pd, stocks_txt, etfs_txt, universe_csv, mt5_raw_csv):
     if MANUAL_DZ_STOCKS or MANUAL_DZ_ETFS:
         stocks = unique_keep_order([x.upper() for x in MANUAL_DZ_STOCKS])
         etfs = unique_keep_order([x.upper() for x in MANUAL_DZ_ETFS])
-
-        write_txt_list(stocks_txt, stocks)
-        write_txt_list(etfs_txt, etfs)
 
         rows = [
             {"asset_type": "Stock", "symbol": s, "description": "", "path": "MANUAL"}
@@ -292,16 +319,8 @@ def load_or_build_universe(pd, stocks_txt, etfs_txt, universe_csv, mt5_raw_csv):
             {"asset_type": "ETF", "symbol": s, "description": "", "path": "MANUAL"}
             for s in etfs
         ]
-        df = pd.DataFrame(rows)
-        df.to_csv(universe_csv, index=False, encoding="utf-8-sig")
+        _, _, df = write_universe_snapshot(pd.DataFrame(rows), stocks_txt, etfs_txt, universe_csv)
         return stocks, etfs, df
-
-    local_stocks, local_etfs, local_df = discover_universe_from_local_data(pd)
-    if not local_df.empty:
-        write_txt_list(stocks_txt, local_stocks)
-        write_txt_list(etfs_txt, local_etfs)
-        local_df.to_csv(universe_csv, index=False, encoding="utf-8-sig")
-        return local_stocks, local_etfs, local_df
 
     if REBUILD_UNIVERSE_FROM_MT5:
         _, _, mt5 = _import_dependencies()
@@ -314,6 +333,11 @@ def load_or_build_universe(pd, stocks_txt, etfs_txt, universe_csv, mt5_raw_csv):
             mt5_raw_csv=mt5_raw_csv,
             mt5_path=MT5_PATH,
         )
+        return stocks, etfs, df
+
+    local_stocks, local_etfs, local_df = discover_universe_from_local_data(pd)
+    if not local_df.empty:
+        stocks, etfs, df = write_universe_snapshot(local_df, stocks_txt, etfs_txt, universe_csv)
         return stocks, etfs, df
 
     stocks = read_txt_list(stocks_txt)
@@ -333,9 +357,24 @@ def load_or_build_universe(pd, stocks_txt, etfs_txt, universe_csv, mt5_raw_csv):
         {"asset_type": "ETF", "symbol": s, "description": "", "path": "LOCAL_TXT"}
         for s in etfs
     ]
-    df = pd.DataFrame(rows)
-    df.to_csv(universe_csv, index=False, encoding="utf-8-sig")
+    _, _, df = write_universe_snapshot(pd.DataFrame(rows), stocks_txt, etfs_txt, universe_csv)
     return stocks, etfs, df
+
+
+def cleanup_local_csvs(folder, allowed_symbols):
+    allowed = {str(s).upper() for s in (allowed_symbols or []) if str(s).strip()}
+    removed = []
+    if not folder.exists():
+        return removed
+    for path in folder.glob("*.csv"):
+        if path.stem.upper() in allowed:
+            continue
+        try:
+            path.unlink()
+            removed.append(path.name)
+        except Exception:
+            pass
+    return removed
 
 
 def fetch_yahoo_history_1d(pd, yf, raw_symbol, start_date, end_date):
@@ -565,6 +604,7 @@ def run_data_download(symbols=None):
         universe_csv=universe_csv,
         mt5_raw_csv=mt5_raw_csv,
     )
+    full_universe_df = universe_df.copy()
 
     requested = {str(s).strip().upper() for s in (symbols or []) if str(s).strip()}
     if requested:
@@ -583,5 +623,41 @@ def run_data_download(symbols=None):
     if not failed.empty:
         failed.to_csv(DATA_ROOT / "failed_symbols.csv", index=False, encoding="utf-8-sig")
 
+    removed_stocks = cleanup_local_csvs(
+        STOCKS_DIR,
+        full_universe_df.loc[full_universe_df["asset_type"] == "Stock", "symbol"].tolist() if not full_universe_df.empty else [],
+    )
+    removed_etfs = cleanup_local_csvs(
+        ETFS_DIR,
+        full_universe_df.loc[full_universe_df["asset_type"] == "ETF", "symbol"].tolist() if not full_universe_df.empty else [],
+    )
+
+    if not requested:
+        successful_symbols = {
+            str(row["symbol"]).upper()
+            for _, row in all_results.iterrows()
+            if str(row.get("status") or "") != "failed"
+        }
+        universe_df = (
+            full_universe_df[full_universe_df["symbol"].astype(str).str.upper().isin(successful_symbols)].reset_index(drop=True)
+            if not full_universe_df.empty
+            else pd.DataFrame()
+        )
+        _, _, universe_df = write_universe_snapshot(universe_df, stocks_txt, etfs_txt, universe_csv)
+        removed_stocks.extend(
+            cleanup_local_csvs(
+                STOCKS_DIR,
+                universe_df.loc[universe_df["asset_type"] == "Stock", "symbol"].tolist() if not universe_df.empty else [],
+            )
+        )
+        removed_etfs.extend(
+            cleanup_local_csvs(
+                ETFS_DIR,
+                universe_df.loc[universe_df["asset_type"] == "ETF", "symbol"].tolist() if not universe_df.empty else [],
+            )
+        )
+
+    all_results.attrs["removed_stock_csvs"] = sorted(set(removed_stocks))
+    all_results.attrs["removed_etf_csvs"] = sorted(set(removed_etfs))
     return universe_df, all_results, failed
 

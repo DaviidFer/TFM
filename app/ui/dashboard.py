@@ -158,7 +158,6 @@ def _human_pm_signal_columns(df: pd.DataFrame) -> pd.DataFrame:
         "symbol": "Símbolo",
         "side": "Lado",
         "fecha_señal": "Fecha señal",
-        "fase_pm": "Fase PM",
         "decision_pm": "Decisión PM",
         "estado_orden": "Estado orden",
         "peso_pct": "Peso (%)",
@@ -365,17 +364,341 @@ def _normalize_pm_signal_rows(signal_book: List[Dict[str, Any]], signal_audit: L
     return list(keyed.values())
 
 
-def _render_pm_signal_tables(signal_rows: List[Dict[str, Any]], *, key_prefix: str) -> None:
+def _pm_latest_row_per_trader(df: pd.DataFrame) -> pd.DataFrame:
+    """Una fila por trader con la señal más reciente (para tabla resumen)."""
+    if df.empty or "trader" not in df.columns:
+        return pd.DataFrame()
+    work = df.copy()
+    key = work["fecha_señal"].astype(str)
+    work = work.assign(_sort_key=key)
+    work = work.sort_values("_sort_key", ascending=False).drop(columns=["_sort_key"], errors="ignore")
+    return work.drop_duplicates(subset=["trader"], keep="first").reset_index(drop=True)
+
+
+def _pm_developed_trader_legend_label(signal_row: Dict[str, Any] | None) -> str:
+    """Misma familia de textos que la leyenda PM (estado de orden / decisión), no Sí/No."""
+    if signal_row is None:
+        return "Sin señal en libro PM"
+    estado = str(signal_row.get("estado_orden") or "").strip().lower()
+    decision = str(signal_row.get("decision_pm") or "").strip().lower()
+
+    if estado == "executed":
+        return "Ejecutada"
+    if estado == "selected":
+        return "Pendiente envío"
+    if estado == "rejected":
+        return "Rechazada"
+    if estado == "waiting_next_monday":
+        return "Espera lunes"
+    if estado == "waiting_full_universe":
+        return "Espera universo"
+    if estado == "already_open":
+        return "Ya abierta"
+    if estado == "discarded":
+        return "Descartada"
+    if estado == "closed":
+        return "Cerrada"
+    if estado == "close_rejected":
+        return "Cierre rechazado"
+    if decision == "descartado":
+        return "Descartado"
+    if decision == "seleccionado":
+        return "Seleccionado"
+    if estado:
+        return estado
+    return "—"
+
+
+def _try_mt5_broker_open_positions(supervisor: DevelopmentOperationalSupervisor) -> List[Dict[str, Any]]:
+    """
+    Posiciones abiertas leyendo el terminal MT5 SOLO si ya estaba conectado.
+
+    El dashboard no debe abrir/inicializar MT5 por su cuenta: la conexión debe
+    nacer exclusivamente del flujo operativo del supervisor cuando corresponde.
+    """
+    mt5 = getattr(supervisor, "mt5", None)
+    if mt5 is None or not bool(getattr(mt5, "connected", False)):
+        return []
+    try:
+        return list(mt5.get_open_positions())
+    except Exception:
+        return []
+
+
+def _pm_signals_for_latest_rebalance(df_signals: pd.DataFrame) -> pd.DataFrame:
+    """Filas del último ciclo de rebalanceo PM (por rebalance_id más reciente en el tiempo)."""
+    if df_signals.empty or "rebalance_id" not in df_signals.columns:
+        return df_signals
+    work = df_signals.copy()
+    rid = work["rebalance_id"].astype(str).str.strip()
+    work = work.assign(_rid=rid)
+    non_empty = work[work["_rid"] != ""]
+    if non_empty.empty:
+        return df_signals
+    if "fecha_señal" not in work.columns:
+        latest = str(non_empty.iloc[-1]["_rid"])
+    else:
+        tmp = non_empty.copy()
+        tmp["_ts"] = tmp["fecha_señal"].astype(str)
+        latest = str(tmp.sort_values("_ts", ascending=False).iloc[0]["_rid"])
+    out = work[work["_rid"] == latest].drop(columns=["_rid"], errors="ignore")
+    return out.reset_index(drop=True)
+
+
+def _pm_has_effective_allocation(row: pd.Series | Dict[str, Any], *, min_weight_pct: float = 2.0) -> bool:
+    weight_pct = float(pd.to_numeric((row.get("peso_pct") if isinstance(row, dict) else row.get("peso_pct")), errors="coerce") or 0.0)
+    euros = float(pd.to_numeric((row.get("euros_asignados") if isinstance(row, dict) else row.get("euros_asignados")), errors="coerce") or 0.0)
+    return weight_pct >= float(min_weight_pct) and euros > 0.0
+
+
+def _pm_filter_effective_allocations(df: pd.DataFrame, *, min_weight_pct: float = 2.0) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    mask = df.apply(lambda row: _pm_has_effective_allocation(row, min_weight_pct=min_weight_pct), axis=1)
+    return df[mask].copy().reset_index(drop=True)
+
+
+def _pm_filter_zero_or_tiny_allocations(df: pd.DataFrame, *, min_weight_pct: float = 2.0) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    mask = ~df.apply(lambda row: _pm_has_effective_allocation(row, min_weight_pct=min_weight_pct), axis=1)
+    out = df[mask].copy()
+    if out.empty:
+        return out
+    out["estado_orden"] = "rejected"
+    out["decision_pm"] = "descartado"
+    out["motivo_interpretado"] = out["motivo_interpretado"].map(
+        lambda txt: "Sin asignación PM (<2%)" if not str(txt or "").strip() or str(txt).strip().lower() == "signal" else f"Sin asignación PM (<2%) · {txt}"
+    )
+    return out.reset_index(drop=True)
+
+
+def _count_ui_open_positions(signal_rows: List[Dict[str, Any]]) -> int:
+    """
+    Contador puramente visual: número de posiciones con asignación efectiva
+    en el último rebalanceo mostrado por el PM.
+    """
     if not signal_rows:
-        st.info("No hay señales auditadas para este entrenamiento/rebalanceo.")
+        return 0
+    df_latest = _pm_signals_for_latest_rebalance(pd.DataFrame(signal_rows))
+    if df_latest.empty:
+        return 0
+    df_effective = _pm_filter_effective_allocations(
+        df_latest[df_latest["estado_orden"].astype(str).str.lower() == "executed"].copy()
+    )
+    if df_effective.empty:
+        return 0
+    if "symbol" not in df_effective.columns:
+        return int(len(df_effective))
+    return int(df_effective["symbol"].astype(str).str.strip().str.upper().nunique())
+
+
+def _pm_symbol_volume_hints(df_latest_by_trader: pd.DataFrame) -> Dict[str, int]:
+    """
+    Por símbolo: acciones estimadas PM agregadas.
+    """
+    if df_latest_by_trader.empty:
+        return {}
+    sub = df_latest_by_trader[df_latest_by_trader["estado_orden"].astype(str).str.lower() == "executed"].copy()
+    if sub.empty or "symbol" not in sub.columns:
+        return {}
+    out: Dict[str, int] = {}
+    for sym, grp in sub.groupby(sub["symbol"].astype(str).str.strip().str.upper()):
+        if "acciones_estimadas" in grp.columns:
+            vols = pd.to_numeric(grp["acciones_estimadas"], errors="coerce").fillna(0.0)
+        else:
+            vols = pd.Series(0.0, index=grp.index, dtype=float)
+        total_vol = int(round(float(vols.sum())))
+        out[str(sym)] = max(0, total_vol)
+    return out
+
+
+def _render_pm_company_allocation_pie(
+    *,
+    df_latest_by_trader: pd.DataFrame,
+    last_portfolio_output: Dict[str, Any] | None,
+) -> None:
+    """Donut interactivo (Plotly): % por símbolo + cash; hover con acciones y LONG/SHORT."""
+    st.markdown("**Asignación por compañía / símbolo (última cartera PM)**")
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        st.caption("Instala plotly (`pip install plotly`) para el gráfico interactivo de cartera.")
         return
-    df_signals = pd.DataFrame(signal_rows)
+
+    lo = dict(last_portfolio_output or {})
+    sym_weights_pct: Dict[str, float] = {}
+    df_effective_latest = _pm_filter_effective_allocations(
+        df_latest_by_trader[df_latest_by_trader["estado_orden"].astype(str).str.lower() == "executed"].copy()
+    )
+
+    if not df_effective_latest.empty and "symbol" in df_effective_latest.columns and "peso_pct" in df_effective_latest.columns:
+        for sym, grp in df_effective_latest.groupby(df_effective_latest["symbol"].astype(str).str.strip().str.upper()):
+            sym_weights_pct[str(sym)] = float(pd.to_numeric(grp["peso_pct"], errors="coerce").fillna(0.0).sum())
+
+    executed_weight_total = float(sum(sym_weights_pct.values()))
+    cash_pct = max(0.0, 100.0 - executed_weight_total)
+
+    if not sym_weights_pct and cash_pct <= 1e-9:
+        st.caption(
+            "Sin pesos de cartera para diagramar (sin última optimización en memoria o todos los pesos a cero). "
+            "Tras un rebalanceo con selección, aquí aparecerán los porcentajes por símbolo."
+        )
+        return
+
+    hints = _pm_symbol_volume_hints(df_effective_latest)
+
+    rows: list[tuple[str, float, int]] = []
+    for sym, pct in sorted(sym_weights_pct.items(), key=lambda kv: float(kv[1]), reverse=True):
+        if float(pct) <= 1e-6:
+            continue
+        vol = hints.get(sym, 0)
+        rows.append((sym, float(pct), int(vol)))
+
+    tiny_thr = 0.05
+    main: list[tuple[str, float, int]] = []
+    tiny_sum = 0.0
+    for sym, pct, vol in rows:
+        if pct < tiny_thr:
+            tiny_sum += pct
+        else:
+            main.append((sym, pct, vol))
+    if tiny_sum > 1e-9:
+        main.append(("Otros (pesos <0.05%)", tiny_sum, 0))
+
+    if cash_pct > 1e-6:
+        main.append(("Cash (efectivo)", float(cash_pct), 0))
+
+    total = sum(p for _, p, _ in main)
+    if total <= 1e-12:
+        st.caption("Suma de pesos nula; no se muestra el diagrama.")
+        return
+
+    labels = [r[0] for r in main]
+    values = [r[1] for r in main]
+    customdata = [[r[2]] for r in main]
+
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.5,
+                pull=[0.03] * len(labels),
+                sort=False,
+                direction="clockwise",
+                marker=dict(line=dict(color="white", width=1.2)),
+                texttemplate="%{label}<br>%{value:.1f}%",
+                textposition="outside",
+                textfont=dict(size=10),
+                insidetextorientation="horizontal",
+                hovertemplate=(
+                    "<b>%{label}</b><br>"
+                    "Acciones (estim. PM): %{customdata[0]}<extra></extra>"
+                ),
+                customdata=customdata,
+            )
+        ]
+    )
+    fig.update_layout(
+        title=dict(text="% cartera por símbolo (incluye cash)", font=dict(size=12)),
+        height=600,
+        width=800,
+        margin=dict(l=10, r=10, t=42, b=10),
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    st.caption("El diagrama muestra el % real del capital total: posiciones ejecutadas + cash no invertido.")
+    _, c_mid, _ = st.columns([0.7, 1.8, 0.7])
+    with c_mid:
+        st.plotly_chart(fig, use_container_width=False, config={"displayModeBar": False})
+
+
+def _render_pm_allocation_pie_chart(last_output: Dict[str, Any]) -> None:
+    """Quesito: pesos por trader + cash de la última decisión PM."""
+    decision = dict(last_output.get("decision") or {})
+    weights = dict(last_output.get("weights") or decision.get("weights") or {})
+    cash = float(last_output.get("target_cash_weight") or decision.get("target_cash_weight") or 0.0)
+    if not weights and cash <= 1e-12:
+        return
+
+    labels: list[str] = []
+    sizes: list[float] = []
+    for tid, w in sorted(weights.items(), key=lambda kv: float(kv[1]), reverse=True):
+        labels.append(_pretty_trader_name(tid))
+        sizes.append(float(w) * 100.0)
+    if cash > 1e-9:
+        labels.append("Cash (efectivo)")
+        sizes.append(float(cash) * 100.0)
+
+    s = sum(sizes)
+    if s <= 1e-12:
+        return
+
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 8})
+    ax.set_title("Asignación de cartera (último rebalanceo PM)", fontsize=11)
+    fig.tight_layout()
+    st.pyplot(fig, clear_figure=True, width="stretch")
+    plt.close(fig)
+
+
+def _render_pm_ga_pso_optimization_chart(last_output: Dict[str, Any]) -> None:
+    """
+    Barras: fitness de los subconjuntos que el GA prioriza (evaluación rápida).
+    Línea: fitness de la cartera final tras PSO sobre el mejor candidato.
+    """
+    diagnostics = dict(last_output.get("diagnostics") or {})
+    subsets = list(diagnostics.get("ga_top_subsets") or [])
+    decision = dict(last_output.get("decision") or {})
+    final_fitness = float(last_output.get("fitness") or decision.get("fitness") or 0.0)
+
+    if not subsets:
+        st.caption(
+            "No hay candidatos GA en diagnóstico (universo pequeño con PSO directo, rebalanceo degradado o sin última optimización en memoria)."
+        )
+        return
+
+    ordered = sorted(subsets, key=lambda s: float(s.get("fitness", 0.0)), reverse=True)
+    xs = [f"#{i}" for i in range(1, len(ordered) + 1)]
+    fs = [float(s.get("fitness", 0.0)) for s in ordered]
+
+    fig, ax = plt.subplots(figsize=(9, 4.2))
+    ax.bar(xs, fs, color="#93c5fd", edgecolor="#2563eb", linewidth=0.8, label="Fitness candidato GA (eval. rápida)")
+    ax.axhline(
+        final_fitness,
+        color="#15803d",
+        linestyle="--",
+        linewidth=2,
+        label=f"Fitness final (tras PSO): {final_fitness:.4f}",
+    )
+    ax.set_xlabel("Candidatos GA ordenados por fitness (mejor a la izquierda)")
+    ax.set_ylabel("Fitness")
+    ax.set_title("GA explora subconjuntos · PSO refina pesos hacia el óptimo")
+    ax.legend(loc="lower right", fontsize=8)
+    ax.grid(True, axis="y", alpha=0.25)
+    fig.tight_layout()
+    st.pyplot(fig, clear_figure=True, width="stretch")
+    plt.close(fig)
+    st.caption(
+        "Cada barra es un subconjunto de traders evaluado en la fase GA; "
+        "la línea verde es la fitness de la cartera ya optimizada con PSO que se aplica en vivo."
+    )
+
+
+def _render_pm_signal_tables(
+    signal_rows: List[Dict[str, Any]],
+    *,
+    developed_states: List[Dict[str, Any]],
+    key_prefix: str,
+    last_portfolio_output: Dict[str, Any] | None = None,
+) -> None:
     pm_cols = [
         "trader",
         "symbol",
         "side",
         "fecha_señal",
-        "fase_pm",
         "decision_pm",
         "estado_orden",
         "peso_pct",
@@ -383,49 +706,128 @@ def _render_pm_signal_tables(signal_rows: List[Dict[str, Any]], *, key_prefix: s
         "acciones_estimadas",
         "motivo_interpretado",
     ]
-    df_selected = df_signals[df_signals["decision_pm"] == "seleccionado"].copy()
-    df_discarded = df_signals[df_signals["decision_pm"] == "descartado"].copy()
-    df_exec = df_signals[df_signals["estado_orden"] == "executed"].copy()
-    df_selected_show = _human_pm_signal_columns(df_selected[pm_cols].copy()) if not df_selected.empty else pd.DataFrame()
+
+    latest_signal_by_trader: Dict[str, Dict[str, Any]] = {}
+    if signal_rows:
+        _df_sig_latest = _pm_latest_row_per_trader(pd.DataFrame(signal_rows))
+        if not _df_sig_latest.empty:
+            for _, rec in _df_sig_latest.iterrows():
+                k = str(rec.get("trader") or "").strip()
+                if k:
+                    latest_signal_by_trader[k] = rec.to_dict()
+
+    # 1) Traders persistidos (se actualiza al promover / cambiar estado / HR)
+    st.markdown("**Traders desarrollados (fases previas, persistidos en BD)**")
+    if developed_states:
+        dev_rows = []
+        for row in developed_states:
+            pretty = _pretty_trader_from_row(row)
+            dev_rows.append(
+                {
+                    "trader": pretty,
+                    "asset": row.get("asset"),
+                    "Señal en PM": _pm_developed_trader_legend_label(latest_signal_by_trader.get(pretty)),
+                    "actualizado": _fmt_ts(str(row.get("updated_at", ""))),
+                }
+            )
+        df_dev = pd.DataFrame(dev_rows)
+        st.dataframe(
+            df_dev.style.map(lambda v: _pm_style_cell(v, column="señal_en_pm"), subset=["Señal en PM"]),
+            width="stretch",
+            hide_index=True,
+        )
+    else:
+        st.info("No hay traders registrados en la base de datos.")
+
+    if not signal_rows:
+        st.info("No hay señales auditadas para este entrenamiento/rebalanceo (mercado cerrado o PM sin ciclo reciente).")
+        return
+
+    df_signals = pd.DataFrame(signal_rows)
+    df_latest_rebalance = _pm_signals_for_latest_rebalance(df_signals)
+    df_exec = df_latest_rebalance[df_latest_rebalance["estado_orden"] == "executed"].copy()
+    df_exec_effective = _pm_filter_effective_allocations(df_exec)
+    df_zero_alloc_latest = _pm_filter_zero_or_tiny_allocations(df_latest_rebalance)
+    df_discarded = df_latest_rebalance[df_latest_rebalance["decision_pm"] == "descartado"].copy()
+    if not df_zero_alloc_latest.empty:
+        df_discarded = pd.concat([df_discarded, df_zero_alloc_latest], ignore_index=True)
+        df_discarded = (
+            df_discarded.sort_values(["fecha_señal", "symbol", "trader"], ascending=[False, True, True])
+            .drop_duplicates(subset=["trader", "symbol", "side"], keep="first")
+            .reset_index(drop=True)
+        )
     df_discarded_show = _human_pm_signal_columns(df_discarded[pm_cols].copy()) if not df_discarded.empty else pd.DataFrame()
     df_exec_show = (
-        _human_pm_signal_columns(df_exec[["trader", "symbol", "side", "fecha_señal", "fase_pm", "peso_pct", "euros_asignados", "acciones_estimadas"]].copy())
-        if not df_exec.empty
+        _human_pm_signal_columns(df_exec_effective[["trader", "symbol", "side", "fecha_señal", "peso_pct", "euros_asignados", "acciones_estimadas"]].copy())
+        if not df_exec_effective.empty
         else pd.DataFrame()
     )
 
-    st.markdown("**Señales seleccionadas por el portfolio manager**")
-    if df_selected.empty:
-        st.info("No hay señales seleccionadas en este entrenamiento.")
+    # 2) Traders que han emitido señal en el libro PM (última fila por trader)
+    st.markdown("**Traders con señal registrada (último evento por trader)**")
+    df_with_signal = _pm_latest_row_per_trader(df_signals)
+    if not df_with_signal.empty:
+        zero_alloc_latest = _pm_filter_zero_or_tiny_allocations(df_with_signal)
+        if not zero_alloc_latest.empty:
+            zero_keys = {
+                (str(r.get("trader")), str(r.get("symbol")), str(r.get("side")))
+                for _, r in zero_alloc_latest.iterrows()
+            }
+            work = df_with_signal.copy()
+            for idx, rec in work.iterrows():
+                key = (str(rec.get("trader")), str(rec.get("symbol")), str(rec.get("side")))
+                if key in zero_keys:
+                    work.at[idx, "decision_pm"] = "descartado"
+                    work.at[idx, "estado_orden"] = "rejected"
+                    work.at[idx, "motivo_interpretado"] = "Sin asignación PM (<2%)"
+            df_with_signal = work
+    if df_with_signal.empty:
+        st.info("Ningún trader figura aún en el libro de señales.")
     else:
+        df_sig_show = _human_pm_signal_columns(df_with_signal[pm_cols].copy())
         st.dataframe(
-            df_selected_show.style
-            .map(lambda v: _pm_style_cell(v, column="fase_pm"), subset=["Fase PM"])
-            .map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["Decisión PM"])
-            .map(lambda v: _pm_style_cell(v, column="estado_orden"), subset=["Estado orden"]),
+            df_sig_show.style.map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["Decisión PM"]).map(
+                lambda v: _pm_style_cell(v, column="estado_orden"), subset=["Estado orden"]
+            ),
             width="stretch",
             hide_index=True,
         )
+    _render_pm_company_allocation_pie(
+        df_latest_by_trader=df_with_signal,
+        last_portfolio_output=last_portfolio_output,
+    )
 
-    st.markdown("**Señales descartadas por el portfolio manager**")
+    # 3) Ejecutadas por el PM
+    st.markdown("**Señales ejecutadas por el portfolio manager**")
+    if df_exec_effective.empty:
+        st.info("Ninguna señal se ha ejecutado todavía (mercado cerrado, pendiente o rechazada).")
+    else:
+        st.dataframe(df_exec_show, width="stretch", hide_index=True)
+
+    lo = last_portfolio_output or {}
+    if lo:
+        dec_lo = dict(lo.get("decision") or {})
+        wmap = dict(lo.get("weights") or dec_lo.get("weights") or {})
+        cash_w = float(lo.get("target_cash_weight") or dec_lo.get("target_cash_weight") or 0.0)
+        if wmap or cash_w > 1e-9:
+            st.markdown("**Distribución de cartera (pesos + cash)**")
+            _render_pm_allocation_pie_chart(lo)
+        st.markdown("**Optimización GA + PSO (candidatos vs. cartera final)**")
+        _render_pm_ga_pso_optimization_chart(lo)
+
+    # 4) Rechazadas / sin asignación (incluye descartadas y filas con asignación nula o <2%)
+    st.markdown("**Órdenes rechazadas o sin asignación por el portfolio manager**")
+    st.caption(
+        "Lista basada en el último ciclo de rebalanceo registrado (mismo `rebalance_id` más reciente). "
+        "Incluye señales descartadas y también las que quedaron con asignación nula o inferior al 2%."
+    )
     if df_discarded.empty:
-        st.info("No hay señales descartadas en este entrenamiento.")
+        st.info("No hay órdenes rechazadas ni señales sin asignación en el último rebalanceo del portfolio manager.")
     else:
         st.dataframe(
-            df_discarded_show.style
-            .map(lambda v: _pm_style_cell(v, column="fase_pm"), subset=["Fase PM"])
-            .map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["Decisión PM"])
-            .map(lambda v: _pm_style_cell(v, column="estado_orden"), subset=["Estado orden"]),
-            width="stretch",
-            hide_index=True,
-        )
-
-    st.markdown("**Señales transformadas en operación ejecutada**")
-    if df_exec.empty:
-        st.info("Ninguna señal seleccionada se ha ejecutado todavía.")
-    else:
-        st.dataframe(
-            df_exec_show.style.map(lambda v: _pm_style_cell(v, column="fase_pm"), subset=["Fase PM"]),
+            df_discarded_show.style.map(lambda v: _pm_style_cell(v, column="decision_pm"), subset=["Decisión PM"]).map(
+                lambda v: _pm_style_cell(v, column="estado_orden"), subset=["Estado orden"]
+            ),
             width="stretch",
             hide_index=True,
         )
@@ -1000,13 +1402,33 @@ def _latest_order_events_by_trader(events: List[Dict[str, Any]]) -> Dict[str, Di
     return out
 
 
-def _safe_mt5_positions(supervisor: DevelopmentOperationalSupervisor) -> List[Dict[str, Any]]:
+def _dashboard_open_positions(supervisor: DevelopmentOperationalSupervisor, status: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Posiciones abiertas mostradas en el dashboard.
+
+    La UI nunca debe lanzar MT5 ni intentar conectar al broker. Solo refleja el
+    estado ya existente:
+    - si el router está en PAPER, muestra el ledger simulado;
+    - si MT5 ya estaba conectado por el flujo operativo, muestra sus posiciones;
+    - en caso contrario, devuelve vacío sin efectos laterales.
+    """
     try:
-        if not bool(supervisor.get_status().get("mt5_connected")):
+        router = getattr(supervisor, "execution_router", None)
+        if router is None:
             return []
-        if not hasattr(supervisor, "mt5"):
-            return []
-        return list(supervisor.mt5.get_open_positions())
+        mode = str(getattr(router.mode, "value", router.mode) or "").strip().lower()
+
+        if mode == "paper":
+            return list(router.get_open_positions(actor="trader_agent"))
+
+        broker = _try_mt5_broker_open_positions(supervisor)
+        if broker:
+            return broker
+
+        mt5 = getattr(router, "mt5", None)
+        if mt5 is not None and bool(getattr(mt5, "connected", False)):
+            return list(router.get_open_positions(actor="trader_agent"))
+        return []
     except Exception:
         return []
 
@@ -1092,41 +1514,6 @@ def _badge_html(label: str, *, bg: str, fg: str = "#ffffff") -> str:
     )
 
 
-def _pm_phase_badge_html(phase: Any) -> str:
-    txt = str(phase or "").strip()
-    if txt == "Despliegue inicial":
-        return _badge_html("Despliegue inicial", bg="#1d4ed8")
-    if txt == "Rebalanceo semanal":
-        return _badge_html("Rebalanceo semanal", bg="#7c3aed")
-    return _badge_html("-", bg="#6b7280")
-
-
-def _pm_decision_badge_html(decision: Any) -> str:
-    txt = str(decision or "").strip().lower()
-    if txt == "seleccionado":
-        return _badge_html("Seleccionado", bg="#15803d")
-    if txt == "descartado":
-        return _badge_html("Descartado", bg="#6b7280")
-    return _badge_html(str(decision or "-"), bg="#6b7280")
-
-
-def _pm_status_badge_html(status: Any) -> str:
-    txt = str(status or "").strip().lower()
-    mapping = {
-        "executed": ("Ejecutada", "#15803d"),
-        "selected": ("Pendiente envío", "#2563eb"),
-        "rejected": ("Rechazada", "#dc2626"),
-        "waiting_next_monday": ("Espera lunes", "#d97706"),
-        "waiting_full_universe": ("Espera universo", "#d97706"),
-        "already_open": ("Ya abierta", "#0f766e"),
-        "discarded": ("Descartada", "#6b7280"),
-        "closed": ("Cerrada", "#475569"),
-        "close_rejected": ("Cierre rechazado", "#b91c1c"),
-    }
-    label, color = mapping.get(txt, (str(status or "-"), "#6b7280"))
-    return _badge_html(label, bg=color)
-
-
 def _ops_status_badge_html(is_operating: bool) -> str:
     if is_operating:
         return _badge_html("Operando", bg="#15803d")
@@ -1159,6 +1546,24 @@ def _pm_style_cell(value: Any, *, column: str) -> str:
             return "background-color: #dcfce7; color: #166534; font-weight: 600;"
         if txt == "descartado":
             return "background-color: #f3f4f6; color: #374151; font-weight: 600;"
+    # Leyenda PM (mismos textos que Estado orden / Decisión PM / badges antiguos).
+    if column == "señal_en_pm":
+        legend_styles = {
+            "Ejecutada": "background-color: #dcfce7; color: #166534; font-weight: 700;",
+            "Pendiente envío": "background-color: #dbeafe; color: #1d4ed8; font-weight: 700;",
+            "Rechazada": "background-color: #fee2e2; color: #991b1b; font-weight: 700;",
+            "Espera lunes": "background-color: #fef3c7; color: #92400e; font-weight: 700;",
+            "Espera universo": "background-color: #fef3c7; color: #92400e; font-weight: 700;",
+            "Ya abierta": "background-color: #ccfbf1; color: #115e59; font-weight: 700;",
+            "Descartada": "background-color: #f3f4f6; color: #374151; font-weight: 700;",
+            "Cerrada": "background-color: #e2e8f0; color: #334155; font-weight: 700;",
+            "Cierre rechazado": "background-color: #fee2e2; color: #991b1b; font-weight: 700;",
+            "Seleccionado": "background-color: #dcfce7; color: #166534; font-weight: 600;",
+            "Descartado": "background-color: #f3f4f6; color: #374151; font-weight: 600;",
+            "Sin señal en libro PM": "background-color: #f9fafb; color: #6b7280; font-weight: 600;",
+            "—": "background-color: #f9fafb; color: #6b7280; font-weight: 500;",
+        }
+        return legend_styles.get(txt, "background-color: #f9fafb; color: #4b5563; font-weight: 500;")
     if column == "estado_orden":
         mapping = {
             "executed": "background-color: #dcfce7; color: #166534; font-weight: 700;",
@@ -1308,16 +1713,17 @@ def _prepare_backtest_chart_frame(chart_rows: List[Dict[str, Any]]) -> pd.DataFr
 
 
 def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, selected_section: str) -> None:
-    """Contenido por pestaña; Desarrollo/Operativa desde fragment en vivo."""
+    """Contenido por pestaña; Desarrollo/Backtest desde fragment en vivo."""
     status = supervisor.get_status()
-    need_events = selected_section in {"Desarrollo", "Backtest", "Operativa"}
+    need_events = selected_section in {"Desarrollo", "Backtest"}
     need_states = True
     need_backtests = selected_section == "Backtest"
-    need_pm_snapshot = selected_section in {"Operativa", "Portfolio manager"}
-    need_pm_history = selected_section == "Portfolio manager"
+    # Barra superior: contador visual de posiciones abiertas derivado del PM actual.
+    need_open_positions = True
+    need_pm_snapshot = selected_section == "Portfolio manager" or need_open_positions
+    need_pm_history = selected_section == "Portfolio manager" or need_open_positions
     need_hr_snapshot = selected_section == "Recursos Humanos"
     need_hr_history = selected_section == "Recursos Humanos"
-    need_open_positions = bool(status.get("mt5_connected")) and selected_section == "Operativa"
 
     ev_limit = _event_limit_for_section(selected_section)
     all_events = _load_events(Path(supervisor.db_path), ev_limit) if need_events else []
@@ -1330,27 +1736,33 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
     if need_hr_snapshot and hasattr(supervisor, "get_human_resources_snapshot"):
         hr_snapshot = supervisor.get_human_resources_snapshot(include_history=need_hr_history)
     pending_orders = list(pm_snapshot.get("pending_orders", []) or [])
-    open_positions = _safe_mt5_positions(supervisor) if need_open_positions else []
     signal_book = list(pm_snapshot.get("signal_book", []) or [])
     signal_audit = list(pm_snapshot.get("signal_audit", []) or [])
     last_output = dict(pm_snapshot.get("last_output", {}) or {})
     rebalance_rows = list(pm_snapshot.get("rebalance_rows", []) or [])
-    monthly_refresh = dict(pm_snapshot.get("monthly_refresh", {}) or {})
-    backtest_runs = list(pm_snapshot.get("backtest_runs", []) or [])
     normalized_pm_signals = _normalize_pm_signal_rows(signal_book, signal_audit)
+    open_positions = (
+        _pm_filter_effective_allocations(
+            _pm_signals_for_latest_rebalance(pd.DataFrame(normalized_pm_signals)).query("estado_orden == 'executed'")
+        ).to_dict("records")
+        if need_open_positions and normalized_pm_signals
+        else []
+    )
+    open_positions_count = _count_ui_open_positions(normalized_pm_signals) if need_open_positions else 0
     live_rebalance_rows = [dict(row) for row in rebalance_rows if _is_live_portfolio_rebalance(dict(row))]
-    st.caption(f"DB: `{supervisor.db_path}`")
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Supervisor", "running" if bool(status.get("running")) else "stopped")
     c2.metric("Desarrollo", "activo" if bool(status.get("develop_enabled")) else "parado")
     # Fuente robusta para UI: DB persistida, no solo estado en memoria.
     c3.metric("Traders desarrollados", int(len(all_states)))
-    runtime_mode = str(status.get("operational_runtime_mode") or "-")
-    mt5_label = "conectado" if bool(status.get("mt5_connected")) else f"desconectado ({runtime_mode})"
-    c4.metric("MT5", mt5_label)
-    c5.metric("Señales PM", int(status.get("pm_signal_count", len(signal_book))))
-    c6.metric("Posiciones abiertas", int(len(open_positions)))
-    c7.metric("Retries pendientes", int(status.get("pending_orders_count", len(pending_orders))))
+    c4.metric("Señales PM", int(status.get("pm_signal_count", len(signal_book))))
+    c5.metric("Retries pendientes", int(status.get("pending_orders_count", len(pending_orders))))
+    c6.metric(
+        "Posiciones abiertas",
+        int(open_positions_count),
+        help="Contador puramente visual: número de símbolos con asignación efectiva (>=2%) "
+        "en el último rebalanceo mostrado por el Portfolio Manager.",
+    )
     st.caption(f"Objetivo traders: {int(status.get('target_traders', 8))}")
     c_global_1, c_global_2, c_global_3 = st.columns([1, 5, 1])
     with c_global_1:
@@ -1358,42 +1770,6 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
             st.rerun()
 
     if selected_section == "Desarrollo":
-        st.markdown("### Estado actual de desarrollo")
-        current_asset = status.get("current_asset")
-        current_stage = status.get("current_stage")
-        current_steps = [str(x) for x in list(status.get("current_cycle_steps", []))]
-        if bool(status.get("develop_enabled")):
-            if current_asset:
-                st.info(f"Se esta desarrollando un agente sobre `{current_asset}` (etapa: `{current_stage}`).")
-            else:
-                st.info("Desarrollo activo: seleccionando activo y configuracion.")
-        else:
-            last_asset = status.get("last_cycle_asset")
-            last_trader = status.get("last_cycle_trader_id")
-            if last_asset:
-                if last_trader:
-                    st.success(
-                        f"Desarrollo finalizado sobre `{last_asset}`. Trader creado: "
-                        f"`{_pretty_trader_name(last_trader, asset=last_asset, timeframe='D1')}`."
-                    )
-                else:
-                    st.warning(f"Desarrollo finalizado sobre `{last_asset}` sin trader promovido.")
-            else:
-                st.info("No hay desarrollos en curso.")
-
-        if current_steps:
-            st.markdown("**Progreso del ciclo actual**")
-            human_steps = {
-                "data_process": "1) DataProcess",
-                "data_agent": "1) DataProcess",
-                "developer_agent": "2) DeveloperAgent",
-                "validation_agent": "3) ValidationAgent",
-                "trader_agent": "4) TraderAgent",
-                "backtest_agent": "5) BacktestAgent",
-            }
-            for step in current_steps:
-                st.markdown(f"- {human_steps.get(step, step)}")
-
         session_events = _filter_events_by_session(
             all_events,
             session_started_at=(status.get("development_session_started_at") or None),
@@ -1433,7 +1809,11 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
             for row in states:
                 trader_id = str(row.get("trader_id"))
                 asset = str(row.get("asset"))
-                bt = backtests.get(trader_id, {})
+                bt = (
+                    supervisor.get_backtest_entry(trader_id)
+                    if hasattr(supervisor, "get_backtest_entry")
+                    else backtests.get(trader_id, {})
+                )
                 pretty_trader = _pretty_trader_from_row(row)
                 with st.expander(f"{pretty_trader} ({asset})", expanded=False):
                     st.markdown("**1) Reglas de entrada**")
@@ -1580,7 +1960,7 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
                         else:
                             st.info("Backtest completado sin serie de resultados.")
                     elif status_bt == "running":
-                        st.info("Backtest en ejecucion. Esta pestaña se actualizara automaticamente.")
+                        st.info("Backtest en ejecucion. Esta pestaña se actualiza automaticamente.")
                     elif status_bt == "error":
                         st.error(f"Backtest con error: {bt.get('error', 'desconocido')}")
                     else:
@@ -1607,88 +1987,6 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
                 st.rerun()
 
         decision = dict(last_output.get("decision") or {})
-        decision_metadata = dict(decision.get("metadata") or {})
-        ga_config = dict(decision_metadata.get("ga_config") or {})
-        pso_config = dict(decision_metadata.get("pso_config") or {})
-        baselines = dict(decision_metadata.get("baselines") or {}) or dict(last_output.get("baselines") or {})
-        ew_baseline = dict(baselines.get("equal_weight_all_valid") or {})
-        pm_status = str(last_output.get("status") or "")
-        pm_phase = _interpret_pm_phase(last_output.get("portfolio_phase"))
-
-        s1, s2, s3, s4, s5, s6, s7, s8 = st.columns(8)
-        s1.metric("Modo", str(last_output.get("optimizer_mode") or decision.get("optimizer_mode") or "ga_pso").upper())
-        s2.metric("Fase PM", pm_phase)
-        s3.metric("Estado PM", pm_status or "-")
-        s4.metric("Activos / validos", f"{int(last_output.get('active_universe_size') or 0)} / {int(last_output.get('valid_universe_size') or 0)}")
-        s5.metric("Seleccionados", int(last_output.get("selected_universe_size") or decision.get("selected_universe_size") or 0))
-        s6.metric("Cash target", f"{float(last_output.get('target_cash_weight') or decision.get('target_cash_weight') or 0.0) * 100.0:.2f}%")
-        s7.metric("Fitness", f"{float(last_output.get('fitness') or decision.get('fitness') or 0.0):.4f}")
-        s8.metric("Tiempo (s)", f"{float(last_output.get('execution_time_seconds') or decision_metadata.get('execution_time_seconds') or 0.0):.2f}")
-
-        m1, m2, m3, m4, m5, m6 = st.columns(6)
-        m1.metric("Sharpe neto", f"{float(last_output.get('sharpe_neto') or decision.get('sharpe_neto') or 0.0):.4f}")
-        m2.metric("MDD", f"{float(last_output.get('mdd') or decision.get('mdd') or 0.0) * 100.0:.2f}%")
-        m3.metric("Corr media", f"{float(last_output.get('corr_media') or decision.get('corr_media') or 0.0):.4f}")
-        m4.metric("lambda_dd", f"{float(decision_metadata.get('lambda_dd') or 0.0):.2f}")
-        m5.metric("lambda_corr", f"{float(decision_metadata.get('lambda_corr') or 0.0):.2f}")
-        m6.metric("Lookback (semanas)", int(decision_metadata.get("lookback_weeks") or 0))
-
-        if ew_baseline:
-            st.caption(
-                "Baseline equal weight (todos los traders validos): "
-                f"fitness=`{float(ew_baseline.get('fitness') or 0.0):.4f}` | "
-                f"Sharpe=`{float(ew_baseline.get('sharpe_neto') or 0.0):.4f}` | "
-                f"MDD=`{float(ew_baseline.get('mdd') or 0.0) * 100.0:.2f}%` | "
-                f"Corr media=`{float(ew_baseline.get('corr_media') or 0.0):.4f}`"
-            )
-        excluded_traders = list(decision_metadata.get("excluded_traders") or [])
-        if excluded_traders:
-            st.caption(
-                f"Traders excluidos por falta de historico ({len(excluded_traders)}): "
-                + ", ".join(_pretty_trader_name(t) for t in excluded_traders[:20])
-                + ("..." if len(excluded_traders) > 20 else "")
-            )
-
-        with st.expander("Configuracion GA / PSO", expanded=False):
-            cg1, cg2 = st.columns(2)
-            with cg1:
-                st.markdown("**GA**")
-                if ga_config:
-                    st.dataframe(pd.DataFrame([ga_config]).T.rename(columns={0: "valor"}), width="stretch")
-                else:
-                    st.info("No hay configuracion GA registrada todavia.")
-            with cg2:
-                st.markdown("**PSO**")
-                if pso_config:
-                    st.dataframe(pd.DataFrame([pso_config]).T.rename(columns={0: "valor"}), width="stretch")
-                else:
-                    st.info("No hay configuracion PSO registrada todavia.")
-
-        st.caption(
-            f"Ultimo refresh mensual: {str(monthly_refresh.get('last_refresh_at') or '-')}"
-            f" | Fecha de corte: {str(monthly_refresh.get('cutoff_date') or '-')}"
-            f" | Traders refrescados: {int(monthly_refresh.get('n_traders') or 0)}"
-        )
-        st.caption(
-            f"Estado refresh backtests: {str(monthly_refresh.get('backtests_status') or '-')}"
-            f" | Estado refresh mensual: {str(monthly_refresh.get('status') or '-')}"
-            f" | Ultimo rebalanceo manual: {str(monthly_refresh.get('last_manual_rebalance_at') or '-')}"
-        )
-
-        st.markdown(
-            "".join(
-                [
-                    _pm_phase_badge_html(pm_phase),
-                    _pm_decision_badge_html("seleccionado"),
-                    _pm_decision_badge_html("descartado"),
-                    _pm_status_badge_html("executed"),
-                    _pm_status_badge_html("selected"),
-                    _pm_status_badge_html("waiting_next_monday"),
-                    _pm_status_badge_html("rejected"),
-                ]
-            ),
-            unsafe_allow_html=True,
-        )
 
         # Curva historica de la cartera GA+PSO vs equal-weight (de la ultima ejecucion).
         portfolio_curve = last_output.get("portfolio_curve")
@@ -1721,52 +2019,13 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
             st.markdown("**Top traders por peso (ultima decision)**")
             st.dataframe(top_df, width="stretch", hide_index=True)
 
-        # Senales de la ultima rebalanceo
-        _render_pm_signal_tables(normalized_pm_signals, key_prefix="pm_ga_pso")
-
-        if backtest_runs:
-            st.markdown("**Refresh mensual de backtests promovidos**")
-            df_runs = pd.DataFrame(backtest_runs)
-            if not df_runs.empty:
-                df_runs = df_runs.sort_values(["cutoff_date", "updated_at"], ascending=[False, False]).head(20).copy()
-                df_runs["trader"] = df_runs.apply(
-                    lambda row: _pretty_trader_name(row.get("trader_id"), asset=row.get("asset"), timeframe=row.get("timeframe")),
-                    axis=1,
-                )
-                df_runs["trade_count"] = df_runs["summary"].map(lambda x: (x or {}).get("n_trades"))
-                st.dataframe(
-                    df_runs[["trader", "asset", "timeframe", "cutoff_date", "status", "trade_count", "updated_at"]],
-                    width="stretch",
-                    hide_index=True,
-                )
-                hr_rows_by_trader = {
-                    str(row.get("trader_id") or ""): dict(row)
-                    for row in list(hr_snapshot.get("trader_rows", []) or [])
-                }
-                for _, bt_row in df_runs.iterrows():
-                    trader_id = str(bt_row.get("trader_id") or "")
-                    title = f"{str(bt_row.get('trader') or trader_id)} | refresh {str(bt_row.get('cutoff_date') or '-')}"
-                    with st.expander(title, expanded=False):
-                        dev_curve = supervisor.get_trader_history_frame(trader_id) if hasattr(supervisor, "get_trader_history_frame") else None
-                        forward_curve = pd.DataFrame()
-                        promoted_at = ""
-                        hr_row = hr_rows_by_trader.get(trader_id, {})
-                        if hr_row:
-                            promoted_at = str(hr_row.get("promoted_at") or "")
-                            forward_run = dict(hr_row.get("forward_run") or {})
-                            forward_pnl_path = str((forward_run.get("artifact_paths") or {}).get("historical_pnl_path") or "")
-                            if forward_pnl_path:
-                                try:
-                                    forward_curve = pd.read_csv(forward_pnl_path)
-                                except Exception:
-                                    forward_curve = pd.DataFrame()
-                        if not promoted_at:
-                            promoted_at = str(bt_row.get("updated_at") or "")
-                        _render_dev_forward_equity_chart(
-                            development_curve=dev_curve,
-                            forward_curve=forward_curve,
-                            promoted_at=promoted_at,
-                        )
+        # Señales de la última rebalanceo (orden: desarrollados → con señal → ejecutadas → descartadas)
+        _render_pm_signal_tables(
+            normalized_pm_signals,
+            developed_states=list(all_states),
+            key_prefix="pm_ga_pso",
+            last_portfolio_output=dict(last_output) if last_output else None,
+        )
 
         if live_rebalance_rows:
             st.markdown("**Historico de rebalanceos GA+PSO**")
@@ -1914,29 +2173,6 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
                             fwd_curve = pd.DataFrame()
                     aligned = align_development_and_forward_curves(dev_curve, fwd_curve, promoted_at=str(row.get("promoted_at") or ""))
                     if not aligned.empty and "date" in aligned.columns:
-                        plot_long = aligned.melt(
-                            id_vars=[c for c in ["date", "promotion_marker"] if c in aligned.columns],
-                            value_vars=[c for c in ["development_equity", "forward_equity"] if c in aligned.columns],
-                            var_name="serie",
-                            value_name="equity",
-                        ).dropna(subset=["equity"])
-                        base_chart = alt.Chart(plot_long).mark_line().encode(
-                            x=alt.X("date:T", title="Fecha"),
-                            y=alt.Y("equity:Q", title="Equity / Balance"),
-                            color=alt.Color("serie:N", title="Curva"),
-                            tooltip=["date:T", "serie:N", "equity:Q"],
-                        ).properties(height=300)
-                        if "promotion_marker" in aligned.columns and aligned["promotion_marker"].notna().any():
-                            promo_ts = pd.to_datetime(aligned["promotion_marker"].dropna().iloc[0], errors="coerce")
-                            if pd.notna(promo_ts):
-                                rule_df = pd.DataFrame({"promotion_marker": [promo_ts]})
-                                rule = alt.Chart(rule_df).mark_rule(strokeDash=[6, 4]).encode(x="promotion_marker:T")
-                                st.altair_chart(base_chart + rule, width="stretch")
-                            else:
-                                st.altair_chart(base_chart, width="stretch")
-                        else:
-                            st.altair_chart(base_chart, width="stretch")
-
                         dd_plot = aligned.copy()
                         for col in ["development_equity", "forward_equity"]:
                             if col in dd_plot.columns:
@@ -1948,10 +2184,20 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
                             var_name="serie",
                             value_name="drawdown",
                         ).dropna(subset=["drawdown"])
+                        dd_long["serie"] = dd_long["serie"].replace(
+                            {"development_equity": "Backtest desarrollo", "forward_equity": "Operativa real"}
+                        )
                         dd_chart = alt.Chart(dd_long).mark_line().encode(
                             x=alt.X("date:T", title="Fecha"),
                             y=alt.Y("drawdown:Q", title="Drawdown"),
-                            color=alt.Color("serie:N", title="Curva"),
+                            color=alt.Color(
+                                "serie:N",
+                                title="Curva",
+                                scale=alt.Scale(
+                                    domain=["Backtest desarrollo", "Operativa real"],
+                                    range=["#2563eb", "#f59e0b"],
+                                ),
+                            ),
                             tooltip=["date:T", "serie:N", "drawdown:Q"],
                         ).properties(height=260)
                         if "promotion_marker" in dd_plot.columns and dd_plot["promotion_marker"].notna().any():
@@ -2003,7 +2249,8 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
         elif (not runtime_active) and (not mt5_connected):
             st.info(
                 "El runtime operativo está parado y MT5 aparece desconectado. "
-                "Pulsa **Lanzar operativa MT5 con traders actuales** para reintentar la conexión."
+                "Pulsa **Lanzar operativa MT5 con traders actuales** para reintentar la conexión "
+                "cuando haya al menos 5 traders promovidos."
             )
         if st.button("Lanzar operativa MT5 con traders actuales", key="btn_start_ops_mt5"):
             out = supervisor.start_operational_runtime() if hasattr(supervisor, "start_operational_runtime") else {"started": False}
@@ -2021,6 +2268,12 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
                     msg = (
                         "No se puede iniciar la operativa porque no hay traders promovidos activos. "
                         "Desarrolla traders en la pestaña Desarrollo y vuelve a intentarlo."
+                    )
+                elif reason == "minimum_traders_not_reached":
+                    min_required = int(out.get("min_traders_required") or 5)
+                    msg = (
+                        f"No se puede iniciar la operativa porque solo hay {int(out.get('n_traders', 0))} traders "
+                        f"y el mínimo para lanzar MT5 es {min_required}."
                     )
                 else:
                     msg = f"No se pudo iniciar operativa MT5. Motivo: `{reason}`."
@@ -2047,27 +2300,35 @@ def _render_dashboard_content(supervisor: DevelopmentOperationalSupervisor, sele
         vol_manual = float(c_m2.number_input("Volumen", min_value=1.0, max_value=1000.0, value=1.0, step=1.0, key="ops_manual_vol_aapl"))
         if c_m3.button("Enviar orden manual AAPL", key="btn_ops_manual_aapl"):
             try:
-                prep = supervisor.ensure_mt5_execution_ready(symbols=["AAPL"]) if hasattr(supervisor, "ensure_mt5_execution_ready") else {"connected": False}
-                if not bool(prep.get("connected")) or str(prep.get("mode")) != "live_mt5":
-                    st.error(f"MT5 no está listo para ejecución LIVE. Estado={prep}")
-                else:
-                    res_manual = supervisor.trader_agent.route_order(
-                        trader_id="manual_aapl",
-                        symbol="AAPL",
-                        side=side_manual,
-                        volume=vol_manual,
-                        comment="MANUAL_AAPL",
-                        correlation_id="manual_aapl_order",
+                min_runtime = int(status.get("min_traders_for_runtime") or 5)
+                developed = int(status.get("developed_traders") or 0)
+                if developed < min_runtime:
+                    st.error(
+                        f"MT5 no debe lanzarse con menos de {min_runtime} traders promovidos. "
+                        f"Ahora mismo hay {developed}."
                     )
-                    accepted = bool(res_manual.get("accepted"))
-                    mode_manual = str(res_manual.get("mode"))
-                    if accepted and "live_mt5" in mode_manual.lower():
-                        st.success(f"Orden manual AAPL enviada correctamente. Ticket={res_manual.get('ticket')}")
-                    elif accepted:
-                        st.error(f"La orden no salió por LIVE_MT5. mode={mode_manual} reason={res_manual.get('reason')}")
+                else:
+                    prep = supervisor.ensure_mt5_execution_ready(symbols=["AAPL"]) if hasattr(supervisor, "ensure_mt5_execution_ready") else {"connected": False}
+                    if not bool(prep.get("connected")) or str(prep.get("mode")) != "live_mt5":
+                        st.error(f"MT5 no está listo para ejecución LIVE. Estado={prep}")
                     else:
-                        st.error(f"Orden manual AAPL rechazada. Motivo={res_manual.get('reason')}")
-                    st.caption(f"Execution mode: {mode_manual}")
+                        res_manual = supervisor.trader_agent.route_order(
+                            trader_id="manual_aapl",
+                            symbol="AAPL",
+                            side=side_manual,
+                            volume=vol_manual,
+                            comment="MANUAL_AAPL",
+                            correlation_id="manual_aapl_order",
+                        )
+                        accepted = bool(res_manual.get("accepted"))
+                        mode_manual = str(res_manual.get("mode"))
+                        if accepted and "live_mt5" in mode_manual.lower():
+                            st.success(f"Orden manual AAPL enviada correctamente. Ticket={res_manual.get('ticket')}")
+                        elif accepted:
+                            st.error(f"La orden no salió por LIVE_MT5. mode={mode_manual} reason={res_manual.get('reason')}")
+                        else:
+                            st.error(f"Orden manual AAPL rechazada. Motivo={res_manual.get('reason')}")
+                        st.caption(f"Execution mode: {mode_manual}")
                     broker_payload = res_manual.get("broker_payload", {}) if isinstance(res_manual.get("broker_payload"), dict) else {}
                     if broker_payload:
                         st.caption(f"MT5 retcode: {broker_payload.get('retcode')}")
@@ -2223,14 +2484,14 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.title("Dashboard Multiagente TFM")
-    st.write("Desarrollo y operativa en tiempo real (MT5 D1).")
+    st.title("Dashboard TFM")
+    st.write("Desarrollo, backtest y supervision del portfolio en tiempo real.")
 
     _maybe_warn_numpy_abi()
 
     supervisor = _get_supervisor()
 
-    section_options = ["Desarrollo", "Backtest", "Operativa", "Portfolio manager", "Recursos Humanos"]
+    section_options = ["Desarrollo", "Backtest", "Portfolio manager", "Recursos Humanos"]
     selected_section = st.radio(
         "Sección",
         options=section_options,
@@ -2242,7 +2503,7 @@ def main() -> None:
     if selected_section == "Desarrollo":
         _render_desarrollo_controls(supervisor)
 
-    if selected_section in {"Desarrollo", "Operativa"}:
+    if selected_section in {"Desarrollo", "Backtest"}:
         _live_dashboard_fragment()
     else:
         _render_dashboard_content(supervisor, selected_section)
@@ -2252,7 +2513,7 @@ def main() -> None:
 def _live_dashboard_fragment() -> None:
     """Solo esta region hace polling; el script completo ya no usa st.rerun() por firma."""
     tab = str(st.session_state.get("dashboard_section") or "Desarrollo")
-    if tab not in {"Desarrollo", "Operativa"}:
+    if tab not in {"Desarrollo", "Backtest"}:
         return
     _render_dashboard_content(_get_supervisor(), tab)
 

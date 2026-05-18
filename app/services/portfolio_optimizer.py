@@ -7,7 +7,7 @@ Este modulo encapsula toda la logica de optimizacion semanal de cartera:
 2. Funcion de fitness unica:
        Fitness = Sharpe_neto - lambda_dd * MDD - lambda_corr * CorrMedia
 3. Algoritmo Genetico (GA) que selecciona subconjuntos de traders sobre
-   un cromosoma binario, con reparacion de cardinalidad.
+   un cromosoma como lista variable de traders activos validos.
 4. Particle Swarm Optimization (PSO) que asigna pesos dentro del subconjunto
    elegido (incluido peso de cash), con reparacion/proyeccion para cumplir
    max_weight_per_trader y max_cash_weight.
@@ -33,11 +33,11 @@ import numpy as np
 @dataclass(frozen=True)
 class PortfolioOptimizerConfig:
     """
-    Hiperparametros del optimizador hibrido GA + PSO.
+    Parametros fijos del optimizador hibrido GA + PSO (portfolio manager).
 
-    Todos los valores tienen defaults razonables para un universo de ~10-100
-    traders con ventana de 104 semanas. No incluye coste de transaccion ni
-    hiperparametros de PPO.
+    Valores por defecto elegidos de forma explicita para produccion; no hay
+    busqueda automatica ni calibracion en runtime. No incluye coste de transaccion
+    ni hiperparametros de PPO.
     """
 
     # Modo y datos
@@ -49,8 +49,8 @@ class PortfolioOptimizerConfig:
     min_selected_traders: int = 5
     max_selected_traders: int = 20
     max_weight_per_trader: float = 0.15
-    min_live_weight: float = 0.01
-    max_cash_weight: float = 0.50
+    min_live_weight: float = 0.02
+    max_cash_weight: float = 1.0
 
     # Penalizaciones de la fitness
     lambda_dd: float = 1.0
@@ -58,23 +58,32 @@ class PortfolioOptimizerConfig:
 
     # Parametros del Algoritmo Genetico
     ga_population_size: int = 80
-    ga_generations: int = 50
+    ga_generations: int = 80
     ga_tournament_size: int = 3
-    ga_crossover_rate: float = 0.80
-    ga_mutation_rate: float = 0.02
+    ga_crossover_rate: float = 0.85
     ga_elitism: int = 4
-    ga_early_stopping_generations: int = 10
+    ga_early_stopping_generations: int = 20
+
+    # Evaluacion rapida de pesos durante GA
+    ga_weight_simulations: int = 20
+
+    # Mutacion estructural
+    ga_mutation_probability: float = 0.75
+    ga_mutation_new_traders_min: int = 1
+    ga_mutation_new_traders_max: int = 3
+    ga_mutation_remove_max: int = 2
+    ga_correlation_prune_threshold: float = 0.75
 
     # Cuantos subconjuntos pasan del GA al PSO
-    top_k_subsets_for_pso: int = 8
+    top_k_subsets_for_pso: int = 10
 
     # Parametros del Particle Swarm Optimization
-    pso_swarm_size: int = 50
+    pso_swarm_size: int = 40
     pso_iterations: int = 80
-    pso_inertia_start: float = 0.90
-    pso_inertia_end: float = 0.40
-    pso_cognitive_coef: float = 1.5
-    pso_social_coef: float = 1.5
+    pso_inertia_start: float = 0.85
+    pso_inertia_end: float = 0.35
+    pso_cognitive_coef: float = 1.6
+    pso_social_coef: float = 1.4
     pso_early_stopping_iterations: int = 15
 
     # Reproducibilidad
@@ -205,36 +214,48 @@ def compute_fitness(
 
 
 def repair_chromosome(
-    chromosome: np.ndarray,
+    chromosome: Sequence[int] | np.ndarray,
     *,
+    universe_size: int,
     min_selected: int,
     max_selected: int,
     rng: np.random.Generator,
 ) -> np.ndarray:
     """
-    Garantiza que el cromosoma binario cumple min_selected <= sum(chrom) <= max_selected.
-    Si no llega al minimo se anyaden bits aleatorios; si supera el maximo se quitan
-    bits aleatorios. Nunca devuelve un cromosoma vacio mientras N > 0.
+    Repara un cromosoma como lista variable de traders seleccionados.
+
+    - Elimina duplicados y genes fuera del universo activo.
+    - Garantiza `min_selected <= len(chromosome) <= max_selected`.
+    - Anyade traders aleatorios del universo si faltan genes.
     """
-    chrom = np.asarray(chromosome, dtype=int).copy()
-    n = chrom.size
-    if n == 0:
-        return chrom
-    eff_min = max(1, min(int(min_selected), n))
-    eff_max = max(eff_min, min(int(max_selected), n))
-    selected = int(chrom.sum())
-    if selected < eff_min:
-        zeros = np.flatnonzero(chrom == 0)
-        if zeros.size > 0:
-            need = eff_min - selected
-            picks = rng.choice(zeros, size=min(need, zeros.size), replace=False)
-            chrom[picks] = 1
-    elif selected > eff_max:
-        ones = np.flatnonzero(chrom == 1)
-        excess = selected - eff_max
-        drops = rng.choice(ones, size=excess, replace=False)
-        chrom[drops] = 0
-    return chrom
+    universe_size = max(0, int(universe_size))
+    if universe_size <= 0:
+        return np.zeros(0, dtype=int)
+
+    eff_min = max(1, min(int(min_selected), universe_size))
+    eff_max = max(eff_min, min(int(max_selected), universe_size))
+    genes: List[int] = []
+    seen: set[int] = set()
+    for raw_gene in np.asarray(list(chromosome), dtype=int).tolist():
+        gene = int(raw_gene)
+        if gene < 0 or gene >= universe_size or gene in seen:
+            continue
+        genes.append(gene)
+        seen.add(gene)
+
+    if len(genes) > eff_max:
+        picks = rng.choice(np.asarray(genes, dtype=int), size=eff_max, replace=False)
+        genes = [int(v) for v in picks.tolist()]
+        seen = set(genes)
+
+    if len(genes) < eff_min:
+        available = [idx for idx in range(universe_size) if idx not in seen]
+        if available:
+            need = min(eff_min - len(genes), len(available))
+            picks = rng.choice(np.asarray(available, dtype=int), size=need, replace=False)
+            genes.extend(int(v) for v in picks.tolist())
+
+    return np.asarray(sorted(set(genes))[:eff_max], dtype=int)
 
 
 def repair_weights(
@@ -416,7 +437,7 @@ def _evaluate_subset_equal_weight(
 
 @dataclass(frozen=True)
 class GASubsetResult:
-    chromosome: np.ndarray
+    chromosome: List[int]
     indices: List[int]
     fitness: float
     sharpe: float
@@ -431,54 +452,218 @@ def _initial_population(
     min_selected: int,
     max_selected: int,
     rng: np.random.Generator,
-) -> np.ndarray:
+) -> List[np.ndarray]:
     eff_min = max(1, min(int(min_selected), n_assets))
     eff_max = max(eff_min, min(int(max_selected), n_assets))
-    population = np.zeros((int(population_size), n_assets), dtype=int)
-    for i in range(int(population_size)):
+    population: List[np.ndarray] = []
+    for _ in range(int(population_size)):
         k = int(rng.integers(eff_min, eff_max + 1))
         idx = rng.choice(n_assets, size=k, replace=False)
-        population[i, idx] = 1
+        population.append(np.asarray(sorted(int(v) for v in idx.tolist()), dtype=int))
     return population
 
 
 def _tournament_selection(
-    population: np.ndarray,
+    population: Sequence[np.ndarray],
     fitnesses: np.ndarray,
     *,
     tournament_size: int,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    n = population.shape[0]
+    n = len(population)
     k = max(1, min(int(tournament_size), n))
     idx = rng.choice(n, size=k, replace=False)
     winner = idx[int(np.argmax(fitnesses[idx]))]
-    return population[winner].copy()
+    return np.asarray(population[winner], dtype=int).copy()
 
 
-def _uniform_crossover(
+def _structural_crossover(
     parent_a: np.ndarray,
     parent_b: np.ndarray,
     *,
+    returns: np.ndarray,
+    config: PortfolioOptimizerConfig,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    mask = rng.random(parent_a.shape[0]) < 0.5
-    child = np.where(mask, parent_a, parent_b)
-    return child.astype(int)
+    union_pool = sorted({int(v) for v in parent_a.tolist()} | {int(v) for v in parent_b.tolist()})
+    if not union_pool:
+        return repair_chromosome(
+            [],
+            universe_size=returns.shape[1],
+            min_selected=config.min_selected_traders,
+            max_selected=config.max_selected_traders,
+            rng=rng,
+        )
+    pool = _prune_correlation_redundancy(
+        union_pool,
+        returns=returns,
+        threshold=float(config.ga_correlation_prune_threshold),
+        min_selected=int(config.min_selected_traders),
+        rng=rng,
+    )
+    if not pool:
+        pool = list(union_pool)
+    target_size = int(
+        np.clip(
+            int(round((len(parent_a) + len(parent_b)) / 2.0)) + int(rng.integers(-1, 2)),
+            max(1, min(int(config.min_selected_traders), returns.shape[1])),
+            max(1, min(int(config.max_selected_traders), returns.shape[1])),
+        )
+    )
+    if len(pool) > target_size:
+        picks = rng.choice(np.asarray(pool, dtype=int), size=target_size, replace=False)
+        child = np.asarray(picks, dtype=int)
+    else:
+        child = np.asarray(pool, dtype=int)
+    return repair_chromosome(
+        child,
+        universe_size=returns.shape[1],
+        min_selected=config.min_selected_traders,
+        max_selected=config.max_selected_traders,
+        rng=rng,
+    )
 
 
-def _bit_flip_mutation(
+def _mutate_chromosome_structural(
     chromosome: np.ndarray,
     *,
-    mutation_rate: float,
+    universe_size: int,
+    config: PortfolioOptimizerConfig,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    flips = rng.random(chromosome.shape[0]) < float(mutation_rate)
-    if not np.any(flips):
-        return chromosome
-    out = chromosome.copy()
-    out[flips] = 1 - out[flips]
-    return out
+    out = np.asarray(chromosome, dtype=int).copy()
+    if universe_size <= 0 or rng.random() >= float(config.ga_mutation_probability):
+        return out
+    genes = {int(v) for v in out.tolist()}
+    available = [idx for idx in range(int(universe_size)) if idx not in genes]
+
+    if available:
+        add_low = max(0, int(config.ga_mutation_new_traders_min))
+        add_high = max(add_low, int(config.ga_mutation_new_traders_max))
+        n_add = int(rng.integers(add_low, add_high + 1))
+        if n_add > 0:
+            picks = rng.choice(np.asarray(available, dtype=int), size=min(n_add, len(available)), replace=False)
+            genes.update(int(v) for v in picks.tolist())
+            available = [idx for idx in available if idx not in genes]
+
+    removable = min(max(0, len(genes) - int(config.min_selected_traders)), int(config.ga_mutation_remove_max))
+    if removable > 0 and rng.random() < 0.75:
+        n_remove = int(rng.integers(0, removable + 1))
+        if n_remove > 0:
+            drops = rng.choice(np.asarray(sorted(genes), dtype=int), size=n_remove, replace=False)
+            for gene in drops.tolist():
+                genes.discard(int(gene))
+
+    if genes and available and rng.random() < 0.50:
+        drop_gene = int(rng.choice(np.asarray(sorted(genes), dtype=int)))
+        add_gene = int(rng.choice(np.asarray(available, dtype=int)))
+        genes.discard(drop_gene)
+        genes.add(add_gene)
+
+    return repair_chromosome(
+        sorted(genes),
+        universe_size=universe_size,
+        min_selected=config.min_selected_traders,
+        max_selected=config.max_selected_traders,
+        rng=rng,
+    )
+
+
+def _pairwise_abs_corr(a: np.ndarray, b: np.ndarray) -> float:
+    if a.size < 2 or b.size < 2:
+        return 0.0
+    if float(np.std(a, ddof=0)) <= _EPS or float(np.std(b, ddof=0)) <= _EPS:
+        return 0.0
+    corr = np.corrcoef(np.column_stack([a, b]), rowvar=False)[0, 1]
+    if np.isnan(corr) or np.isinf(corr):
+        return 0.0
+    return float(abs(corr))
+
+
+def _prune_correlation_redundancy(
+    indices: Sequence[int],
+    *,
+    returns: np.ndarray,
+    threshold: float,
+    min_selected: int,
+    rng: np.random.Generator,
+) -> List[int]:
+    if len(indices) <= 1 or threshold <= 0.0 or threshold >= 1.0:
+        return list(indices)
+    order = [int(v) for v in indices]
+    rng.shuffle(order)
+    kept: List[int] = []
+    for idx in order:
+        if len(kept) < int(min_selected):
+            kept.append(int(idx))
+            continue
+        candidate_series = returns[:, int(idx)]
+        is_redundant = False
+        for existing in kept:
+            if _pairwise_abs_corr(candidate_series, returns[:, int(existing)]) >= threshold:
+                is_redundant = True
+                break
+        if not is_redundant:
+            kept.append(int(idx))
+    if len(kept) < min(int(min_selected), len(order)):
+        for idx in order:
+            if idx not in kept:
+                kept.append(int(idx))
+            if len(kept) >= min(int(min_selected), len(order)):
+                break
+    return kept
+
+
+def _evaluate_subset_fast(
+    returns: np.ndarray,
+    indices: Sequence[int],
+    *,
+    config: PortfolioOptimizerConfig,
+    rng: np.random.Generator,
+) -> Tuple[float, float, float, float]:
+    if len(indices) == 0:
+        return float("-inf"), 0.0, 0.0, 0.0
+    sub_returns = returns[:, list(indices)]
+    n = sub_returns.shape[1]
+    if n == 0:
+        return float("-inf"), 0.0, 0.0, 0.0
+
+    candidate_weights: List[np.ndarray] = []
+    candidate_weights.append(np.append(np.full(n, 1.0 / float(n), dtype=float), 0.0))
+
+    vol = np.std(sub_returns, axis=0, ddof=0)
+    if np.any(vol > _EPS):
+        inv_vol = np.where(vol > _EPS, 1.0 / np.maximum(vol, _EPS), 0.0)
+        if float(np.sum(inv_vol)) > _EPS:
+            inv_vol = inv_vol / float(np.sum(inv_vol))
+            candidate_weights.append(np.append(inv_vol, 0.0))
+
+    for _ in range(max(0, int(config.ga_weight_simulations))):
+        candidate_weights.append(rng.random(n + 1))
+
+    best_fit = float("-inf")
+    best_sharpe = 0.0
+    best_mdd = 0.0
+    best_corr = 0.0
+    for raw_weights in candidate_weights:
+        repaired = repair_weights(
+            raw_weights,
+            max_weight_per_trader=config.max_weight_per_trader,
+            max_cash_weight=config.max_cash_weight,
+            min_live_weight=config.min_live_weight,
+        )
+        fit, sharpe, mdd, corr = _evaluate_weights(
+            sub_returns,
+            repaired,
+            lambda_dd=config.lambda_dd,
+            lambda_corr=config.lambda_corr,
+        )
+        if fit > best_fit:
+            best_fit = float(fit)
+            best_sharpe = float(sharpe)
+            best_mdd = float(mdd)
+            best_corr = float(corr)
+    return best_fit, best_sharpe, best_mdd, best_corr
 
 
 def genetic_select_subsets(
@@ -489,8 +674,8 @@ def genetic_select_subsets(
 ) -> List[GASubsetResult]:
     """
     Ejecuta el GA y devuelve los `top_k_subsets_for_pso` mejores subconjuntos
-    (cromosomas validos) ordenados por fitness descendente. La fitness se
-    evalua con equiponderacion porque el ajuste fino de pesos lo hara el PSO.
+    (cromosomas validos) ordenados por fitness descendente. Cada cromosoma se
+    representa como lista variable de traders del universo activo valido.
 
     Si la matriz de retornos es vacia o tiene 0 columnas, devuelve lista vacia.
     """
@@ -506,32 +691,27 @@ def genetic_select_subsets(
         max_selected=config.max_selected_traders,
         rng=rng,
     )
-    population = np.array(
-        [
-            repair_chromosome(
-                ind,
-                min_selected=config.min_selected_traders,
-                max_selected=config.max_selected_traders,
-                rng=rng,
-            )
-            for ind in population
-        ],
-        dtype=int,
-    )
 
     cache: Dict[bytes, Tuple[float, float, float, float]] = {}
 
     def evaluate(chrom: np.ndarray) -> Tuple[float, float, float, float]:
-        key = chrom.tobytes()
+        repaired = repair_chromosome(
+            chrom,
+            universe_size=n_assets,
+            min_selected=config.min_selected_traders,
+            max_selected=config.max_selected_traders,
+            rng=rng,
+        )
+        key = repaired.tobytes()
         cached = cache.get(key)
         if cached is not None:
             return cached
-        indices = list(np.flatnonzero(chrom))
-        result = _evaluate_subset_equal_weight(
+        indices = [int(v) for v in repaired.tolist()]
+        result = _evaluate_subset_fast(
             returns,
             indices,
-            lambda_dd=config.lambda_dd,
-            lambda_corr=config.lambda_corr,
+            config=config,
+            rng=rng,
         )
         cache[key] = result
         return result
@@ -543,13 +723,12 @@ def genetic_select_subsets(
     fitnesses = np.array([evaluate(ind)[0] for ind in population], dtype=float)
 
     for _ in range(int(config.ga_generations)):
-        # Elitismo.
         order = np.argsort(-fitnesses)
-        elite_count = min(int(config.ga_elitism), population.shape[0])
-        elites = population[order[:elite_count]].copy()
+        elite_count = min(int(config.ga_elitism), len(population))
+        elites = [np.asarray(population[int(idx)], dtype=int).copy() for idx in order[:elite_count]]
 
         children: List[np.ndarray] = []
-        while len(children) < (population.shape[0] - elite_count):
+        while len(children) < (len(population) - elite_count):
             parent_a = _tournament_selection(
                 population, fitnesses, tournament_size=config.ga_tournament_size, rng=rng
             )
@@ -557,19 +736,25 @@ def genetic_select_subsets(
                 population, fitnesses, tournament_size=config.ga_tournament_size, rng=rng
             )
             if rng.random() < float(config.ga_crossover_rate):
-                child = _uniform_crossover(parent_a, parent_b, rng=rng)
+                child = _structural_crossover(parent_a, parent_b, returns=returns, config=config, rng=rng)
             else:
                 child = parent_a.copy()
-            child = _bit_flip_mutation(child, mutation_rate=config.ga_mutation_rate, rng=rng)
+            child = _mutate_chromosome_structural(
+                child,
+                universe_size=n_assets,
+                config=config,
+                rng=rng,
+            )
             child = repair_chromosome(
                 child,
+                universe_size=n_assets,
                 min_selected=config.min_selected_traders,
                 max_selected=config.max_selected_traders,
                 rng=rng,
             )
             children.append(child)
 
-        population = np.vstack([elites, np.array(children, dtype=int)])
+        population = elites + children
         fitnesses = np.array([evaluate(ind)[0] for ind in population], dtype=float)
 
         gen_best = float(np.max(fitnesses))
@@ -582,12 +767,17 @@ def genetic_select_subsets(
         if no_improve >= int(config.ga_early_stopping_generations):
             break
 
-    # Recoger los top_k subconjuntos unicos por bytes.
     seen: Dict[bytes, bool] = {}
     ordered: List[Tuple[float, np.ndarray]] = []
     final_order = np.argsort(-fitnesses)
     for idx in final_order:
-        chrom = population[idx]
+        chrom = repair_chromosome(
+            population[int(idx)],
+            universe_size=n_assets,
+            min_selected=config.min_selected_traders,
+            max_selected=config.max_selected_traders,
+            rng=rng,
+        )
         key = chrom.tobytes()
         if key in seen:
             continue
@@ -598,11 +788,11 @@ def genetic_select_subsets(
 
     out: List[GASubsetResult] = []
     for fit, chrom in ordered:
-        indices = [int(i) for i in np.flatnonzero(chrom).tolist()]
+        indices = [int(i) for i in chrom.tolist()]
         eval_fit, sharpe, mdd, corr = evaluate(chrom)
         out.append(
             GASubsetResult(
-                chromosome=chrom,
+                chromosome=[int(v) for v in chrom.tolist()],
                 indices=indices,
                 fitness=float(eval_fit),
                 sharpe=float(sharpe),
@@ -803,6 +993,7 @@ class OptimizationResult:
             "status": str(self.status),
             "ga_top_subsets": [
                 {
+                    "chromosome": list(sub.chromosome),
                     "indices": list(sub.indices),
                     "fitness": float(sub.fitness),
                     "sharpe": float(sub.sharpe),
@@ -837,11 +1028,9 @@ def optimize_portfolio_ga_pso(
     config: PortfolioOptimizerConfig,
 ) -> OptimizationResult:
     """
-    Pipeline completo: GA elige top_k subconjuntos -> PSO afina pesos en cada
-    uno -> se selecciona la mejor combinacion final por fitness.
-
-    Si no hay traders suficientes para `min_selected_traders` se devuelve un
-    OptimizationResult con `status="degraded_few_traders"` y todo el peso en cash.
+    Pipeline completo: GA elige top_k subconjuntos y el PSO afina pesos dentro
+    de cada uno. Si el universo activo valido es pequeno (<= max_selected),
+    se optimiza directamente ese conjunto con PSO.
     """
     if returns.size == 0 or returns.shape[1] == 0:
         return OptimizationResult(
@@ -859,39 +1048,50 @@ def optimize_portfolio_ga_pso(
 
     n_assets = returns.shape[1]
     if n_assets < int(config.min_selected_traders):
-        # Fallback: equiponderar lo que haya respetando max_weight_per_trader y cash.
-        rng = np.random.default_rng(int(config.random_seed))
-        weights_with_cash = np.zeros(n_assets + 1, dtype=float)
-        if n_assets > 0:
-            weights_with_cash[:n_assets] = 1.0 / float(n_assets)
-        else:
-            weights_with_cash[-1] = 1.0
-        weights_with_cash = repair_weights(
-            weights_with_cash,
-            max_weight_per_trader=config.max_weight_per_trader,
-            max_cash_weight=config.max_cash_weight,
-            min_live_weight=config.min_live_weight,
-        )
-        port_returns = returns @ weights_with_cash[:n_assets]
-        sharpe = compute_sharpe_neto(port_returns)
-        mdd = compute_mdd(port_returns)
-        corr = compute_corr_media(returns, list(range(n_assets)), weights=weights_with_cash[:n_assets])
-        fitness = compute_fitness(sharpe, mdd, corr, lambda_dd=config.lambda_dd, lambda_corr=config.lambda_corr)
-        _ = rng  # reservado para mantener determinismo
         return OptimizationResult(
-            selected_indices=list(range(n_assets)),
-            weights=weights_with_cash[:n_assets],
-            cash_weight=float(weights_with_cash[-1]),
-            fitness=float(fitness),
-            sharpe_neto=float(sharpe),
-            mdd=float(mdd),
-            corr_media=float(corr),
+            selected_indices=[],
+            weights=np.zeros(0, dtype=float),
+            cash_weight=1.0,
+            fitness=0.0,
+            sharpe_neto=0.0,
+            mdd=0.0,
+            corr_media=0.0,
             ga_top_subsets=[],
             pso_iterations=0,
-            status="degraded_few_traders",
+            status="not_enough_valid_traders",
         )
 
     rng = np.random.default_rng(int(config.random_seed))
+    if n_assets <= int(config.max_selected_traders):
+        direct_indices = list(range(n_assets))
+        direct_fit, direct_sharpe, direct_mdd, direct_corr = _evaluate_subset_fast(
+            returns,
+            direct_indices,
+            config=config,
+            rng=rng,
+        )
+        direct_subset = GASubsetResult(
+            chromosome=[int(v) for v in direct_indices],
+            indices=direct_indices,
+            fitness=float(direct_fit),
+            sharpe=float(direct_sharpe),
+            mdd=float(direct_mdd),
+            corr_media=float(direct_corr),
+        )
+        pso_out = pso_optimize_weights(returns[:, direct_indices], config=config, rng=rng)
+        return OptimizationResult(
+            selected_indices=direct_indices,
+            weights=pso_out.weights[:-1].copy(),
+            cash_weight=float(pso_out.weights[-1]),
+            fitness=float(pso_out.fitness),
+            sharpe_neto=float(pso_out.sharpe),
+            mdd=float(pso_out.mdd),
+            corr_media=float(pso_out.corr_media),
+            ga_top_subsets=[direct_subset],
+            pso_iterations=int(pso_out.iterations_run),
+            status="ok",
+        )
+
     top_subsets = genetic_select_subsets(returns, config=config, rng=rng)
     if not top_subsets:
         return OptimizationResult(
